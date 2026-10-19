@@ -1,0 +1,1571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lakeside Angler</title>
+<style>
+  :root{
+    --wood:#6b4423; --wood2:#8a5a2e; --paper:#f6ecd4; --ink:#2b1d10;
+    --good:#3f9d4a; --bad:#c8432f; --gold:#f2c230;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#1d3a2a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
+  canvas{display:block}
+  .box{background:rgba(246,236,212,.94);border:3px solid var(--wood);border-radius:10px;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+  #hud{position:fixed;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  #hud .box{padding:6px 12px;font-weight:700;font-size:15px}
+  #gearHud{position:fixed;top:12px;right:12px;padding:8px 12px;font-size:12px;line-height:1.5;pointer-events:none}
+  #gearHud b{display:inline-block;width:46px;color:var(--wood)}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:8px 16px;font-weight:600;font-size:14px;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
+  #hotbar{position:fixed;bottom:14px;left:12px;display:flex;gap:6px}
+  #hotbar .slot{position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;user-select:none}
+  #hotbar .slot .k{position:absolute;top:1px;left:5px;font-size:11px;font-weight:800;color:var(--wood)}
+  #hotbar .slot.on{background:#ffe9a8;border-color:#c98a1a;transform:translateY(-3px)}
+  #hotbar .slot.locked{opacity:.4}
+  @media (max-width:700px){#hotbar{bottom:62px}}
+  #fight{position:fixed;bottom:64px;left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 32px));padding:10px 14px;display:none}
+  #fight .row{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;font-weight:700}
+  #fight .row span{width:58px}
+  .bar{flex:1;height:16px;background:#d8c9a6;border:2px solid var(--wood);border-radius:8px;position:relative;overflow:hidden}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:6px}
+  #tens{background:var(--good)}
+  #prog{background:#3a7bc8}
+  .bar .danger{position:absolute;right:0;top:0;bottom:0;width:20%;background:repeating-linear-gradient(45deg,rgba(200,67,47,.25) 0 6px,transparent 6px 12px)}
+  #fmsg{text-align:center;font-weight:800;font-size:14px;min-height:18px}
+  #fmsg.run{color:var(--bad);animation:shake .15s infinite}
+  @keyframes shake{0%{transform:translateX(-2px)}50%{transform:translateX(2px)}100%{transform:translateX(-2px)}}
+  #toasts{position:fixed;top:64px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+  .toast{padding:6px 14px;font-weight:700;font-size:14px;animation:pop .25s ease-out}
+  @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  #catch{position:fixed;top:110px;left:50%;transform:translateX(-50%);padding:12px 20px;text-align:center;display:none;animation:pop .3s ease-out;min-width:260px}
+  #catch img{display:block;margin:0 auto 4px;width:128px;height:80px}
+  #catch .t{font-weight:800;font-size:17px}
+  #catch .v{color:var(--good);font-weight:800;font-size:16px}
+  #catch .new{color:#b3801a;font-weight:900;font-size:13px;letter-spacing:1px}
+  #panel{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
+  #panel .box{width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 40px);display:flex;flex-direction:column;overflow:hidden}
+  #panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--wood);color:var(--paper)}
+  #panel header h2{margin:0;font-size:20px;letter-spacing:.5px}
+  #panel header .money{font-weight:800;color:var(--gold)}
+  #tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px 0;background:#e8d9b5}
+  #tabs button{border:2px solid var(--wood);border-bottom:none;border-radius:8px 8px 0 0;background:#d8c49a;padding:6px 12px;font-weight:700;cursor:pointer;color:var(--ink);font-size:13px}
+  #tabs button.on{background:var(--paper)}
+  #tabs button:disabled{opacity:.4;cursor:not-allowed}
+  #pbody{padding:12px 16px;overflow:auto;flex:1}
+  .item{display:flex;align-items:center;gap:12px;padding:8px 10px;border:2px solid #d8c49a;border-radius:8px;margin-bottom:8px;background:#fffaf0}
+  .item.owned{background:#eef6e6;border-color:#b9d6a4}
+  .item img{width:64px;height:40px;flex:none}
+  .item .info{flex:1;min-width:0}
+  .item .nm{font-weight:800}
+  .item .ds{font-size:12px;color:#6b5a44}
+  .btn{border:2px solid var(--wood);background:var(--wood2);color:#fff;font-weight:800;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap}
+  .btn:hover{filter:brightness(1.1)}
+  .btn:disabled{background:#b9ab8f;border-color:#9c8e72;cursor:not-allowed}
+  .btn.green{background:var(--good);border-color:#2b6e33}
+  .tag{font-size:12px;font-weight:800;color:var(--good);white-space:nowrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .card{border:2px solid #d8c49a;border-radius:8px;padding:8px;text-align:center;background:#fffaf0;font-size:12px}
+  .card img{width:96px;height:60px}
+  .card .nm{font-weight:800;font-size:13px}
+  .card.unk{opacity:.75}
+  .card.unk img{filter:brightness(0) opacity(.35)}
+  .note{font-size:13px;color:#6b5a44;margin:0 0 10px}
+  .close{background:none;border:none;color:var(--paper);font-size:22px;cursor:pointer;font-weight:800}
+  #help{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+  #help .box{padding:18px 24px;max-width:460px;width:calc(100vw - 32px);font-size:14px;line-height:1.55}
+  #help h1{margin:0 0 6px;font-size:24px}
+  #help kbd{background:#fff;border:1px solid #9c8e72;border-bottom-width:3px;border-radius:4px;padding:0 6px;font-weight:700;font-size:12px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="box" id="hMoney">$0</div>
+  <div class="box" id="hCooler">🧊 0/5</div>
+  <div class="box" id="hClock">6:00 AM</div>
+</div>
+<div id="gearHud" class="box"></div>
+<div id="hint" class="box"></div>
+<div id="hotbar">
+  <div class="slot box" data-item="rod"><span class="k">1</span>🎣</div>
+  <div class="slot box" data-item="gun"><span class="k">2</span>🔫</div>
+</div>
+<div id="fight" class="box">
+  <div class="row"><span>TENSION</span><div class="bar"><div class="danger"></div><i id="tens"></i></div></div>
+  <div class="row"><span>REEL IN</span><div class="bar"><i id="prog"></i></div></div>
+  <div id="fmsg"></div>
+</div>
+<div id="toasts"></div>
+<div id="catch" class="box"></div>
+
+<div id="panel">
+  <div class="box">
+    <header><h2 id="ptitle">Bait &amp; Tackle</h2><div><span class="money" id="pmoney"></span> <button class="close" id="pclose" title="Close (Esc)">✕</button></div></header>
+    <div id="tabs"></div>
+    <div id="pbody"></div>
+  </div>
+</div>
+
+<div id="help">
+  <div class="box">
+    <h1>🎣 Lakeside Angler</h1>
+    <p>You're a fisherman with a stick, some twine and a bucket. Catch fish, sell them at the <b>Bait &amp; Tackle</b> shop, and buy better gear to land bigger, rarer, more valuable fish.</p>
+    <p>
+      <kbd>WASD</kbd> / <kbd>Arrows</kbd> walk around the lake<br>
+      <kbd>Space</kbd> (hold &amp; release) cast toward the way you're facing<br>
+      <kbd>Space</kbd> when the bobber dips <b>!</b> to set the hook<br>
+      <kbd>Space</kbd> hold to reel — let go when tension gets too high!<br>
+      <kbd>E</kbd> get in / out of your boat (buy one at the shop!)<br>
+      <kbd>1</kbd> fishing pole &nbsp; <kbd>2</kbd> gun — <b>click</b> to hunt ducks &amp; deer for cash<br>
+      <kbd>E</kbd> enter the shop &nbsp; <kbd>J</kbd> fish journal &nbsp; <kbd>H</kbd> this help
+    </p>
+    <p style="font-size:12px;color:#6b5a44">Tip: better bait attracts rarer fish, longer rods reach deeper water, and some fish only bite at night. Your progress saves automatically.</p>
+    <button class="btn green" id="startBtn">Start fishing</button>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+const W = 1800, H = 1300;
+const DAY_LEN = 420; // seconds per in-game day
+
+const GEAR = {
+  rod: { label: 'Rods', items: [
+    { name: 'Willow Stick', price: 0, cast: 110, str: 1, desc: 'A bendy stick. It works... mostly.' },
+    { name: 'Fiberglass Rod', price: 60, cast: 160, str: 1.2, desc: 'Casts farther and bends without breaking.' },
+    { name: 'Graphite Rod', price: 300, cast: 220, str: 1.45, desc: 'Light, stiff, and reaches deeper water.' },
+    { name: 'Carbon Pro Rod', price: 1100, cast: 290, str: 1.8, desc: 'Tournament-grade backbone.' },
+    { name: "Poseidon's Rod", price: 4000, cast: 380, str: 2.3, desc: 'Rumored to have landed a whale.' },
+  ]},
+  reel: { label: 'Reels', items: [
+    { name: 'Rusty Reel', price: 0, mult: 1, desc: 'Squeaks. Loudly.' },
+    { name: 'Spincast Reel', price: 50, mult: 1.35, desc: 'Push-button simple, reels faster.' },
+    { name: 'Spinning Reel', price: 220, mult: 1.8, desc: 'Smooth drag, quick retrieve.' },
+    { name: 'Baitcaster', price: 800, mult: 2.4, desc: 'Pro-level cranking power.' },
+    { name: 'Golden Reel', price: 3000, mult: 3.2, desc: 'Solid gold gears. Pure speed.' },
+  ]},
+  line: { label: 'Lines', items: [
+    { name: 'Old Twine', price: 0, mult: 1, desc: 'Found it in a drawer.' },
+    { name: '8 lb Mono', price: 40, mult: 1.4, desc: 'Real fishing line!' },
+    { name: '15 lb Mono', price: 180, mult: 1.9, desc: 'Handles the bigger bass and carp.' },
+    { name: '30 lb Braid', price: 650, mult: 2.6, desc: 'Pike teeth? No problem.' },
+    { name: 'Titanium Line', price: 2500, mult: 3.5, desc: 'Practically unbreakable.' },
+  ]},
+  bait: { label: 'Bait', items: [
+    { name: 'Bread Crumbs', price: 0, luck: 0, speed: 1, desc: 'Panfish love it.' },
+    { name: 'Earthworms', price: 25, luck: 1, speed: 1.25, desc: 'The classic. Bass and trout bite.' },
+    { name: 'Live Minnows', price: 150, luck: 2, speed: 1.5, desc: 'Predators can’t resist.' },
+    { name: 'Spinner Lure', price: 550, luck: 3, speed: 1.8, desc: 'Flashy. Attracts trophy fish.' },
+    { name: 'Golden Lure', price: 2200, luck: 4, speed: 2.2, desc: 'Legends say it calls the lake’s oldest fish.' },
+  ]},
+  cooler: { label: 'Coolers', items: [
+    { name: 'Old Bucket', price: 0, cap: 5, desc: 'Holds a few fish.' },
+    { name: 'Small Cooler', price: 80, cap: 10, desc: 'Fewer trips to the shop.' },
+    { name: 'Big Cooler', price: 350, cap: 20, desc: 'Room for a real haul.' },
+    { name: 'Ice Chest', price: 1200, cap: 40, desc: 'Fish all day long.' },
+  ]},
+  boat: { label: 'Boats', items: [
+    { name: 'Your Own Two Feet', price: 0, speed: 0, desc: 'Free! But you can’t walk on water.' },
+    { name: 'Canoe', price: 250, speed: 85, desc: 'Paddle out past the shallows. Fish anywhere on the lake!' },
+    { name: 'Rowboat', price: 700, speed: 120, desc: 'Sturdy and roomy. Rows a good bit faster.' },
+    { name: 'Motorboat', price: 2500, speed: 185, desc: 'Vroom. Zip to the deep middle in seconds.' },
+  ]},
+  gun: { label: 'Guns', items: [
+    { name: 'No Gun', price: 0, range: 0, reload: 0, spread: 0, desc: 'Just a fisherman.' },
+    { name: 'Old Shotgun', price: 200, range: 250, reload: 1.3, spread: 20, desc: 'Wide spread, short range, slow to reload.' },
+    { name: 'Pump Shotgun', price: 900, range: 340, reload: 0.75, spread: 24, desc: 'Racks fast and reaches farther.' },
+    { name: 'Hunting Rifle', price: 2500, range: 520, reload: 0.5, spread: 13, desc: 'Long range. Tight aim required.' },
+  ]},
+};
+const BOAT_HOME = { x: 950, y: 902, a: -Math.PI / 2 };
+
+// luck = bait level needed, depth = how deep the bobber must land (0 shore .. 1 middle)
+const FISH = [
+  { id:'boot',    name:'Old Boot',         base:1,    min:1,   max:2,   rarity:8,   luck:0, depth:0,    power:0.4, color:'#6b4f35', junk:true },
+  { id:'bluegill',name:'Bluegill',         base:3,    min:.2,  max:1,   rarity:40,  luck:0, depth:0,    power:1,   color:'#4f7fa8' },
+  { id:'perch',   name:'Yellow Perch',     base:5,    min:.3,  max:1.5, rarity:30,  luck:0, depth:0,    power:1.4, color:'#d6b43c' },
+  { id:'crappie', name:'Crappie',          base:8,    min:.5,  max:2.5, rarity:20,  luck:0, depth:.15,  power:1.8, color:'#a7b0a0' },
+  { id:'bass',    name:'Largemouth Bass',  base:18,   min:1,   max:10,  rarity:18,  luck:1, depth:.1,   power:3.2, color:'#5d7d34' },
+  { id:'carp',    name:'Common Carp',      base:12,   min:3,   max:20,  rarity:14,  luck:1, depth:0,    power:3.8, color:'#b08a3e' },
+  { id:'trout',   name:'Rainbow Trout',    base:26,   min:1,   max:8,   rarity:10,  luck:1, depth:.3,   power:3.8, color:'#c97b8c' },
+  { id:'catfish', name:'Channel Catfish',  base:40,   min:3,   max:40,  rarity:12,  luck:1, depth:.2,   power:5,   color:'#6e6a5e', night:true },
+  { id:'walleye', name:'Walleye',          base:35,   min:2,   max:12,  rarity:8,   luck:2, depth:.4,   power:4.5, color:'#9a8b45' },
+  { id:'pike',    name:'Northern Pike',    base:65,   min:4,   max:25,  rarity:5,   luck:2, depth:.45,  power:6,   color:'#5f7a4a' },
+  { id:'ghost',   name:'Ghost Koi',        base:900,  min:5,   max:15,  rarity:.5,  luck:3, depth:.3,   power:6.5, color:'#e8eef5', night:true },
+  { id:'muskie',  name:'Muskellunge',      base:160,  min:10,  max:50,  rarity:2.5, luck:3, depth:.55,  power:7.5, color:'#7d8a5a' },
+  { id:'sturgeon',name:'Lake Sturgeon',    base:320,  min:30,  max:150, rarity:1.3, luck:3, depth:.7,   power:8.5, color:'#55606b' },
+  { id:'golden',  name:'Golden Trout',     base:650,  min:2,   max:6,   rarity:.6,  luck:4, depth:.5,   power:7,   color:'#f2c230' },
+  { id:'monster', name:'Old Bessie, the Lake Monster', base:5000, min:300, max:600, rarity:.15, luck:4, depth:.82, power:11, color:'#2e5a4a' },
+  // --- more species ---
+  { id:'can',       name:'Rusty Tin Can',         base:1,    min:.2,  max:.4,  rarity:6,   luck:0, depth:0,   power:.3,  color:'#9a9a9a', junk:true },
+  { id:'pumpkin',   name:'Pumpkinseed Sunfish',   base:4,    min:.1,  max:.8,  rarity:30,  luck:0, depth:0,   power:1,   color:'#7fa86a', shape:'round', pattern:'belly' },
+  { id:'chub',      name:'Creek Chub',            base:6,    min:.2,  max:1.2, rarity:30,  luck:0, depth:0,   power:1.3, color:'#9aa6a0', creek:true },
+  { id:'bullhead',  name:'Brown Bullhead',        base:9,    min:.5,  max:3,   rarity:16,  luck:0, depth:.1,  power:2.2, color:'#6b5a3a', night:true, pattern:'whiskers' },
+  { id:'brook',     name:'Brook Trout',           base:28,   min:.5,  max:5,   rarity:14,  luck:1, depth:0,   power:3,   color:'#5a7a5a', creek:true, pattern:'spots' },
+  { id:'smallmouth',name:'Smallmouth Bass',       base:22,   min:1,   max:7,   rarity:12,  luck:1, depth:.2,  power:3.6, color:'#8a7a3a', pattern:'bars' },
+  { id:'bowfin',    name:'Bowfin',                base:28,   min:2,   max:10,  rarity:7,   luck:1, depth:.15, power:4.5, color:'#5a6a3a', shape:'long' },
+  { id:'laketrout', name:'Lake Trout',            base:55,   min:3,   max:30,  rarity:6,   luck:2, depth:.55, power:5.5, color:'#6a7a8a', pattern:'spots' },
+  { id:'gar',       name:'Longnose Gar',          base:70,   min:3,   max:25,  rarity:5,   luck:2, depth:.15, power:5.5, color:'#7a8a5a', shape:'snout' },
+  { id:'eel',       name:'American Eel',          base:90,   min:1,   max:8,   rarity:5,   luck:2, depth:.3,  power:5,   color:'#4a4a3a', shape:'eel', night:true },
+  { id:'chest',     name:'Sunken Treasure Chest', base:250,  min:20,  max:60,  rarity:.5,  luck:2, depth:.4,  power:3,   color:'#8a5a2e', treasure:true },
+  { id:'tiger',     name:'Tiger Muskie',          base:280,  min:15,  max:45,  rarity:1.6, luck:3, depth:.5,  power:8,   color:'#9aa05a', shape:'long', pattern:'bars' },
+  { id:'paddle',    name:'Paddlefish',            base:350,  min:30,  max:120, rarity:1.2, luck:3, depth:.6,  power:8.2, color:'#6a7a8a', shape:'paddle' },
+  { id:'alligar',   name:'Alligator Gar',         base:450,  min:50,  max:200, rarity:.9,  luck:3, depth:.4,  power:9,   color:'#6a7a4a', shape:'snout', pattern:'spots' },
+  { id:'coela',     name:'Ancient Coelacanth',    base:1500, min:80,  max:200, rarity:.3,  luck:4, depth:.75, power:9.5, color:'#3a5a8a', pattern:'spots' },
+  // --- the giants ---
+  { id:'bluecat',   name:'Giant Blue Catfish',    base:180,  min:20,  max:150, rarity:2.5, luck:2, depth:.45, power:7.5, color:'#5a7a9a', night:true, shape:'long', pattern:'whiskers' },
+  { id:'arapaima',  name:'Arapaima',              base:700,  min:100, max:400, rarity:.7,  luck:3, depth:.5,  power:9.5, color:'#5a6a5a', shape:'long', pattern:'redtail' },
+  { id:'beluga',    name:'Beluga Sturgeon',       base:2500, min:400, max:1500,rarity:.25, luck:4, depth:.8,  power:10.5,color:'#7a8a96', shape:'snout', pattern:'scutes' },
+  { id:'leviathan', name:'The Leviathan',         base:12000,min:2000,max:4000,rarity:.05, luck:4, depth:.88, power:12,  color:'#3a2a5a', spikes:true },
+  { id:'duck',    name:'Mallard Duck',     base:15,   min:2,   max:3.5, color:'#2f7d4a', game:true }, // hunted, never hooked
+  { id:'deer',    name:'Whitetail Doe',    base:50,   min:90,  max:150, color:'#a8743f', game:true },
+  { id:'buck',    name:'Whitetail Buck',   base:100,  min:150, max:260, color:'#8a5a2e', game:true },
+];
+const FISH_PRICE_MULT = 3; // every fish sells for 3x its base price
+const FISH_BY_ID = Object.fromEntries(FISH.map(f => [f.id, f]));
+
+// ===================== WORLD =====================
+const LAKES = [
+  { x:950,  y:640, rx:560, ry:380 },
+  { x:540,  y:520, rx:270, ry:220 },
+  { x:1330, y:760, rx:300, ry:230 },
+  { x:1020, y:380, rx:320, ry:160 },
+];
+const CREEK = [[640, -10], [630, 90], [600, 170], [580, 250], [560, 315]];
+const ISLAND = { x: 1000, y: 640, rx: 62, ry: 44 };
+function distSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy), 0, 1);
+  return Math.hypot(px - ax - dx * t, py - ay - dy * t);
+}
+function lakeVal(x, y) {
+  let m = -9;
+  for (const e of LAKES) {
+    const dx = (x - e.x) / e.rx, dy = (y - e.y) / e.ry;
+    const v = 1 - dx * dx - dy * dy;
+    if (v > m) m = v;
+  }
+  m += 0.035 * Math.sin(x * 0.021) * Math.cos(y * 0.017) + 0.02 * Math.sin((x + y) * 0.05);
+  // the creek that feeds the west pond
+  if (x > 520 && x < 690 && y < 340) {
+    let d = 1e9;
+    for (let i = 0; i < CREEK.length - 1; i++) d = Math.min(d, distSeg(x, y, ...CREEK[i], ...CREEK[i + 1]));
+    d += 3 * Math.sin(y * 0.08);
+    m = Math.max(m, 0.05 - d / 220);
+  }
+  // the little lighthouse island
+  const ix = (x - ISLAND.x) / ISLAND.rx, iy = (y - ISLAND.y) / ISLAND.ry, iv = 1 - ix * ix - iy * iy;
+  if (iv > -0.3) m = Math.min(m, 0.06 - iv * 0.8);
+  return m;
+}
+const isWater = (x, y) => lakeVal(x, y) > 0.01;
+const depthAt = (x, y) => Math.max(0, Math.min(1, lakeVal(x, y)));
+
+const SHOP = { x:540, y:1040, w:150, h:105 };
+const SHOP_DOOR = { x: SHOP.x + SHOP.w / 2, y: SHOP.y + SHOP.h + 14 };
+const DOCK = { x:930, y:930, w:40, h:110 };
+const inDock = (x, y) => x > DOCK.x + 5 && x < DOCK.x + DOCK.w - 5 && y > DOCK.y + 4 && y < DOCK.y + DOCK.h;
+const BRIDGE = { x: 584, y: 118, w: 62, h: 26 };
+const inBridge = (x, y) => x > BRIDGE.x && x < BRIDGE.x + BRIDGE.w && y > BRIDGE.y + 6 && y < BRIDGE.y + BRIDGE.h - 2;
+
+// solid scenery you bump into
+const CABIN = { x: 1395, y: 175, w: 130, h: 95 };
+const TENT = { x: 150, y: 850, w: 80, h: 52 };
+const FIRE = { x: 270, y: 925 };
+const PICNIC = { x: 1225, y: 1090, w: 60, h: 36 };
+const LIGHTHOUSE = { x: 1016, y: 632 };
+const OBST = [CABIN, TENT, PICNIC, { x: FIRE.x - 14, y: FIRE.y - 18, w: 28, h: 20 }, { x: LIGHTHOUSE.x - 11, y: LIGHTHOUSE.y - 30, w: 22, h: 30 }];
+const inObst = (x, y, pad = 0) => OBST.some(r => x > r.x - 6 - pad && x < r.x + r.w + 6 + pad && y > r.y + 8 - pad && y < r.y + r.h + 4 + pad);
+const PATHS = [
+  [[615, 1160], [780, 1125], [900, 1080], [950, 1045]],
+  [[950, 1045], [1100, 1095], [1220, 1112]],
+  [[615, 1160], [430, 1080], [300, 960]],
+  [[300, 960], [220, 760], [220, 520], [300, 330], [420, 230], [584, 131], [646, 131], [700, 150], [900, 190], [1150, 165], [1380, 280], [1460, 285]],
+];
+const nearPath = (x, y, r) => PATHS.some(p => p.some((pt, i) => i && distSeg(x, y, ...p[i - 1], ...pt) < r));
+
+let seed = 1337;
+const rnd = () => (seed = (seed * 16807) % 2147483647, (seed - 1) / 2147483646);
+const hash = (x, y) => { const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return s - Math.floor(s); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Trees
+const trees = [];
+for (let tries = 0; trees.length < 85 && tries < 5000; tries++) {
+  const x = 30 + rnd() * (W - 60), y = 40 + rnd() * (H - 60);
+  if (lakeVal(x, y) > -0.22) continue;
+  if (x > SHOP.x - 70 && x < SHOP.x + SHOP.w + 70 && y > SHOP.y - 70 && y < SHOP.y + SHOP.h + 90) continue;
+  if (Math.hypot(x - 950, y - 1080) < 110) continue;
+  if (inObst(x, y, 45) || nearPath(x, y, 30) || Math.hypot(x - FIRE.x, y - FIRE.y) < 80) continue;
+  if (trees.some(t => Math.hypot(t.x - x, t.y - y) < 55)) continue;
+  const pine = rnd() < 0.4;
+  trees.push({ x, y, r: 12 + rnd() * 8, pine, c1: pine ? '#2f6b3a' : ['#3f8a3a', '#4a9440', '#367f3c'][Math.floor(rnd() * 3)] });
+}
+trees.push({ x: 984, y: 652, r: 13, pine: false, c1: '#4a9440' }); // island tree
+
+// Water decoration
+const sparkles = [], lilies = [], shadows = [];
+while (sparkles.length < 140) { const x = rnd() * W, y = rnd() * H; if (lakeVal(x, y) > 0.05) sparkles.push({ x, y, p: rnd() * 6.28, l: 4 + rnd() * 6 }); }
+while (lilies.length < 26) { const x = rnd() * W, y = rnd() * H, v = lakeVal(x, y); if (v > 0.03 && v < 0.14) lilies.push({ x, y, r: 6 + rnd() * 5, a: rnd() * 6.28, flower: rnd() < 0.3 }); }
+// ducks: a mama with ducklings, plus a few loners
+const ducks = [];
+[[700, 470, 4], [1350, 760, 0], [1080, 380, 2], [560, 600, 0]].forEach(([x, y, kids]) => {
+  const mom = { x, y, a: rnd() * 6.28, kid: false };
+  ducks.push(mom);
+  let lead = mom;
+  for (let i = 0; i < kids; i++) { const k = { x: x - 12 * (i + 1), y, a: 0, kid: true, lead }; ducks.push(k); lead = k; }
+});
+// deer roam the woods and meadows (they avoid water, buildings, docks and bridges)
+const deerOk = (x, y) => !inDock(x, y) && !inBridge(x, y) && lakeVal(x, y) < -0.03 && walkable(x, y)
+  && !(x > SHOP.x - 30 && x < SHOP.x + SHOP.w + 30 && y > SHOP.y - 20 && y < SHOP.y + SHOP.h + 40);
+const newDeer = (x, y, buck) => ({ x, y, a: rnd() * 6.28, buck, mode: 'graze', t: rnd() * 4, anim: 0, scare: 0 });
+const deer = [];
+for (let tries = 0; deer.length < 7 && tries < 3000; tries++) {
+  const x = 40 + rnd() * (W - 80), y = 40 + rnd() * (H - 80);
+  if (deerOk(x, y) && lakeVal(x, y) < -0.2 && Math.hypot(x - 950, y - 1090) > 350) deer.push(newDeer(x, y, deer.length % 3 === 0));
+}
+const butterflies = Array.from({ length: 14 }, () => ({ x: rnd() * W, y: rnd() * H, a: rnd() * 6.28, c: ['#f7d84a', '#fff', '#e46b8f', '#8ac6f0', '#f0903a'][Math.floor(rnd() * 5)], p: rnd() * 6 }));
+const clouds = Array.from({ length: 7 }, () => ({ x: rnd() * (W + 600) - 300, y: rnd() * H, s: 0.7 + rnd() * .8 }));
+let smoke = [];
+while (shadows.length < 16) { const x = rnd() * W, y = rnd() * H; if (lakeVal(x, y) > 0.15) shadows.push({ x, y, a: rnd() * 6.28, s: 15 + rnd() * 25, size: 8 + rnd() * 14 }); }
+
+// ===================== BACKGROUND (pre-rendered) =====================
+const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+(function buildBg() {
+  const b = bg.getContext('2d');
+  const img = b.createImageData(W, H), d = img.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const v = lakeVal(x, y), n = hash(x, y);
+    let r, g, bl;
+    if (v > 0) {
+      const t = Math.min(1, v * 1.15);
+      r = lerp(104, 20, t); g = lerp(190, 66, t); bl = lerp(200, 112, t);
+      if (v < 0.025) { r += 40; g += 30; bl += 22; }
+      const k = (n - .5) * 5; r += k; g += k; bl += k;
+    } else if (v > -0.07) {
+      if (v > -0.02) { r = 176; g = 156; bl = 112; } else { r = 220; g = 200; bl = 148; }
+      const k = (n - .5) * 18; r += k; g += k; bl += k;
+    } else {
+      const p = 0.5 + 0.5 * Math.sin(x * 0.011 + Math.sin(y * 0.013) * 2) * Math.cos(y * 0.009 + x * 0.002);
+      r = 74 + p * 28; g = 134 + p * 34; bl = 52 + p * 14;
+      const k = (n - .5) * 16; r += k; g += k; bl += k * .5;
+    }
+    const i = (y * W + x) * 4; d[i] = r; d[i + 1] = g; d[i + 2] = bl; d[i + 3] = 255;
+  }
+  b.putImageData(img, 0, 0);
+
+  // dirt paths
+  b.lineCap = 'round'; b.lineJoin = 'round';
+  for (const [w, c] of [[26, 'rgba(120,88,50,.35)'], [18, 'rgba(176,140,92,.75)']]) {
+    b.strokeStyle = c; b.lineWidth = w;
+    for (const p of PATHS) { b.beginPath(); p.forEach(([x, y], i) => i ? b.lineTo(x, y) : b.moveTo(x, y)); b.stroke(); }
+  }
+  for (let i = 0; i < 400; i++) { // pebbles
+    const p = PATHS[i % PATHS.length], k = Math.floor(rnd() * (p.length - 1)), t = rnd();
+    const x = lerp(p[k][0], p[k + 1][0], t) + (rnd() - .5) * 14, y = lerp(p[k][1], p[k + 1][1], t) + (rnd() - .5) * 14;
+    if (lakeVal(x, y) < -0.02) { b.fillStyle = rnd() < .5 ? 'rgba(90,65,35,.35)' : 'rgba(230,210,170,.5)'; b.fillRect(x, y, 2, 2); }
+  }
+  b.lineCap = 'butt';
+
+  // footbridge over the creek
+  b.fillStyle = 'rgba(0,0,0,.25)'; b.fillRect(BRIDGE.x + 4, BRIDGE.y + 6, BRIDGE.w, BRIDGE.h);
+  b.fillStyle = '#a77a48'; b.fillRect(BRIDGE.x, BRIDGE.y, BRIDGE.w, BRIDGE.h);
+  b.strokeStyle = 'rgba(70,40,15,.55)'; b.lineWidth = 1;
+  for (let x = BRIDGE.x + 6; x < BRIDGE.x + BRIDGE.w; x += 6) { b.beginPath(); b.moveTo(x, BRIDGE.y); b.lineTo(x, BRIDGE.y + BRIDGE.h); b.stroke(); }
+  b.fillStyle = '#6b4423'; b.fillRect(BRIDGE.x, BRIDGE.y - 2, BRIDGE.w, 4); b.fillRect(BRIDGE.x, BRIDGE.y + BRIDGE.h - 2, BRIDGE.w, 4);
+
+  // stumps, fallen logs, mushrooms, berry bushes
+  seed = 4242;
+  for (let n = 0, tries = 0; n < 40 && tries < 3000; tries++) {
+    const x = 30 + rnd() * (W - 60), y = 30 + rnd() * (H - 60);
+    if (lakeVal(x, y) > -0.15 || inObst(x, y, 30) || nearPath(x, y, 22) || (x > SHOP.x - 40 && x < SHOP.x + SHOP.w + 40 && y > SHOP.y - 20 && y < SHOP.y + SHOP.h + 40)) continue;
+    n++;
+    const kind = n % 4;
+    if (kind === 0) { // stump
+      b.fillStyle = 'rgba(0,0,0,.2)'; b.beginPath(); b.ellipse(x + 3, y + 3, 10, 5, 0, 0, 7); b.fill();
+      b.fillStyle = '#6b4423'; b.fillRect(x - 8, y - 8, 16, 9);
+      b.fillStyle = '#c9a26a'; b.beginPath(); b.ellipse(x, y - 8, 8, 4, 0, 0, 7); b.fill();
+      b.strokeStyle = '#8a6a3a'; b.beginPath(); b.ellipse(x, y - 8, 4, 2, 0, 0, 7); b.stroke();
+    } else if (kind === 1) { // fallen log
+      const a = rnd() * Math.PI;
+      b.save(); b.translate(x, y); b.rotate(a);
+      b.fillStyle = 'rgba(0,0,0,.2)'; b.fillRect(-22, 2, 46, 8);
+      b.fillStyle = '#7a4f28'; b.fillRect(-24, -6, 48, 12);
+      b.strokeStyle = 'rgba(40,20,5,.4)'; for (let i = -18; i < 22; i += 8) { b.beginPath(); b.moveTo(i, -6); b.lineTo(i + 4, 6); b.stroke(); }
+      b.fillStyle = '#c9a26a'; b.beginPath(); b.ellipse(24, 0, 3, 6, 0, 0, 7); b.fill();
+      b.fillStyle = '#5c9a3f'; b.beginPath(); b.arc(-6, -6, 4, 0, 7); b.fill();
+      b.restore();
+    } else if (kind === 2) { // mushrooms
+      for (let i = 0; i < 3; i++) {
+        const mx = x + (rnd() - .5) * 16, my = y + (rnd() - .5) * 10;
+        b.fillStyle = '#f2ead8'; b.fillRect(mx - 1.5, my - 4, 3, 5);
+        b.fillStyle = '#d23b2b'; b.beginPath(); b.arc(mx, my - 4, 4.5, Math.PI, 0); b.fill();
+        b.fillStyle = '#fff'; b.fillRect(mx - 2, my - 6, 1.5, 1.5); b.fillRect(mx + 1, my - 7, 1.5, 1.5);
+      }
+    } else { // berry bush
+      b.fillStyle = 'rgba(0,0,0,.2)'; b.beginPath(); b.ellipse(x + 3, y + 4, 15, 6, 0, 0, 7); b.fill();
+      [[-7, 0, 9], [6, 0, 9], [0, -6, 10]].forEach(([dx, dy, r]) => { b.fillStyle = '#3d7d33'; b.beginPath(); b.arc(x + dx, y + dy, r, 0, 7); b.fill(); });
+      b.fillStyle = rnd() < .5 ? '#c8304a' : '#4a4ac8';
+      for (let i = 0; i < 7; i++) { b.beginPath(); b.arc(x + (rnd() - .5) * 22, y - 4 + (rnd() - .5) * 12, 1.8, 0, 7); b.fill(); }
+    }
+  }
+
+  // log cabin
+  {
+    const { x, y, w, h } = CABIN;
+    b.fillStyle = 'rgba(0,0,0,.25)'; b.fillRect(x + 8, y + 10, w, h);
+    b.fillStyle = '#7a4f28'; b.fillRect(x, y + 45, w, h - 45);
+    for (let i = y + 47; i < y + h; i += 8) { b.fillStyle = 'rgba(40,20,5,.35)'; b.fillRect(x, i + 5, w, 2); b.fillStyle = '#c9a26a'; b.beginPath(); b.arc(x + 2, i + 3, 3, 0, 7); b.arc(x + w - 2, i + 3, 3, 0, 7); b.fill(); }
+    b.fillStyle = '#3f5a3a'; b.fillRect(x - 8, y, w + 16, 50);
+    b.fillStyle = 'rgba(0,0,0,.15)'; for (let i = 0; i < 6; i++) b.fillRect(x - 8, y + i * 8.5, w + 16, 3);
+    b.fillStyle = '#2c4029'; b.fillRect(x - 8, y + 46, w + 16, 6);
+    b.fillStyle = '#8d8a80'; b.fillRect(x + w - 34, y - 14, 18, 26); // chimney
+    b.fillStyle = '#6e6b62'; for (let i = 0; i < 4; i++) b.fillRect(x + w - 34 + (i % 2) * 6, y - 12 + i * 6, 8, 2);
+    b.fillStyle = '#4a2c12'; b.fillRect(x + w / 2 - 12, y + h - 32, 24, 32);
+    [x + 14, x + w - 40].forEach(wx => { b.fillStyle = '#e8d38a'; b.fillRect(wx, y + 58, 26, 18); b.strokeStyle = '#3b230e'; b.lineWidth = 3; b.strokeRect(wx, y + 58, 26, 18); b.beginPath(); b.moveTo(wx + 13, y + 58); b.lineTo(wx + 13, y + 76); b.stroke(); });
+    b.fillStyle = '#a77a48'; b.fillRect(x + 20, y + h, w - 40, 12); // porch
+    b.fillStyle = '#6b4423'; b.fillRect(x - 40, y + h - 10, 16, 16); b.fillStyle = '#9b7040'; b.fillRect(x - 38, y + h - 26, 12, 16); // woodpile
+    // little garden fence
+    b.strokeStyle = '#d9c9a5'; b.lineWidth = 3;
+    b.beginPath(); b.moveTo(x + w + 20, y + 40); b.lineTo(x + w + 80, y + 40); b.lineTo(x + w + 80, y + h + 10); b.lineTo(x + w + 20, y + h + 10); b.stroke();
+    for (let i = 0; i < 14; i++) { b.fillStyle = ['#e46b8f', '#f7d84a', '#fff', '#e0823a'][i % 4]; b.beginPath(); b.arc(x + w + 30 + (i % 5) * 11, y + 52 + Math.floor(i / 5) * 18, 3.5, 0, 7); b.fill(); }
+  }
+
+  // campsite: tent, fire ring, log seats
+  {
+    const { x, y, w, h } = TENT;
+    b.fillStyle = 'rgba(0,0,0,.25)'; b.beginPath(); b.moveTo(x + 6, y + h + 4); b.lineTo(x + w / 2 + 8, y + 6); b.lineTo(x + w + 8, y + h + 4); b.fill();
+    b.fillStyle = '#e0823a'; b.beginPath(); b.moveTo(x, y + h); b.lineTo(x + w / 2, y); b.lineTo(x + w, y + h); b.closePath(); b.fill();
+    b.fillStyle = '#b5622a'; b.beginPath(); b.moveTo(x + w / 2, y); b.lineTo(x + w, y + h); b.lineTo(x + w / 2 + 4, y + h); b.closePath(); b.fill();
+    b.fillStyle = '#3a2410'; b.beginPath(); b.moveTo(x + w / 2 - 12, y + h); b.lineTo(x + w / 2, y + 20); b.lineTo(x + w / 2 + 12, y + h); b.fill();
+    b.fillStyle = '#8d8a80';
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28; b.beginPath(); b.ellipse(FIRE.x + Math.cos(a) * 15, FIRE.y + Math.sin(a) * 9, 5, 4, 0, 0, 7); b.fill(); }
+    b.fillStyle = '#3a2a1a'; b.beginPath(); b.ellipse(FIRE.x, FIRE.y, 11, 6, 0, 0, 7); b.fill();
+    [[FIRE.x - 50, FIRE.y + 6, .3], [FIRE.x + 48, FIRE.y - 4, -.4], [FIRE.x, FIRE.y + 40, 0]].forEach(([lx, ly, a]) => {
+      b.save(); b.translate(lx, ly); b.rotate(a); b.fillStyle = '#7a4f28'; b.fillRect(-18, -6, 36, 12); b.fillStyle = '#c9a26a'; b.beginPath(); b.ellipse(18, 0, 3, 6, 0, 0, 7); b.fill(); b.restore();
+    });
+  }
+
+  // picnic table
+  {
+    const { x, y, w, h } = PICNIC;
+    b.fillStyle = 'rgba(0,0,0,.22)'; b.fillRect(x + 5, y + 6, w, h);
+    b.fillStyle = '#8a5a2e'; b.fillRect(x, y, w, 8); b.fillRect(x, y + h - 8, w, 8);
+    b.fillStyle = '#a77a48'; b.fillRect(x + 4, y + 10, w - 8, h - 20);
+    b.fillStyle = '#e04848'; b.fillRect(x + 14, y + 10, w - 28, h - 20); // checkered cloth
+    b.fillStyle = '#fff'; for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) if ((i + j) % 2) b.fillRect(x + 14 + i * 8, y + 10 + j * 8, 8, 8);
+    b.fillStyle = '#c8943c'; b.beginPath(); b.ellipse(x + w - 10, y + h / 2, 6, 4, 0, 0, 7); b.fill(); // basket
+  }
+
+  // flowers, grass tufts, rocks, reeds
+  seed = 99;
+  for (let i = 0; i < 900; i++) {
+    const x = rnd() * W, y = rnd() * H, v = lakeVal(x, y);
+    if (v < -0.1) {
+      if (inObst(x, y, 12) || nearPath(x, y, 12)) continue;
+      if (rnd() < 0.35) { b.fillStyle = ['#fff', '#f7d84a', '#e46b8f', '#b58ae6'][Math.floor(rnd() * 4)]; b.beginPath(); b.arc(x, y, 2, 0, 7); b.fill(); }
+      else { b.strokeStyle = 'rgba(40,90,30,.6)'; b.lineWidth = 1.5; b.beginPath(); b.moveTo(x - 3, y); b.lineTo(x - 4, y - 5); b.moveTo(x, y); b.lineTo(x, y - 7); b.moveTo(x + 3, y); b.lineTo(x + 4, y - 5); b.stroke(); }
+    } else if (v > -0.06 && v < -0.01 && rnd() < 0.25) {
+      b.fillStyle = '#8d8a80'; b.beginPath(); b.ellipse(x, y, 5 + rnd() * 6, 4 + rnd() * 3, 0, 0, 7); b.fill();
+      b.fillStyle = 'rgba(255,255,255,.25)'; b.beginPath(); b.ellipse(x - 2, y - 2, 3, 2, 0, 0, 7); b.fill();
+    } else if (v > 0.0 && v < 0.05 && rnd() < 0.5 && !(x > DOCK.x - 20 && x < DOCK.x + DOCK.w + 20)) {
+      b.strokeStyle = '#4f7a35'; b.lineWidth = 2;
+      for (let k = 0; k < 4; k++) { const ox = x + (rnd() - .5) * 10; b.beginPath(); b.moveTo(ox, y + 4); b.lineTo(ox + (rnd() - .5) * 4, y - 12 - rnd() * 6); b.stroke(); }
+      b.fillStyle = '#6b4423'; b.fillRect(x - 1.5, y - 16, 3, 6);
+    }
+  }
+
+  // dock
+  b.fillStyle = 'rgba(0,0,0,.25)'; b.fillRect(DOCK.x + 5, DOCK.y + 6, DOCK.w, DOCK.h);
+  b.fillStyle = '#a77a48'; b.fillRect(DOCK.x, DOCK.y, DOCK.w, DOCK.h);
+  b.strokeStyle = 'rgba(70,40,15,.55)'; b.lineWidth = 1;
+  for (let y = DOCK.y + 7; y < DOCK.y + DOCK.h; y += 7) { b.beginPath(); b.moveTo(DOCK.x, y); b.lineTo(DOCK.x + DOCK.w, y); b.stroke(); }
+  b.fillStyle = '#5a3a1c';
+  [[DOCK.x - 3, DOCK.y - 2], [DOCK.x + DOCK.w - 5, DOCK.y - 2], [DOCK.x - 3, DOCK.y + 50], [DOCK.x + DOCK.w - 5, DOCK.y + 50]].forEach(([x, y]) => b.fillRect(x, y, 8, 8));
+
+  // shop (3/4 view)
+  const { x, y, w, h } = SHOP;
+  b.fillStyle = 'rgba(0,0,0,.25)'; b.fillRect(x + 8, y + 10, w, h);
+  b.fillStyle = '#a8743f'; b.fillRect(x, y + 45, w, h - 45);
+  b.strokeStyle = 'rgba(60,35,15,.35)';
+  for (let i = y + 52; i < y + h; i += 8) { b.beginPath(); b.moveTo(x, i); b.lineTo(x + w, i); b.stroke(); }
+  b.fillStyle = '#b8432f'; b.fillRect(x - 8, y, w + 16, 50);
+  b.fillStyle = 'rgba(0,0,0,.12)';
+  for (let i = 0; i < 6; i++) b.fillRect(x - 8, y + i * 8.5, w + 16, 3);
+  b.fillStyle = '#8e2f20'; b.fillRect(x - 8, y + 46, w + 16, 6);
+  b.fillStyle = '#4a2c12'; b.fillRect(x + w / 2 - 14, y + h - 36, 28, 36);
+  b.fillStyle = '#e8c35a'; b.beginPath(); b.arc(x + w / 2 + 8, y + h - 18, 2, 0, 7); b.fill();
+  [x + 14, x + w - 42].forEach(wx => { b.fillStyle = '#cfe8f0'; b.fillRect(wx, y + 64, 28, 20); b.strokeStyle = '#4a2c12'; b.lineWidth = 3; b.strokeRect(wx, y + 64, 28, 20); b.beginPath(); b.moveTo(wx + 14, y + 64); b.lineTo(wx + 14, y + 84); b.stroke(); });
+  b.fillStyle = '#3b230e'; b.fillRect(x + 22, y + 14, w - 44, 22);
+  b.fillStyle = '#f6ecd4'; b.font = 'bold 13px system-ui'; b.textAlign = 'center'; b.textBaseline = 'middle';
+  b.fillText('BAIT & TACKLE', x + w / 2, y + 25.5);
+  // barrel & crate
+  b.fillStyle = '#7a4f28'; b.beginPath(); b.ellipse(x + w + 18, y + h - 10, 11, 13, 0, 0, 7); b.fill();
+  b.strokeStyle = '#3b230e'; b.lineWidth = 2; b.stroke();
+  b.fillStyle = '#9b7040'; b.fillRect(x - 30, y + h - 26, 22, 22); b.strokeStyle = '#4a2c12'; b.strokeRect(x - 30, y + h - 26, 22, 22);
+})();
+
+// ===================== STATE =====================
+const SAVE_KEY = 'lakeside-angler-v1';
+const S = { money: 0, earned: 0, gear: { rod: 0, reel: 0, line: 0, bait: 0, cooler: 0, boat: 0, gun: 0 }, cooler: [], journal: {}, time: 0.05, boatPos: { ...BOAT_HOME } };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.gear) { Object.assign(S, s); S.gear = Object.assign({ boat: 0, gun: 0 }, s.gear); S.boatPos = s.boatPos || { ...BOAT_HOME }; } } catch (e) {}
+function save() {
+  if (P.inBoat) S.boatPos = { x: P.x, y: P.y, a: P.ba };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
+}
+const G = cat => GEAR[cat].items[S.gear[cat]];
+
+const P = { x: 950, y: 1090, fx: 0, fy: -1, anim: 0, moving: false, inBoat: false, ba: -Math.PI / 2 };
+let state = 'idle'; // idle | charging | flying | waiting | bite | reeling
+let power = 0, powerDir = 1;
+const bob = { x: 0, y: 0, sx: 0, sy: 0, tx: 0, ty: 0, t: 0, dip: 0 };
+let biteTimer = 0, biteWindow = 0, nibbleTimer = 0, fight = null;
+let ripples = [], particles = [], floaters = [];
+let panelOpen = false, helpOpen = true, now = 0;
+let gunOut = false, reloadT = 0, muzzle = 0, shotFx = null;
+let feathers = [], deadDucks = [], duckRespawn = [], deadDeer = [], deerRespawn = [];
+
+// ===================== AUDIO =====================
+let actx = null;
+function tone(freq, dur, type = 'sine', vol = .12, slide = 0) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  cast: () => tone(900, .25, 'sine', .06, -600),
+  splash: () => { tone(260, .2, 'triangle', .1, -180); tone(500, .12, 'sine', .04, -300); },
+  bite: () => { tone(880, .08, 'square', .06); setTimeout(() => tone(1100, .1, 'square', .06), 90); },
+  hook: () => tone(400, .15, 'sawtooth', .07, 300),
+  catch: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .18, 'triangle', .1), i * 90)),
+  snap: () => tone(1400, .25, 'sawtooth', .08, -1300),
+  lose: () => tone(300, .4, 'triangle', .08, -200),
+  bang: () => {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const n = actx.createBufferSource(), buf = actx.createBuffer(1, actx.sampleRate * .35, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+      const g = actx.createGain(); g.gain.value = .35; n.buffer = buf; n.connect(g).connect(actx.destination); n.start();
+    } catch (e) {}
+    tone(90, .25, 'sine', .2, -50);
+  },
+  quack: () => { tone(520, .08, 'sawtooth', .05, -160); setTimeout(() => tone(480, .1, 'sawtooth', .05, -180), 110); },
+  cash: () => { tone(1320, .08, 'square', .05); setTimeout(() => tone(1760, .15, 'square', .05), 70); },
+};
+
+// ===================== UI HELPERS =====================
+const $ = id => document.getElementById(id);
+function toast(msg, ms = 2200) {
+  const el = document.createElement('div'); el.className = 'toast box'; el.textContent = msg;
+  $('toasts').appendChild(el);
+  while ($('toasts').children.length > 3) $('toasts').firstChild.remove();
+  setTimeout(() => el.remove(), ms);
+}
+const fmtW = w => w >= 100 ? Math.round(w).toLocaleString() + ' lb' : w.toFixed(1) + ' lb';
+const money = n => '$' + n.toLocaleString();
+
+const iconCache = {};
+function fishIcon(id) {
+  if (iconCache[id]) return iconCache[id];
+  const c = document.createElement('canvas'); c.width = 128; c.height = 80;
+  const x = c.getContext('2d');
+  drawFish(x, 64, 42, 92, FISH_BY_ID[id]);
+  return iconCache[id] = c.toDataURL();
+}
+// side-view deer, feet at (0,0), facing +x
+function drawDeerShape(c, d, flip) {
+  c.save(); if (flip) c.scale(-1, 1);
+  const body = d.buck ? '#8a5a2e' : '#a8743f', step = d.mode === 'graze' ? 0 : Math.sin(d.anim * 9) * (d.mode === 'flee' ? 5 : 2.5);
+  c.strokeStyle = '#5a3a1c'; c.lineWidth = 2.5; c.lineCap = 'round';
+  [[-9, step], [-6, -step], [8, -step], [11, step]].forEach(([lx, s]) => { c.beginPath(); c.moveTo(lx, -14); c.lineTo(lx + s, 0); c.stroke(); });
+  c.fillStyle = body; c.beginPath(); c.ellipse(1, -18, 15, 7.5, 0, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,240,220,.55)'; c.beginPath(); c.ellipse(1, -14, 11, 3, 0, 0, 7); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.ellipse(-15, -21, 3, 4, -.4, 0, 7); c.fill(); // white tail
+  const grazing = d.mode === 'graze';
+  const hx = grazing ? 19 : 16, hy = grazing ? -8 : -33;
+  c.strokeStyle = body; c.lineWidth = 6; c.beginPath(); c.moveTo(10, -20); c.lineTo(hx - 2, hy + 3); c.stroke();
+  c.fillStyle = body; c.beginPath(); c.ellipse(hx, hy, 6, 4.5, grazing ? .9 : .3, 0, 7); c.fill();
+  c.fillStyle = '#2b1d10'; c.beginPath(); c.arc(hx + (grazing ? 3 : 5), hy + (grazing ? 4 : 1.5), 1.5, 0, 7); c.fill(); // nose
+  c.beginPath(); c.arc(hx + 1, hy - 1, 1.2, 0, 7); c.fill(); // eye
+  c.fillStyle = body; c.beginPath(); c.ellipse(hx - 4, hy - 5, 2, 4.5, -.6, 0, 7); c.fill(); // ear
+  if (d.buck) {
+    c.strokeStyle = '#e8dcc0'; c.lineWidth = 1.8;
+    c.beginPath(); c.moveTo(hx - 1, hy - 4); c.quadraticCurveTo(hx - 6, hy - 16, hx + 4, hy - 20);
+    c.moveTo(hx - 3, hy - 10); c.lineTo(hx - 8, hy - 15); c.moveTo(hx - 2, hy - 14); c.lineTo(hx + 1, hy - 19);
+    c.moveTo(hx + 1, hy - 4); c.quadraticCurveTo(hx + 2, hy - 13, hx + 9, hy - 15); c.stroke();
+  }
+  c.restore();
+}
+
+function drawFish(c, x, y, len, f) {
+  c.save(); c.translate(x, y);
+  if (f.id === 'deer' || f.id === 'buck') {
+    c.translate(-4, 14); c.scale(1.6, 1.6);
+    drawDeerShape(c, { buck: f.id === 'buck', anim: 0, mode: 'walk' }, false);
+    c.restore(); return;
+  }
+  if (f.id === 'duck') {
+    c.fillStyle = '#8a6a48'; c.beginPath(); c.ellipse(-4, 6, 30, 16, 0, 0, 7); c.fill();
+    c.beginPath(); c.moveTo(-30, 4); c.lineTo(-42, -4); c.lineTo(-38, 10); c.fill();
+    c.fillStyle = '#6b4f35'; c.beginPath(); c.ellipse(-8, 4, 16, 9, -.2, 0, 7); c.fill();
+    c.fillStyle = '#3a6fc8'; c.fillRect(-14, 6, 10, 4);
+    c.fillStyle = '#fff'; c.fillRect(18, -8, 10, 4);
+    c.fillStyle = '#2f7d4a'; c.beginPath(); c.arc(24, -16, 11, 0, 7); c.fill();
+    c.fillStyle = '#f0903a'; c.beginPath(); c.moveTo(32, -18); c.lineTo(44, -14); c.lineTo(32, -10); c.fill();
+    c.strokeStyle = '#111'; c.lineWidth = 2; c.beginPath(); c.moveTo(24, -20); c.lineTo(30, -16); c.moveTo(30, -20); c.lineTo(24, -16); c.stroke(); // cartoon x-eye
+    c.restore(); return;
+  }
+  if (f.id === 'boot') {
+    c.fillStyle = f.color;
+    c.beginPath(); c.moveTo(-18, -26); c.lineTo(6, -26); c.lineTo(6, 2); c.lineTo(32, 6); c.quadraticCurveTo(38, 18, 30, 20); c.lineTo(-18, 20); c.closePath(); c.fill();
+    c.fillStyle = '#3a2a1a'; c.fillRect(-18, 16, 50, 6);
+    c.strokeStyle = '#d8c49a'; c.lineWidth = 2; for (let i = -20; i < 0; i += 6) { c.beginPath(); c.moveTo(-14, i); c.lineTo(2, i); c.stroke(); }
+    c.restore(); return;
+  }
+  if (f.id === 'can') {
+    c.fillStyle = '#9a9a9a'; c.fillRect(-16, -20, 32, 40);
+    c.fillStyle = '#b5652a'; c.fillRect(-16, -8, 32, 16);
+    c.fillStyle = 'rgba(150,80,30,.6)'; [[-10, -16], [6, 12], [10, -14], [-6, 14]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill(); });
+    c.fillStyle = '#ccc'; c.beginPath(); c.ellipse(0, -20, 16, 4, 0, 0, 7); c.fill();
+    c.restore(); return;
+  }
+  if (f.id === 'chest') {
+    c.fillStyle = '#8a5a2e'; c.fillRect(-30, -6, 60, 30);
+    c.beginPath(); c.moveTo(-30, -6); c.quadraticCurveTo(0, -30, 30, -6); c.fill();
+    c.fillStyle = '#f2c230'; c.fillRect(-30, -8, 60, 4); c.fillRect(-24, -6, 4, 30); c.fillRect(20, -6, 4, 30); c.fillRect(-5, -4, 10, 12);
+    c.fillStyle = '#3a2410'; c.fillRect(-1.5, 0, 3, 5);
+    c.fillStyle = '#ffe680'; for (const [x, y] of [[-14, -14], [8, -18], [18, -10]]) { c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill(); }
+    c.fillStyle = 'rgba(90,140,80,.6)'; c.beginPath(); c.ellipse(-20, 22, 10, 3, 0, 0, 7); c.fill(); // seaweed
+    c.restore(); return;
+  }
+  const SHAPE_H = { long: .17, snout: .13, eel: .08, round: .36, paddle: .19 };
+  const L = len / 2, Hh = len * (SHAPE_H[f.shape] || (f.id === 'pike' || f.id === 'muskie' || f.id === 'sturgeon' ? .17 : f.id === 'monster' ? .26 : .24));
+  c.fillStyle = f.color;
+  if (f.shape === 'eel') { // long wavy body, no forked tail
+    c.lineWidth = Hh * 2; c.lineCap = 'round'; c.strokeStyle = f.color;
+    c.beginPath(); c.moveTo(-L, 0); c.bezierCurveTo(-L * .5, -Hh * 3, 0, Hh * 3, L * .7, 0); c.stroke();
+    c.fillStyle = '#c9b98a'; c.beginPath(); c.ellipse(L * .1, Hh * .4, L * .45, Hh * .35, 0, 0, 7); c.fill();
+  } else {
+    c.beginPath(); c.moveTo(-L * .7, 0); c.lineTo(-L * 1.05, -Hh * .9); c.lineTo(-L * 1.0, 0); c.lineTo(-L * 1.05, Hh * .9); c.closePath(); c.fill(); // tail
+    c.beginPath(); c.moveTo(-L * .1, -Hh * .8); c.lineTo(L * .2, -Hh * 1.4); c.lineTo(L * .35, -Hh * .7); c.closePath(); c.fill(); // fin
+    c.beginPath(); c.ellipse(0, 0, L * .8, Hh, 0, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.28)'; c.beginPath(); c.ellipse(L * .05, Hh * .35, L * .6, Hh * .45, 0, 0, 7); c.fill();
+  }
+  if (f.shape === 'snout') { c.fillStyle = f.color; c.beginPath(); c.moveTo(L * .7, -Hh * .35); c.lineTo(L * 1.15, -Hh * .1); c.lineTo(L * 1.15, Hh * .1); c.lineTo(L * .7, Hh * .35); c.fill(); }
+  if (f.shape === 'paddle') { c.fillStyle = f.color; c.fillRect(L * .7, -Hh * .15, L * .25, Hh * .3); c.beginPath(); c.ellipse(L * 1.05, 0, L * .18, Hh * .55, 0, 0, 7); c.fill(); }
+  if (f.pattern === 'bars') { c.fillStyle = 'rgba(40,40,15,.35)'; for (let i = -3; i <= 3; i++) c.fillRect(i * L * .18 - 2, -Hh * .9, 4, Hh * 1.4); }
+  if (f.pattern === 'spots') { c.fillStyle = f.id === 'brook' ? 'rgba(240,120,90,.85)' : 'rgba(255,255,230,.6)'; for (let i = 0; i < 12; i++) { c.beginPath(); c.arc(-L * .55 + (i * 37 % 100) / 100 * L * 1.1, -Hh * .6 + (i * 53 % 100) / 100 * Hh * .9, Math.max(1.3, Hh * .09), 0, 7); c.fill(); } }
+  if (f.pattern === 'belly') { c.fillStyle = 'rgba(240,140,40,.75)'; c.beginPath(); c.ellipse(0, Hh * .5, L * .5, Hh * .35, 0, 0, 7); c.fill(); c.fillStyle = '#c33'; c.beginPath(); c.arc(L * .35, -Hh * .1, Hh * .14, 0, 7); c.fill(); }
+  if (f.pattern === 'whiskers') { c.strokeStyle = f.color; c.lineWidth = 2; c.beginPath(); c.moveTo(L * .75, Hh * .2); c.quadraticCurveTo(L * 1.1, Hh * .5, L * 1.0, Hh * 1.1); c.moveTo(L * .75, Hh * .3); c.quadraticCurveTo(L * .9, Hh * .9, L * .7, Hh * 1.3); c.stroke(); }
+  if (f.id === 'trout' || f.id === 'golden') { c.fillStyle = f.id === 'trout' ? 'rgba(220,60,90,.6)' : 'rgba(230,110,30,.6)'; c.fillRect(-L * .6, -Hh * .15, L * 1.2, Hh * .3); }
+  if (f.id === 'perch' || f.id === 'walleye' || f.id === 'muskie') { c.fillStyle = 'rgba(40,50,20,.4)'; for (let i = -3; i <= 3; i++) c.fillRect(i * L * .18 - 2, -Hh * .9, 4, Hh * 1.2); }
+  if (f.id === 'ghost') { c.fillStyle = 'rgba(230,90,60,.7)'; c.beginPath(); c.ellipse(L * .2, -Hh * .3, L * .2, Hh * .35, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(-L * .3, Hh * .1, L * .15, Hh * .3, 0, 0, 7); c.fill(); }
+  if (f.id === 'catfish') { c.strokeStyle = f.color; c.lineWidth = 2; c.beginPath(); c.moveTo(L * .75, Hh * .2); c.quadraticCurveTo(L * 1.1, Hh * .5, L * 1.0, Hh * 1.1); c.moveTo(L * .75, Hh * .3); c.quadraticCurveTo(L * .9, Hh * .9, L * .7, Hh * 1.3); c.stroke(); }
+  if (f.pattern === 'redtail') { c.fillStyle = 'rgba(210,50,40,.75)'; c.beginPath(); c.ellipse(-L * .5, 0, L * .3, Hh * .9, 0, 0, 7); c.fill(); c.beginPath(); c.moveTo(-L * .7, 0); c.lineTo(-L * 1.05, -Hh * .9); c.lineTo(-L * 1.05, Hh * .9); c.fill(); }
+  if (f.pattern === 'scutes') { c.fillStyle = '#e8e2d0'; for (let i = -4; i <= 4; i++) { c.beginPath(); c.moveTo(i * L * .16 - 3, -Hh * .75); c.lineTo(i * L * .16, -Hh * 1.05); c.lineTo(i * L * .16 + 3, -Hh * .75); c.fill(); } }
+  if (f.spikes) { // tentacles + glowing spines for the Leviathan
+    c.strokeStyle = f.color; c.lineWidth = 3; c.lineCap = 'round';
+    for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(L * .6, Hh * .3); c.quadraticCurveTo(L * (.9 + i * .08), Hh * (1 + i * .3), L * (.7 + i * .12), Hh * (1.5 + i * .2)); c.stroke(); }
+    c.fillStyle = '#9a6ae8'; for (let i = -3; i <= 2; i++) { c.beginPath(); c.moveTo(i * L * .2, -Hh * .9); c.lineTo(i * L * .2 + 6, -Hh * 1.45); c.lineTo(i * L * .2 + 12, -Hh * .9); c.fill(); }
+  }
+  if (f.id === 'monster') { c.fillStyle = '#1d3d31'; for (let i = -3; i <= 2; i++) { c.beginPath(); c.moveTo(i * L * .2, -Hh * .9); c.lineTo(i * L * .2 + 6, -Hh * 1.35); c.lineTo(i * L * .2 + 12, -Hh * .9); c.fill(); } }
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(L * .55, -Hh * .2, Math.max(2.5, Hh * .2), 0, 7); c.fill();
+  c.fillStyle = f.id === 'monster' ? '#d33' : f.spikes ? '#b07aff' : '#111'; c.beginPath(); c.arc(L * .58, -Hh * .2, Math.max(1.4, Hh * .1), 0, 7); c.fill();
+  c.restore();
+}
+
+function updateHud() {
+  const [rodSlot, gunSlot] = document.querySelectorAll('#hotbar .slot');
+  rodSlot.classList.toggle('on', !gunOut); gunSlot.classList.toggle('on', gunOut);
+  gunSlot.classList.toggle('locked', !S.gear.gun);
+  gunSlot.title = S.gear.gun ? G('gun').name : 'Buy a gun at the shop';
+  $('hMoney').textContent = '💰 ' + money(S.money);
+  const cap = G('cooler').cap;
+  $('hCooler').textContent = `🧊 ${S.cooler.length}/${cap}`;
+  $('hCooler').style.color = S.cooler.length >= cap ? 'var(--bad)' : '';
+  const h = hour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60 / 10) * 10;
+  $('hClock').textContent = `${isNight() ? '🌙' : '☀️'} ${(hh % 12) || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`;
+  $('gearHud').innerHTML = ['rod', 'reel', 'line', 'bait'].map(k => `<div><b>${k[0].toUpperCase() + k.slice(1)}</b>${G(k).name}</div>`).join('')
+    + (S.gear.boat ? `<div><b>Boat</b>${G('boat').name}</div>` : '')
+    + (S.gear.gun ? `<div><b>Gun</b>${G('gun').name}${gunOut ? ' 🎯' : ''}</div>` : '');
+}
+
+function setHint() {
+  let t;
+  const cap = G('cooler').cap;
+  if (state === 'idle') {
+    if (nearShop()) t = 'Press E to enter the Bait & Tackle shop';
+    else if (nearBoat()) t = `Press E to get in your ${G('boat').name}`;
+    else if (canLand) t = `Press E to get out of your ${G('boat').name}`;
+    else if (P.inBoat && S.cooler.length >= cap) t = '🧊 Cooler is full! Row to shore and press E to get out.';
+    else if (gunOut) t = `🎯 Click to shoot ducks & deer (range ${G('gun').range}) · press 1 for your fishing pole`;
+    else if (P.inBoat) t = 'Row with WASD · hold SPACE to cast · E near shore to get out';
+    else if (S.cooler.length >= cap) t = '🧊 Cooler is full! Go sell your fish at the shop.';
+    else t = 'Face the water and hold SPACE to cast  ·  J = journal';
+  } else if (state === 'charging') t = 'Release SPACE to cast!';
+  else if (state === 'flying') t = 'Casting...';
+  else if (state === 'waiting') t = 'Waiting for a bite...  (SPACE or move to reel in)';
+  else if (state === 'bite') t = '❗ Press SPACE to set the hook!';
+  else if (state === 'reeling') t = 'Hold SPACE to reel — let go before the line snaps!';
+  if ($('hint').textContent !== t) $('hint').textContent = t;
+}
+
+// ===================== TIME =====================
+const hour = () => (S.time * 24 + 6) % 24;
+const isNight = () => { const h = hour(); return h >= 20 || h < 5; };
+function darkness() {
+  const h = hour();
+  if (h >= 7 && h < 18) return 0;
+  if (h >= 18 && h < 21) return (h - 18) / 3 * .62;
+  if (h >= 21 || h < 4) return .62;
+  return (1 - (h - 4) / 3) * .62;
+}
+
+// ===================== INPUT =====================
+const keys = {};
+let mouseHeld = false;
+const actionHeld = () => keys.Space || mouseHeld;
+addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  keys[e.code] = true;
+  press(e.code);
+});
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') release(); });
+const cv = $('c');
+const mouse = { sx: 0, sy: 0, x: 0, y: 0 };
+cv.addEventListener('mousemove', e => { mouse.sx = e.clientX; mouse.sy = e.clientY; });
+cv.addEventListener('mousedown', e => {
+  mouse.sx = e.clientX; mouse.sy = e.clientY;
+  if (gunOut && !helpOpen && !panelOpen) return shoot();
+  mouseHeld = true; press('Space');
+});
+addEventListener('mouseup', () => { if (mouseHeld) { mouseHeld = false; release(); } });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseHeld = false; release(); });
+
+function press(code) {
+  if (helpOpen) { if (['Space', 'Enter', 'Escape', 'KeyH'].includes(code)) closeHelp(); return; }
+  if (panelOpen) { if (code === 'Escape' || code === 'KeyE' || code === 'KeyJ') closePanel(); return; }
+  if (code === 'KeyH') { $('help').style.display = 'flex'; helpOpen = true; return; }
+  if (code === 'KeyE' && state === 'idle') {
+    if (P.inBoat) return disembark();
+    if (nearShop()) return openPanel('sell');
+    if (nearBoat()) return board();
+  }
+  if (code === 'KeyJ') { if (state === 'idle') openPanel('journal'); else toast('Reel in first!'); return; }
+  if (code === 'Digit1' || code === 'Numpad1') return equip('rod');
+  if (code === 'Digit2' || code === 'Numpad2') return equip('gun');
+  if (code === 'KeyG') return equip(gunOut ? 'rod' : 'gun');
+  if (code !== 'Space') return;
+  if (state === 'idle' && gunOut) { toast('Press 1 to switch to your fishing pole.', 1500); return; }
+  if (state === 'idle') {
+    if (S.cooler.length >= G('cooler').cap) { toast('🧊 Your cooler is full! Sell fish at the shop.'); return; }
+    state = 'charging'; power = 0; powerDir = 1;
+  } else if (state === 'waiting') {
+    state = 'idle'; toast('Reeled in.', 1200);
+  } else if (state === 'bite') {
+    startFight();
+  }
+}
+// hotbar: 1 = fishing pole, 2 = gun
+function equip(item) {
+  if ((item === 'gun') === gunOut) return;
+  if (item === 'gun' && !S.gear.gun) { toast('You don’t own a gun yet — buy one at the shop.'); return; }
+  if (state !== 'idle') { toast('Reel in first!'); return; }
+  gunOut = item === 'gun';
+  tone(gunOut ? 320 : 200, .08, 'square', .05);
+}
+document.querySelectorAll('#hotbar .slot').forEach(s => s.onclick = () => { if (!helpOpen && !panelOpen) equip(s.dataset.item); });
+
+function release() {
+  if (state === 'charging') cast();
+}
+function closeHelp() { $('help').style.display = 'none'; helpOpen = false; tone(1, .01, 'sine', .0001); }
+$('startBtn').onclick = closeHelp;
+
+// ===================== FISHING =====================
+function rodTip() {
+  if (state === 'charging') return { x: P.x - P.fx * 12, y: P.y - 44 - P.fy * 6 };
+  return { x: P.x + P.fx * 24, y: P.y - 30 + P.fy * 14 };
+}
+function castTarget(p) {
+  const d = G('rod').cast * (0.2 + 0.8 * p);
+  return { x: P.x + P.fx * d, y: P.y + P.fy * d };
+}
+function cast() {
+  const tip = rodTip(), t = castTarget(power);
+  Object.assign(bob, { sx: tip.x, sy: tip.y, tx: t.x, ty: t.y, x: tip.x, y: tip.y, t: 0, dip: 0 });
+  state = 'flying'; sfx.cast();
+}
+function land() {
+  bob.x = bob.tx; bob.y = bob.ty;
+  if (!isWater(bob.x, bob.y)) { state = 'idle'; toast('Plop. That’s dry land — face the water!'); return; }
+  splash(bob.x, bob.y, 8); sfx.splash();
+  state = 'waiting'; newBiteTimer();
+}
+function newBiteTimer() {
+  biteTimer = (2.5 + Math.random() * 5.5) / G('bait').speed;
+  nibbleTimer = 0.6 + Math.random() * 1.5;
+}
+// is the bobber sitting in the creek (not the pond it feeds)?
+function inCreek(x, y) {
+  if (!(x > 520 && x < 690 && y < 290) || !isWater(x, y)) return false;
+  let d = 1e9;
+  for (let i = 0; i < CREEK.length - 1; i++) d = Math.min(d, distSeg(x, y, ...CREEK[i], ...CREEK[i + 1]));
+  return d < 18;
+}
+function chooseFish(depth, creek) {
+  const luck = G('bait').luck, night = isNight();
+  const pool = []; let tot = 0;
+  for (const f of FISH) {
+    if (f.game || f.luck > luck || f.depth > depth + 0.001 || (f.night && !night)) continue;
+    if (f.creek && !creek) continue;
+    let w = f.rarity;
+    if (creek && f.creek) w *= 4; // the creek is where these live
+    if (f.junk) w /= (1 + luck);
+    if (f.rarity < 6) w *= 1 + luck * 0.35;
+    w *= f.depth >= 0.3 ? 0.6 + depth : 1.2 - depth * 0.5;
+    pool.push([f, w]); tot += w;
+  }
+  let r = Math.random() * tot;
+  for (const [f, w] of pool) { r -= w; if (r <= 0) return f; }
+  return pool[0][0];
+}
+function startFight() {
+  const f = chooseFish(depthAt(bob.x, bob.y), inCreek(bob.x, bob.y));
+  const sizeT = Math.pow(Math.random(), 1.6 - G('bait').luck * 0.15);
+  // rare trophy giants: 2-3x heavier, 3x the price, and they fight harder (legends are already huge)
+  const trophy = !f.junk && !f.treasure && f.power < 10 && Math.random() < 0.04 + G('bait').luck * 0.01;
+  const weight = (f.min + (f.max - f.min) * sizeT) * (trophy ? 2 + Math.random() : 1);
+  fight = {
+    f, weight, sizeT, trophy,
+    value: Math.max(1, Math.round(f.base * FISH_PRICE_MULT * (0.6 + 0.9 * sizeT) * (trophy ? 3 : 1))),
+    effP: trophy ? Math.min(f.power * (0.75 + 0.5 * sizeT) * 1.35, 13.5) : f.power * (0.75 + 0.5 * sizeT),
+    tension: 10, progress: 30, run: 0, fromX: bob.x, fromY: bob.y,
+  };
+  const p = fight.effP;
+  fight.feel = trophy ? '🏆 This one is ENORMOUS!' : p < 2 ? 'A little nibbler.' : p < 4 ? 'Decent fight!' : p < 6.5 ? 'Strong fish!' : p < 9 ? 'Something BIG...' : '😱 THE LINE IS SCREAMING!';
+  state = 'reeling'; sfx.hook(); splash(bob.x, bob.y, 12);
+  $('fight').style.display = 'block';
+}
+function updateFight(dt) {
+  const F = fight, hold = actionHeld();
+  const resist = G('line').mult * Math.sqrt(G('rod').str);
+  const reel = G('reel').mult;
+  if (F.run > 0) F.run -= dt;
+  else if (Math.random() < dt * (0.1 + F.effP * 0.03)) F.run = 0.5 + Math.random() * (0.6 + F.effP * 0.08);
+  const running = F.run > 0;
+  if (hold) {
+    F.tension += (20 + F.effP * 9) * (running ? 2.2 : 1) / resist * dt;
+    F.progress += (running ? -0.3 : 1) * reel * 28 / (1 + F.effP * 0.22) * dt;
+    if (Math.random() < dt * 8) tone(180 + Math.random() * 60, .03, 'square', .015);
+  } else {
+    F.tension -= 55 * dt;
+    F.progress -= (running ? F.effP * 2.5 : 0.8 + F.effP * 0.5) * dt / Math.sqrt(G('rod').str);
+  }
+  F.tension = Math.max(0, F.tension);
+  // bobber follows the fight
+  const t = clamp(F.progress / 100, 0, 1);
+  const ex = P.x + P.fx * 26, ey = P.y + P.fy * 26;
+  bob.x = lerp(F.fromX, ex, t * 0.9) + (Math.random() - .5) * (running ? 6 : 2);
+  bob.y = lerp(F.fromY, ey, t * 0.9) + (Math.random() - .5) * (running ? 6 : 2);
+  if (Math.random() < dt * (running ? 14 : 4)) splash(bob.x, bob.y, running ? 4 : 2);
+
+  $('tens').style.width = Math.min(100, F.tension) + '%';
+  $('tens').style.background = F.tension > 80 ? 'var(--bad)' : F.tension > 55 ? '#e0a030' : 'var(--good)';
+  $('prog').style.width = clamp(F.progress, 0, 100) + '%';
+  const m = $('fmsg');
+  m.textContent = running ? '🐟 IT’S RUNNING! Ease off!' : F.feel;
+  m.className = running ? 'run' : '';
+
+  if (F.tension >= 100) endFight('snap');
+  else if (F.progress <= 0) endFight('escape');
+  else if (F.progress >= 100) endFight('catch');
+}
+function endFight(result) {
+  $('fight').style.display = 'none';
+  state = 'idle';
+  const F = fight; fight = null;
+  if (result === 'snap') { sfx.snap(); toast('💥 SNAP! The line broke. Better line handles more tension.', 3000); return; }
+  if (result === 'escape') { sfx.lose(); toast('The fish got away...', 2400); return; }
+  sfx.catch();
+  const f = F.f, j = S.journal[f.id] || (S.journal[f.id] = { n: 0, best: 0 });
+  const isNew = j.n === 0, isRecord = !isNew && F.weight > j.best;
+  j.n++; j.best = Math.max(j.best, F.weight);
+  S.cooler.push({ id: f.id, w: +F.weight.toFixed(2), v: F.value });
+  save();
+  const el = $('catch');
+  el.innerHTML = `<img src="${fishIcon(f.id)}"><div class="t">${f.junk || f.treasure ? 'You reeled in' : 'You caught'} ${/^(8|11|18)(\D|$)|^8\d/.test(fmtW(F.weight)) ? 'an' : 'a'} ${fmtW(F.weight)} ${f.name}!</div>
+    <div class="v">Worth ${money(F.value)}</div>${F.trophy ? '<div class="new" style="font-size:16px">🏆 TROPHY SIZE! 🏆</div>' : ''}${isNew && !f.junk ? '<div class="new">★ NEW SPECIES ★</div>' : isRecord ? '<div class="new">★ PERSONAL BEST ★</div>' : ''}`;
+  el.querySelector('img').style.transform = F.trophy ? 'scale(1.35)' : '';
+  if (F.trophy) setTimeout(() => sfx.catch(), 450);
+  el.style.display = 'block'; el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+  clearTimeout(endFight.tm); endFight.tm = setTimeout(() => el.style.display = 'none', 3200);
+  floaters.push({ x: P.x, y: P.y - 50, text: '+' + money(F.value), life: 1.6, color: '#ffe066' });
+  if (S.cooler.length >= G('cooler').cap) setTimeout(() => toast('🧊 Cooler full! Time to visit the shop.'), 900);
+}
+
+// ===================== HUNTING =====================
+function shoot() {
+  if (state !== 'idle' || reloadT > 0) return;
+  if (S.cooler.length >= G('cooler').cap) { toast('🧊 Cooler full — sell what you’ve got first!'); return; }
+  const g = G('gun'), ox = P.x, oy = P.y - 16;
+  const dx = mouse.x - ox, dy = mouse.y - oy, dist = Math.max(1, Math.hypot(dx, dy));
+  const k = Math.min(1, g.range / dist), tx = ox + dx * k, ty = oy + dy * k;
+  P.fx = dx / dist; P.fy = dy / dist;
+  reloadT = g.reload; muzzle = 0.08; shotFx = { x: tx, y: ty, t: 0.12 };
+  sfx.bang();
+  if (isWater(tx, ty)) splash(tx, ty, 3);
+  const hitDeer = deer.find(d => Math.hypot(d.x - tx, d.y - 12 - ty) < g.spread + 10);
+  const hit = hitDeer ? null : ducks.find(d => !d.kid && Math.hypot(d.x - tx, d.y - ty) < g.spread);
+  for (const d of ducks) if (Math.hypot(d.x - tx, d.y - ty) < 240) d.scare = 2.5; // everyone else panics
+  for (const d of deer) if (Math.hypot(d.x - tx, d.y - ty) < 380 || Math.hypot(d.x - P.x, d.y - P.y) < 300) d.scare = 3;
+  if (hitDeer) return bagDeer(hitDeer);
+  if (!hit) { if (ducks.some(d => d.scare === 2.5)) setTimeout(sfx.quack, 150); return; }
+
+  ducks.splice(ducks.indexOf(hit), 1);
+  for (const d of ducks) if (d.lead === hit) d.lead = null; // ducklings scatter on their own
+  deadDucks.push({ x: hit.x, y: hit.y, a: hit.a, t: 0 });
+  for (let i = 0; i < 16; i++) feathers.push({ x: hit.x, y: hit.y - 4, vx: (Math.random() - .5) * 70, vy: -20 - Math.random() * 40, r: Math.random() * 6, life: 1.4 + Math.random(), c: Math.random() < .5 ? '#fff' : '#8a6a48' });
+  const f = FISH_BY_ID.duck, w = f.min + Math.random() * (f.max - f.min);
+  const value = Math.round(f.base * FISH_PRICE_MULT * (0.8 + 0.6 * (w - f.min) / (f.max - f.min)));
+  const j = S.journal.duck || (S.journal.duck = { n: 0, best: 0 });
+  j.n++; j.best = Math.max(j.best, w);
+  S.cooler.push({ id: 'duck', w: +w.toFixed(2), v: value }); save();
+  floaters.push({ x: hit.x, y: hit.y - 20, text: '+' + money(value) + ' 🦆', life: 1.6, color: '#ffe066' });
+  toast(`Got a ${fmtW(w)} Mallard Duck! Worth ${money(value)}`, 1800);
+  duckRespawn.push(25 + Math.random() * 20); // a new duck flies in later
+}
+function bagDeer(d) {
+  deer.splice(deer.indexOf(d), 1);
+  deadDeer.push({ x: d.x, y: d.y, flip: Math.cos(d.a) < 0, buck: d.buck, t: 0 });
+  for (let i = 0; i < 10; i++) particles.push({ x: d.x, y: d.y, vx: (Math.random() - .5) * 60, vy: -20 - Math.random() * 30, z: 0, life: .5 });
+  const f = FISH_BY_ID[d.buck ? 'buck' : 'deer'], w = f.min + Math.random() * (f.max - f.min);
+  const value = Math.round(f.base * FISH_PRICE_MULT * (0.8 + 0.6 * (w - f.min) / (f.max - f.min)));
+  const j = S.journal[f.id] || (S.journal[f.id] = { n: 0, best: 0 });
+  j.n++; j.best = Math.max(j.best, w);
+  S.cooler.push({ id: f.id, w: +w.toFixed(1), v: value }); save();
+  floaters.push({ x: d.x, y: d.y - 40, text: '+' + money(value) + ' 🦌', life: 1.8, color: '#ffe066' });
+  toast(`Got a ${fmtW(w)} ${f.name}! Worth ${money(value)}`, 2200);
+  deerRespawn.push(40 + Math.random() * 30); // another wanders in from the woods later
+}
+
+function splash(x, y, n) {
+  ripples.push({ x, y, r: 2, life: 1 });
+  for (let i = 0; i < n; i++) particles.push({ x, y, vx: (Math.random() - .5) * 60, vy: -30 - Math.random() * 50, z: 0, life: .5 + Math.random() * .3 });
+}
+
+// ===================== MOVEMENT =====================
+function walkable(x, y) {
+  if (x < 14 || y < 20 || x > W - 14 || y > H - 8) return false;
+  if (inDock(x, y) || inBridge(x, y)) return true;
+  if (lakeVal(x, y) > -0.012) return false;
+  if (inObst(x, y)) return false;
+  for (const t of trees) if ((t.x - x) ** 2 + (t.y - y) ** 2 < (t.r * .6 + 8) ** 2) return false;
+  if (x > SHOP.x - 10 && x < SHOP.x + SHOP.w + 10 && y > SHOP.y + 10 && y < SHOP.y + SHOP.h + 6) return false;
+  return true;
+}
+const nearShop = () => !P.inBoat && Math.hypot(P.x - SHOP_DOOR.x, P.y - SHOP_DOOR.y) < 55;
+const nearBoat = () => S.gear.boat > 0 && !P.inBoat && Math.hypot(P.x - S.boatPos.x, P.y - S.boatPos.y) < 80;
+
+// boats stay on water and can't sail through the dock
+function boatOk(x, y) {
+  if (x < 20 || y < 20 || x > W - 20 || y > H - 20) return false;
+  if (x > DOCK.x - 14 && x < DOCK.x + DOCK.w + 14 && y > DOCK.y - 6 && y < DOCK.y + DOCK.h) return false;
+  return lakeVal(x, y) > 0.035;
+}
+function board() {
+  P.x = S.boatPos.x; P.y = S.boatPos.y; P.ba = S.boatPos.a;
+  P.fx = Math.cos(P.ba); P.fy = Math.sin(P.ba);
+  P.inBoat = true; sfx.splash(); splash(P.x, P.y, 6);
+  toast(`All aboard the ${G('boat').name}!`, 1500);
+}
+// nearest dry land (or the dock/bridge) to hop out onto, preferring the way we're facing
+function landingSpot() {
+  const face = Math.atan2(P.fy, P.fx);
+  for (const r of [26, 36, 48, 60]) for (let k = 0; k < 16; k++) {
+    const a = face + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 8;
+    const x = P.x + Math.cos(a) * r, y = P.y + Math.sin(a) * r;
+    if (walkable(x, y)) return { x, y };
+  }
+  return null;
+}
+let canLand = null; // refreshed every frame while in a boat
+function disembark() {
+  const spot = landingSpot();
+  if (!spot) { toast('Steer closer to the shore or the dock to get out.', 1800); return; }
+  S.boatPos = { x: P.x, y: P.y, a: P.ba };
+  P.inBoat = false; P.x = spot.x; P.y = spot.y; canLand = null; save();
+  splash(S.boatPos.x, S.boatPos.y, 4); tone(220, .12, 'triangle', .06);
+  toast(`Hopped out! Your ${G('boat').name} will wait here.`, 1600);
+}
+
+function update(dt) {
+  now += dt;
+  canLand = P.inBoat && state === 'idle' ? landingSpot() : null;
+  if (!panelOpen && !helpOpen) S.time = (S.time + dt / DAY_LEN) % 1;
+
+  let mx = 0, my = 0;
+  if (!panelOpen && !helpOpen) {
+    if (keys.KeyA || keys.ArrowLeft) mx--;
+    if (keys.KeyD || keys.ArrowRight) mx++;
+    if (keys.KeyW || keys.ArrowUp) my--;
+    if (keys.KeyS || keys.ArrowDown) my++;
+  }
+  P.moving = false;
+  if ((mx || my) && state === 'waiting') { state = 'idle'; }
+  if ((mx || my) && (state === 'idle' || state === 'charging')) {
+    const l = Math.hypot(mx, my); P.fx = mx / l; P.fy = my / l;
+    if (state === 'idle') {
+      const ok = P.inBoat ? boatOk : walkable;
+      const sp = (P.inBoat ? G('boat').speed : 150) * dt;
+      const nx = P.x + P.fx * sp, ny = P.y + P.fy * sp;
+      if (ok(nx, P.y)) { P.x = nx; P.moving = true; }
+      if (ok(P.x, ny)) { P.y = ny; P.moving = true; }
+      if (P.moving) P.anim += dt;
+      if (P.moving && P.inBoat && Math.random() < dt * (S.gear.boat >= 3 ? 14 : 6)) {
+        ripples.push({ x: P.x - P.fx * 26, y: P.y - P.fy * 26, r: 3, life: .8 });
+        if (S.gear.boat >= 3) particles.push({ x: P.x - P.fx * 30, y: P.y - P.fy * 30, vx: (Math.random() - .5) * 40, vy: -40, z: 0, life: .4 });
+      }
+    }
+  }
+  if (P.inBoat) { // swing the boat's nose smoothly toward where we're heading
+    let d = Math.atan2(P.fy, P.fx) - P.ba;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    P.ba += d * Math.min(1, dt * 6);
+  }
+
+  if (state === 'charging') {
+    power += powerDir * dt * 1.1;
+    if (power >= 1) { power = 1; powerDir = -1; } if (power <= 0) { power = 0; powerDir = 1; }
+  } else if (state === 'flying') {
+    bob.t += dt / 0.55;
+    const t = Math.min(1, bob.t);
+    bob.x = lerp(bob.sx, bob.tx, t); bob.y = lerp(bob.sy, bob.ty, t) - Math.sin(t * Math.PI) * 50;
+    if (bob.t >= 1) land();
+  } else if (state === 'waiting') {
+    biteTimer -= dt; nibbleTimer -= dt;
+    bob.dip = Math.max(0, bob.dip - dt * 8);
+    if (nibbleTimer <= 0) { bob.dip = 1; nibbleTimer = 0.8 + Math.random() * 2; ripples.push({ x: bob.x, y: bob.y, r: 2, life: .6 }); }
+    if (biteTimer <= 0) { state = 'bite'; biteWindow = 0.85 + G('bait').luck * 0.08; sfx.bite(); splash(bob.x, bob.y, 5); }
+  } else if (state === 'bite') {
+    biteWindow -= dt;
+    if (biteWindow <= 0) { state = 'waiting'; newBiteTimer(); toast('Too slow — it stole the bait! Waiting again...', 1800); sfx.lose(); }
+  } else if (state === 'reeling') updateFight(dt);
+
+  for (const s of shadows) {
+    s.a += (Math.random() - .5) * dt * 1.5;
+    const nx = s.x + Math.cos(s.a) * s.s * dt, ny = s.y + Math.sin(s.a) * s.s * dt;
+    if (lakeVal(nx, ny) < 0.1) s.a += Math.PI * (0.5 + Math.random()); else { s.x = nx; s.y = ny; }
+  }
+  for (const d of ducks) {
+    if (d.kid && d.lead) { // paddle after whoever is in front
+      const dx = d.lead.x - d.x, dy = d.lead.y - d.y, dist = Math.hypot(dx, dy);
+      if (dist > 13) { d.a = Math.atan2(dy, dx); d.x += dx / dist * Math.min(40, (dist - 13) * 4) * dt; d.y += dy / dist * Math.min(40, (dist - 13) * 4) * dt; }
+      continue;
+    }
+    const pd = Math.hypot(P.x - d.x, P.y - d.y);
+    if (d.scare > 0) d.scare -= dt;
+    const flee = (pd < 90 && (P.inBoat || state === 'reeling')) || (d.scare > 0 && pd < 400);
+    if (flee) d.a = Math.atan2(d.y - P.y, d.x - P.x) + (Math.random() - .5) * .6; // shoo!
+    else d.a += (Math.random() - .5) * dt * 2;
+    const sp = flee ? (d.scare > 0 ? 60 : 45) : 12;
+    const nx = d.x + Math.cos(d.a) * sp * dt, ny = d.y + Math.sin(d.a) * sp * dt;
+    if (lakeVal(nx, ny) < 0.06) d.a += Math.PI * (0.6 + Math.random() * .5); else { d.x = nx; d.y = ny; }
+    if (Math.random() < dt * .4) ripples.push({ x: d.x, y: d.y + 3, r: 4, life: .5 });
+  }
+  for (const d of deer) {
+    const pd = Math.hypot(P.x - d.x, P.y - d.y);
+    if (d.scare > 0) d.scare -= dt;
+    if ((pd < 140 && !P.inBoat) || d.scare > 0) {
+      if (d.mode !== 'flee') d.a = Math.atan2(d.y - P.y, d.x - P.x) + (Math.random() - .5) * .8;
+      d.mode = 'flee';
+    } else if (d.mode === 'flee') { d.mode = 'walk'; d.t = 1 + Math.random() * 2; }
+    d.t -= dt;
+    if (d.mode !== 'flee' && d.t <= 0) {
+      if (d.mode === 'graze') { d.mode = 'walk'; d.a = Math.random() * 6.28; d.t = 1.5 + Math.random() * 3; }
+      else { d.mode = 'graze'; d.t = 2 + Math.random() * 5; }
+    }
+    const sp = d.mode === 'flee' ? 135 : d.mode === 'walk' ? 26 : 0;
+    if (sp) {
+      if (d.mode === 'flee') {
+        let df = Math.atan2(d.y - P.y, d.x - P.x) - d.a; df = Math.atan2(Math.sin(df), Math.cos(df));
+        d.a += df * Math.min(1, dt * 1.5) + (Math.random() - .5) * dt * 2;
+      }
+      const nx = d.x + Math.cos(d.a) * sp * dt, ny = d.y + Math.sin(d.a) * sp * dt;
+      if (deerOk(nx, ny)) { d.x = nx; d.y = ny; d.anim += dt * (d.mode === 'flee' ? 2.2 : 1); }
+      else d.a += (Math.random() < .5 ? 1 : -1) * (0.8 + Math.random() * 1.5);
+    }
+  }
+  for (const d of deadDeer) d.t += dt;
+  deadDeer = deadDeer.filter(d => d.t < 3);
+  deerRespawn = deerRespawn.filter(t => {
+    if (t - dt > 0) return true;
+    for (let i = 0; i < 80; i++) { // wander in from the edge of the map, out of sight
+      const side = Math.floor(Math.random() * 4), r = Math.random();
+      const x = side === 0 ? 30 : side === 1 ? W - 30 : 30 + r * (W - 60), y = side === 2 ? 40 : side === 3 ? H - 30 : 40 + r * (H - 70);
+      if (deerOk(x, y) && Math.hypot(x - P.x, y - P.y) > 450) { deer.push(newDeer(x, y, Math.random() < .35)); break; }
+    }
+    return false;
+  }).map(t => t - dt);
+  duckRespawn = duckRespawn.filter(t => {
+    if (t - dt > 0) return true;
+    for (let i = 0; i < 50; i++) {
+      const x = 100 + Math.random() * (W - 200), y = 100 + Math.random() * (H - 200);
+      if (lakeVal(x, y) > 0.2 && Math.hypot(x - P.x, y - P.y) > 300) { ducks.push({ x, y, a: Math.random() * 6.28, kid: false }); splash(x, y, 6); break; }
+    }
+    return false;
+  }).map(t => t - dt);
+  if (gunOut) {
+    if (!S.gear.gun || state !== 'idle') gunOut = false;
+    else { const dx = mouse.x - P.x, dy = mouse.y - P.y + 16, l = Math.hypot(dx, dy); if (l > 4) { P.fx = dx / l; P.fy = dy / l; } }
+  }
+  reloadT = Math.max(0, reloadT - dt); muzzle -= dt;
+  if (shotFx && (shotFx.t -= dt) <= 0) shotFx = null;
+  for (const d of deadDucks) d.t += dt;
+  deadDucks = deadDucks.filter(d => d.t < 2.2);
+  feathers = feathers.filter(f => { f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= .97; f.vy = Math.min(f.vy + 60 * dt, 14); f.r += dt * 4; return (f.life -= dt) > 0; });
+  for (const b of butterflies) {
+    b.a += (Math.random() - .5) * dt * 6;
+    let nx = b.x + Math.cos(b.a) * 30 * dt, ny = b.y + Math.sin(b.a) * 30 * dt;
+    if (lakeVal(nx, ny) > -0.1 || nx < 0 || ny < 0 || nx > W || ny > H) b.a += Math.PI; else { b.x = nx; b.y = ny; }
+  }
+  for (const c of clouds) { c.x += 9 * dt; if (c.x > W + 300) { c.x = -300; c.y = Math.random() * H; } }
+  if (Math.random() < dt * 3) smoke.push({ x: CABIN.x + CABIN.w - 25, y: CABIN.y - 16, r: 4, life: 3 });
+  if (Math.random() < dt * 5) smoke.push({ x: FIRE.x + (Math.random() - .5) * 6, y: FIRE.y - 10, r: 3, life: 2.2 });
+  smoke = smoke.filter(s => { s.y -= 16 * dt; s.x += (6 + Math.sin(now + s.y * .05) * 6) * dt; s.r += 5 * dt; return (s.life -= dt) > 0; });
+  ripples = ripples.filter(r => (r.r += dt * 22, r.life -= dt * 0.9) > 0);
+  particles = particles.filter(p => { p.x += p.vx * dt; p.z += p.vy * dt; p.vy += 220 * dt; return (p.life -= dt) > 0 && p.z < 0; });
+  floaters = floaters.filter(f => (f.y -= dt * 30, f.life -= dt) > 0);
+}
+
+// ===================== RENDER =====================
+const ctx = cv.getContext('2d');
+let vw, vh, zoom, dpr;
+function resize() {
+  dpr = window.devicePixelRatio || 1; vw = innerWidth; vh = innerHeight;
+  cv.width = vw * dpr; cv.height = vh * dpr; cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+  zoom = clamp(Math.min(vw / 1000, vh / 680), 0.6, 1.7);
+}
+addEventListener('resize', resize); resize();
+
+function ell(x, y, rx, ry, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.fill(); }
+
+function drawTree(t) {
+  ell(t.x + 8, t.y + 2, t.r * 1.5, t.r * .6, 'rgba(0,0,0,.22)');
+  ctx.fillStyle = '#6b4423'; ctx.fillRect(t.x - 4, t.y - 16, 8, 18);
+  if (t.pine) {
+    for (let i = 0; i < 3; i++) {
+      const w = t.r * (1.6 - i * .35), yy = t.y - 14 - i * t.r * .8;
+      ctx.fillStyle = i % 2 ? '#3a7a44' : t.c1;
+      ctx.beginPath(); ctx.moveTo(t.x - w, yy); ctx.lineTo(t.x, yy - t.r * 1.5); ctx.lineTo(t.x + w, yy); ctx.closePath(); ctx.fill();
+    }
+  } else {
+    ell(t.x, t.y - 28, t.r * 1.7, t.r * 1.5, t.c1);
+    ell(t.x - t.r * .5, t.y - 34, t.r * .9, t.r * .8, 'rgba(255,255,255,.12)');
+  }
+}
+
+function drawFire() {
+  const { x, y } = FIRE;
+  ctx.fillStyle = '#5a3a1c'; ctx.save(); ctx.translate(x, y - 2);
+  ctx.rotate(.5); ctx.fillRect(-10, -2, 20, 4); ctx.rotate(-1); ctx.fillRect(-10, -2, 20, 4); ctx.restore();
+  for (const [c, s, o] of [['#e0482a', 1, 0], ['#f39a2a', .7, 1.3], ['#ffe066', .4, 2.1]]) {
+    const fl = 1 + Math.sin(now * 13 + o) * .15 + Math.sin(now * 7.3 + o * 2) * .1;
+    ctx.fillStyle = c; ctx.beginPath();
+    ctx.moveTo(x - 8 * s, y - 2); ctx.quadraticCurveTo(x - 7 * s, y - 14 * s * fl, x + Math.sin(now * 5 + o) * 2, y - 22 * s * fl);
+    ctx.quadraticCurveTo(x + 7 * s, y - 14 * s * fl, x + 8 * s, y - 2); ctx.closePath(); ctx.fill();
+  }
+}
+function drawLighthouse() {
+  const { x, y } = LIGHTHOUSE;
+  ell(x + 6, y + 2, 16, 6, 'rgba(0,0,0,.25)');
+  ctx.fillStyle = '#8d8a80'; ctx.fillRect(x - 12, y - 6, 24, 8);
+  ctx.fillStyle = '#f2f2ee'; ctx.beginPath(); ctx.moveTo(x - 10, y - 4); ctx.lineTo(x - 6, y - 52); ctx.lineTo(x + 6, y - 52); ctx.lineTo(x + 10, y - 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#c8432f';
+  [[-4, 14], [-24, 34], [-44, 50]].forEach(([a, b]) => { ctx.beginPath(); const w1 = 10 - (-a) / 48 * 4, w2 = 10 - b / 48 * 4; ctx.moveTo(x - w1, y + a); ctx.lineTo(x - w2, y - b); ctx.lineTo(x + w2, y - b); ctx.lineTo(x + w1, y + a); ctx.closePath(); ctx.fill(); });
+  ctx.fillStyle = '#333'; ctx.fillRect(x - 8, y - 56, 16, 4);
+  ctx.fillStyle = darkness() > .1 ? '#fff6b0' : '#cfe8f0'; ctx.fillRect(x - 5, y - 66, 10, 10);
+  ctx.fillStyle = '#c8432f'; ctx.beginPath(); ctx.moveTo(x - 8, y - 66); ctx.lineTo(x, y - 74); ctx.lineTo(x + 8, y - 66); ctx.fill();
+  ctx.fillStyle = '#4a2c12'; ctx.fillRect(x - 3, y - 14, 6, 10);
+}
+
+function drawBoat(x, y, a, type, rowing) {
+  ctx.save(); ctx.translate(x, y + Math.sin(now * 2 + x) * 1); ctx.rotate(a);
+  ctx.fillStyle = 'rgba(0,30,50,.25)'; ctx.beginPath(); ctx.ellipse(3, 5, 30, 13, 0, 0, 7); ctx.fill();
+  const hull = (L, Wd, stern) => { // pointed bow at +x
+    ctx.beginPath(); ctx.moveTo(L, 0);
+    ctx.quadraticCurveTo(L * .5, -Wd, -L * .4, -Wd); ctx.lineTo(-L, -Wd * stern);
+    ctx.lineTo(-L, Wd * stern); ctx.lineTo(-L * .4, Wd); ctx.quadraticCurveTo(L * .5, Wd, L, 0); ctx.closePath();
+  };
+  if (type === 1) { // canoe
+    ctx.fillStyle = '#2f7d5b'; ctx.beginPath(); ctx.ellipse(0, 0, 27, 8, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c9a76a'; ctx.beginPath(); ctx.ellipse(0, 0, 23, 5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7a5530'; ctx.fillRect(-12, -5, 3, 10); ctx.fillRect(10, -5, 3, 10);
+    const sw = rowing ? Math.sin(now * 6) * .6 : .3; // paddle
+    ctx.strokeStyle = '#8a5a2e'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(-2 - Math.cos(sw) * 10, 16 + Math.sin(sw) * 6); ctx.stroke();
+    ctx.fillStyle = '#8a5a2e'; ctx.beginPath(); ctx.ellipse(-2 - Math.cos(sw) * 10, 18 + Math.sin(sw) * 6, 3, 5, sw, 0, 7); ctx.fill();
+  } else if (type === 2) { // rowboat
+    const sw = rowing ? Math.sin(now * 5) * .5 : 0;
+    ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 2.5;
+    [-1, 1].forEach(s => { ctx.beginPath(); ctx.moveTo(-2, s * 9); ctx.lineTo(-2 - Math.sin(sw) * 12, s * 24); ctx.stroke(); });
+    ctx.fillStyle = '#8a5a2e'; hull(28, 13, .75); ctx.fill();
+    ctx.fillStyle = '#b98a55'; hull(23, 9.5, .7); ctx.fill();
+    ctx.strokeStyle = 'rgba(90,55,25,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.stroke();
+    ctx.fillStyle = '#7a4f28'; ctx.fillRect(10, -9, 4, 18); ctx.fillRect(-17, -9, 4, 18);
+  } else { // motorboat
+    ctx.fillStyle = '#e9ecef'; hull(34, 15, .85); ctx.fill();
+    ctx.strokeStyle = '#c8432f'; ctx.lineWidth = 2; hull(34, 15, .85); ctx.stroke();
+    ctx.fillStyle = '#3a6fa8'; hull(26, 10.5, .8); ctx.fill();
+    ctx.fillStyle = 'rgba(200,235,255,.8)'; ctx.fillRect(8, -9, 4, 18); // windshield
+    ctx.fillStyle = '#e9ecef'; ctx.fillRect(-22, -8, 9, 16);
+    ctx.fillStyle = '#222'; ctx.fillRect(-40, -5, 8, 10); ctx.fillStyle = '#c8432f'; ctx.fillRect(-38, -3, 4, 6);
+  }
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const { x, fx, fy } = P;
+  let y = P.y;
+  if (P.inBoat) { drawBoat(P.x, P.y, P.ba, S.gear.boat, P.moving); y += 10 + Math.sin(now * 2 + P.x) * 1; }
+  const walking = P.moving && !P.inBoat;
+  const b = walking ? Math.sin(P.anim * 14) * 1.5 : 0, leg = walking ? Math.sin(P.anim * 14) * 3 : 0;
+  if (!P.inBoat) {
+    ell(x, y + 1, 11, 5, 'rgba(0,0,0,.25)');
+    ctx.fillStyle = '#4a3423'; ctx.fillRect(x - 6, y - 8 + leg * .5, 5, 9 - leg * .5); ctx.fillRect(x + 1, y - 8 - leg * .5, 5, 9 + leg * .5);
+  }
+  const back = fy < -0.3;
+  // rod drawn behind body when facing up
+  const drawRod = () => {
+    const tip = rodTip(), hx = x + fx * 8, hy = y - 16 + b;
+    ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(lerp(hx, tip.x, .4), lerp(hy, tip.y, .4)); ctx.stroke();
+    ctx.strokeStyle = S.gear.rod >= 4 ? '#f2c230' : S.gear.rod >= 2 ? '#333' : '#8a6a3a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(lerp(hx, tip.x, .4), lerp(hy, tip.y, .4)); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+  };
+  const drawGun = () => {
+    const hx = x + fx * 6, hy = y - 16 + b, len = S.gear.gun >= 3 ? 30 : 24;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#7a4f28'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(hx - fx * 8, hy - fy * 8); ctx.lineTo(hx + fx * 6, hy + fy * 6); ctx.stroke();
+    ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx + fx * 4, hy + fy * 4); ctx.lineTo(hx + fx * len, hy + fy * len); ctx.stroke();
+    if (S.gear.gun >= 3) { ctx.strokeStyle = '#111'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(hx + fx * 8, hy + fy * 8 - 3); ctx.lineTo(hx + fx * 16, hy + fy * 16 - 3); ctx.stroke(); } // scope
+    if (muzzle > 0) {
+      const mx = hx + fx * (len + 6), my = hy + fy * (len + 6);
+      ctx.fillStyle = '#ffd34a'; ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 4 : 11, a = i / 10 * 6.28 + now * 10; ctx.lineTo(mx + Math.cos(a) * r, my + Math.sin(a) * r); }
+      ctx.fill();
+    }
+  };
+  const held = gunOut ? drawGun : drawRod;
+  if (back) held();
+  ell(x, y - 15 + b, 9, 10, '#3b6fb6');
+  ctx.fillStyle = '#c9473a'; ctx.fillRect(x - 9, y - 22 + b, 18, 5);
+  ell(x, y - 29 + b, 7, 7, '#f1c27d');
+  if (!back) { ctx.fillStyle = '#222'; ctx.fillRect(x + fx * 3 - 3, y - 30 + b, 2, 2); ctx.fillRect(x + fx * 3 + 1.5, y - 30 + b, 2, 2); }
+  ell(x, y - 33 + b, 12, 5, '#d9b85c');
+  ell(x, y - 36 + b, 7, 5, '#e3c46a');
+  ctx.fillStyle = '#8e5b2e'; ctx.fillRect(x - 7, y - 35 + b, 14, 2);
+  if (!back) held();
+}
+
+function drawLine() {
+  if (!['flying', 'waiting', 'bite', 'reeling'].includes(state)) return;
+  const tip = rodTip();
+  let bx = bob.x, by = bob.y;
+  if (state === 'waiting') by += Math.sin(now * 3) * 1 + bob.dip * 3;
+  if (state === 'bite') by += 4 + Math.sin(now * 30) * 2;
+  const sag = state === 'reeling' ? (1 - Math.min(1, fight.tension / 100)) * 26 : state === 'flying' ? 6 : 20;
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(tip.x, tip.y);
+  ctx.quadraticCurveTo((tip.x + bx) / 2, (tip.y + by) / 2 + sag, bx, by); ctx.stroke();
+  if (state !== 'reeling') {
+    if (state !== 'flying') ell(bx, by + 2, 6, 2.5, 'rgba(0,0,0,.2)');
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx, by, 4.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e03a2a'; ctx.beginPath(); ctx.arc(bx, by, 4.5, Math.PI, 0); ctx.fill();
+  }
+  if (state === 'bite') {
+    const s = 1 + Math.sin(now * 20) * .15;
+    ctx.save(); ctx.translate(bx, by - 26); ctx.scale(s, s);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e03a2a'; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', 0, 1);
+    ctx.restore();
+  }
+}
+
+function render() {
+  const z = zoom * dpr;
+  const vwW = vw / zoom, vhW = vh / zoom;
+  const camX = vwW >= W ? (W - vwW) / 2 : clamp(P.x - vwW / 2, 0, W - vwW);
+  const camY = vhW >= H ? (H - vhW) / 2 : clamp(P.y - 20 - vhW / 2, 0, H - vhW);
+  mouse.x = camX + mouse.sx / zoom; mouse.y = camY + mouse.sy / zoom;
+  cv.style.cursor = gunOut ? 'none' : '';
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#1d3a2a'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(z, 0, 0, z, -camX * z, -camY * z);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(bg, 0, 0);
+
+  // water life
+  for (const s of sparkles) {
+    const a = Math.sin(now * 1.6 + s.p); if (a <= 0) continue;
+    ctx.strokeStyle = `rgba(255,255,255,${a * .35})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(s.x - s.l / 2, s.y); ctx.lineTo(s.x + s.l / 2, s.y); ctx.stroke();
+  }
+  for (const s of shadows) {
+    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.a); ctx.fillStyle = 'rgba(10,30,50,.22)';
+    ctx.beginPath(); ctx.ellipse(0, 0, s.size, s.size * .35, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s.size * .8, 0); ctx.lineTo(-s.size * 1.3, -s.size * .3 + Math.sin(now * 8 + s.x) * 2); ctx.lineTo(-s.size * 1.3, s.size * .3); ctx.fill();
+    ctx.restore();
+  }
+  for (const l of lilies) {
+    ctx.fillStyle = '#4f8f3a'; ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.arc(l.x, l.y, l.r, l.a, l.a + 5.6); ctx.closePath(); ctx.fill();
+    if (l.flower) { ell(l.x + 1, l.y - 1, 3, 3, '#f4b6d0'); ell(l.x + 1, l.y - 1, 1.2, 1.2, '#f7d84a'); }
+  }
+  for (const d of ducks) {
+    const s = d.kid ? .55 : 1;
+    ctx.save(); ctx.translate(d.x, d.y + Math.sin(now * 3 + d.x) * .6); ctx.rotate(d.a); ctx.scale(s, s);
+    ctx.fillStyle = 'rgba(0,30,50,.2)'; ctx.beginPath(); ctx.ellipse(1, 3, 10, 5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = d.kid ? '#f2d24a' : '#8a6a48'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 5.5, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-12, -3); ctx.lineTo(-11, 2); ctx.fill();
+    if (!d.kid) { ctx.fillStyle = '#6b4f35'; ctx.beginPath(); ctx.ellipse(-1, 0, 5, 3.5, 0, 0, 7); ctx.fill(); }
+    ctx.fillStyle = d.kid ? '#f2d24a' : '#2f7d4a'; ctx.beginPath(); ctx.arc(7, 0, 3.6, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f0903a'; ctx.beginPath(); ctx.moveTo(10, -1.5); ctx.lineTo(14, 0); ctx.lineTo(10, 1.5); ctx.fill();
+    ctx.restore();
+  }
+  for (const d of deadDucks) { // belly-up, then sinks out of sight
+    ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, 2.2 - d.t)); ctx.translate(d.x, d.y + Math.sin(now * 3) * .8); ctx.rotate(d.a + Math.sin(d.t * 8) * Math.max(0, .6 - d.t));
+    ctx.fillStyle = '#d9cbb0'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 5.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f0903a'; ctx.fillRect(-4, -7, 2, 4); ctx.fillRect(1, -7, 2, 4);
+    ctx.fillStyle = '#2f7d4a'; ctx.beginPath(); ctx.arc(7, 0, 3.6, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, -1.5); ctx.lineTo(8.5, 1); ctx.moveTo(8.5, -1.5); ctx.lineTo(6, 1); ctx.stroke();
+    ctx.restore();
+  }
+  for (const r of ripples) { ctx.strokeStyle = `rgba(255,255,255,${r.life * .6})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * .45, 0, 0, 7); ctx.stroke(); }
+
+  // aim preview
+  if (state === 'charging') {
+    const t = castTarget(power), ok = isWater(t.x, t.y);
+    ctx.setLineDash([4, 6]); ctx.strokeStyle = ok ? 'rgba(255,255,255,.6)' : 'rgba(255,90,70,.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(P.x, P.y - 10); ctx.lineTo(t.x, t.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.ellipse(t.x, t.y, 9, 4, 0, 0, 7); ctx.stroke();
+  }
+
+  // y-sorted entities
+  const ents = [];
+  for (const t of trees) if (t.x > camX - 60 && t.x < camX + vwW + 60 && t.y > camY - 20 && t.y < camY + vhW + 90) ents.push({ y: t.y, d: () => drawTree(t) });
+  ents.push({ y: P.y, d: drawPlayer });
+  for (const d of deer) ents.push({ y: d.y, d: () => {
+    ell(d.x, d.y, 16, 5, 'rgba(0,0,0,.22)');
+    ctx.save(); ctx.translate(d.x, d.y); drawDeerShape(ctx, d, Math.cos(d.a) < 0); ctx.restore();
+  } });
+  for (const d of deadDeer) ents.push({ y: d.y, d: () => {
+    ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, 3 - d.t)); ctx.translate(d.x, d.y - 4); if (d.flip) ctx.scale(-1, 1);
+    ctx.rotate(Math.min(1, d.t * 5) * Math.PI / 2 * .95); // topples over
+    drawDeerShape(ctx, { buck: d.buck, mode: 'walk', anim: 0 }, false);
+    ctx.restore();
+  } });
+  ents.push({ y: FIRE.y, d: drawFire });
+  ents.push({ y: LIGHTHOUSE.y, d: drawLighthouse });
+  if (S.gear.boat && !P.inBoat) ents.push({ y: S.boatPos.y, d: () => drawBoat(S.boatPos.x, S.boatPos.y, S.boatPos.a, S.gear.boat, false) });
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.d());
+
+  for (const s of smoke) { ctx.fillStyle = `rgba(200,200,200,${Math.min(.4, s.life * .15)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
+  if (darkness() < .25) for (const b of butterflies) {
+    const f = Math.abs(Math.sin(now * 18 + b.p)) * 4 + 1;
+    ctx.fillStyle = b.c;
+    ctx.beginPath(); ctx.ellipse(b.x - f / 2 - 1, b.y - 14, f / 2 + .5, 3, 0, 0, 7); ctx.ellipse(b.x + f / 2 + 1, b.y - 14, f / 2 + .5, 3, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.fillRect(b.x - 1, b.y, 2, 1);
+  }
+  for (const c of clouds) { // soft drifting cloud shadows
+    ctx.fillStyle = 'rgba(20,30,40,.06)';
+    for (const [dx, dy, r] of [[0, 0, 90], [70, 10, 70], [-60, 15, 65], [20, -30, 60]]) { ctx.beginPath(); ctx.ellipse(c.x + dx * c.s, c.y + dy * c.s, r * c.s, r * c.s * .6, 0, 0, 7); ctx.fill(); }
+  }
+
+  drawLine();
+  for (const f of feathers) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, f.life); ctx.translate(f.x, f.y); ctx.rotate(f.r);
+    ctx.fillStyle = f.c; ctx.beginPath(); ctx.ellipse(0, 0, 3.5, 1.5, 0, 0, 7); ctx.fill(); ctx.restore();
+  }
+  if (shotFx) {
+    ctx.strokeStyle = `rgba(255,240,180,${shotFx.t * 6})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(P.x + P.fx * 30, P.y - 16 + P.fy * 30); ctx.lineTo(shotFx.x, shotFx.y); ctx.stroke();
+  }
+  if (gunOut) { // crosshair, clamped to the gun's range
+    const g = G('gun'), ox = P.x, oy = P.y - 16, dx = mouse.x - ox, dy = mouse.y - oy, dist = Math.max(1, Math.hypot(dx, dy));
+    const k = Math.min(1, g.range / dist), cx = ox + dx * k, cy = oy + dy * k, inRange = k === 1;
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.setLineDash([3, 7]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ox, oy, g.range, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    const col = reloadT > 0 ? 'rgba(255,255,255,.4)' : inRange ? '#fff' : '#ff8a70';
+    ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, g.spread, 0, 7); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, g.spread, 0, 7);
+    ctx.moveTo(cx - g.spread - 6, cy); ctx.lineTo(cx - 4, cy); ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + g.spread + 6, cy);
+    ctx.moveTo(cx, cy - g.spread - 6); ctx.lineTo(cx, cy - 4); ctx.moveTo(cx, cy + 4); ctx.lineTo(cx, cy + g.spread + 6); ctx.stroke();
+    if (reloadT > 0) { ctx.strokeStyle = '#ffd34a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, g.spread + 5, -Math.PI / 2, -Math.PI / 2 + 6.283 * (1 - reloadT / g.reload)); ctx.stroke(); }
+  }
+  for (const p of particles) { ctx.fillStyle = 'rgba(220,240,255,.85)'; ctx.fillRect(p.x - 1.5, p.y + p.z - 1.5, 3, 3); }
+
+  // power meter
+  if (state === 'charging') {
+    const x = P.x - 25, y = P.y + 10;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - 2, y - 2, 54, 10);
+    ctx.fillStyle = `hsl(${120 - power * 120},80%,50%)`; ctx.fillRect(x, y, 50 * power, 6);
+  }
+
+  // night overlay
+  const dk = darkness();
+  if (dk > 0) {
+    const sx = (P.x - camX) * z, sy = (P.y - 20 - camY) * z;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const g = ctx.createRadialGradient(sx, sy, 30 * z, sx, sy, 260 * z);
+    g.addColorStop(0, `rgba(12,18,48,${dk * .25})`); g.addColorStop(1, `rgba(12,18,48,${dk})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+    const h = hour();
+    if (h > 17 && h < 20.5) { ctx.fillStyle = `rgba(255,120,40,${Math.sin((h - 17) / 3.5 * Math.PI) * .12})`; ctx.fillRect(0, 0, cv.width, cv.height); }
+    if (dk > .3) { // fireflies
+      for (let i = 0; i < 30; i++) {
+        const fx = ((i * 397 + Math.sin(now * .3 + i) * 60) % W), fy = ((i * 251 + Math.cos(now * .4 + i * 2) * 50) % H);
+        if (lakeVal(fx, fy) > -0.05) continue;
+        const a = Math.max(0, Math.sin(now * 2 + i * 1.7)) * (dk - .3) * 2.5;
+        ctx.fillStyle = `rgba(230,255,120,${a})`; ctx.beginPath(); ctx.arc((fx - camX) * z, (fy - camY) * z, 2 * z, 0, 7); ctx.fill();
+      }
+    }
+    // warm lights glowing through the dark
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = (wx, wy, r, rgb, a) => {
+      const gx = (wx - camX) * z, gy = (wy - camY) * z;
+      const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r * z);
+      gg.addColorStop(0, `rgba(${rgb},${a * dk})`); gg.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = gg; ctx.fillRect(gx - r * z, gy - r * z, r * 2 * z, r * 2 * z);
+    };
+    glow(FIRE.x, FIRE.y - 8, 110 + Math.sin(now * 11) * 6, '255,140,40', .9);
+    [[CABIN.x + 27, CABIN.y + 67], [CABIN.x + CABIN.w - 27, CABIN.y + 67], [SHOP.x + 28, SHOP.y + 74], [SHOP.x + SHOP.w - 28, SHOP.y + 74]].forEach(([wx, wy]) => glow(wx, wy, 45, '255,200,90', .8));
+    glow(LIGHTHOUSE.x, LIGHTHOUSE.y - 61, 50, '255,245,170', 1.2);
+    // sweeping lighthouse beam
+    const lx = (LIGHTHOUSE.x - camX) * z, ly = (LIGHTHOUSE.y - 61 - camY) * z, ba = now * .8;
+    const bg2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, 380 * z);
+    bg2.addColorStop(0, `rgba(255,245,170,${.35 * dk})`); bg2.addColorStop(1, 'rgba(255,245,170,0)');
+    ctx.fillStyle = bg2; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.arc(lx, ly, 380 * z, ba - .12, ba + .12); ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setTransform(z, 0, 0, z, -camX * z, -camY * z);
+  }
+
+  // world text
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of floaters) {
+    ctx.globalAlpha = Math.min(1, f.life); ctx.font = 'bold 18px system-ui';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y); ctx.globalAlpha = 1;
+  }
+  const prompt = (px, py) => {
+    const y = py + Math.sin(now * 4) * 3;
+    ctx.fillStyle = 'rgba(246,236,212,.95)'; ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(px - 16, y - 13, 32, 26, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2b1d10'; ctx.font = 'bold 15px system-ui'; ctx.fillText('E', px, y + 1);
+  };
+  if (state === 'idle' && nearShop()) prompt(SHOP_DOOR.x, SHOP_DOOR.y - 70);
+  else if (state === 'idle' && nearBoat()) prompt(S.boatPos.x, S.boatPos.y - 34);
+  else if (canLand) { // show where you'll step out
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(canLand.x, canLand.y, 8, 4, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    prompt(P.x, P.y - 62);
+  }
+}
+
+// ===================== PANEL (shop + journal) =====================
+let tab = 'sell';
+function openPanel(t) {
+  tab = t; panelOpen = true; $('panel').style.display = 'flex';
+  for (const k in keys) keys[k] = false;
+  renderPanel();
+}
+function closePanel() { panelOpen = false; $('panel').style.display = 'none'; save(); }
+$('pclose').onclick = closePanel;
+$('panel').addEventListener('mousedown', e => { if (e.target.id === 'panel') closePanel(); });
+
+function renderPanel() {
+  const atShop = nearShop();
+  if (!atShop && tab !== 'journal') tab = 'journal';
+  $('ptitle').textContent = tab === 'journal' ? '📖 Fish Journal' : '🎣 Bait & Tackle';
+  $('pmoney').textContent = money(S.money);
+  const tabs = [['sell', `Sell Fish (${S.cooler.length})`], ['rod', 'Rods'], ['reel', 'Reels'], ['line', 'Lines'], ['bait', 'Bait'], ['cooler', 'Coolers'], ['boat', '⛵ Boats'], ['gun', '🔫 Guns'], ['journal', 'Journal']];
+  $('tabs').innerHTML = tabs.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}" ${!atShop && k !== 'journal' ? 'disabled' : ''}>${l}</button>`).join('');
+  $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { tab = b.dataset.t; renderPanel(); });
+  const body = $('pbody');
+
+  if (tab === 'sell') {
+    if (!S.cooler.length) { body.innerHTML = '<p class="note">Your cooler is empty. Go catch some fish!</p>'; return; }
+    const total = S.cooler.reduce((a, c) => a + c.v, 0);
+    body.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span class="note" style="margin:0">The shopkeeper eyes your catch...</span><button class="btn green" id="sellAll">Sell all for ${money(total)}</button></div>` +
+      S.cooler.map((c, i) => `<div class="item"><img src="${fishIcon(c.id)}"><div class="info"><div class="nm">${FISH_BY_ID[c.id].name}</div><div class="ds">${fmtW(c.w)}</div></div><button class="btn" data-i="${i}">Sell ${money(c.v)}</button></div>`).join('');
+    $('sellAll').onclick = () => { sell(S.cooler.map((_, i) => i)); };
+    body.querySelectorAll('[data-i]').forEach(b => b.onclick = () => sell([+b.dataset.i]));
+    return;
+  }
+
+  if (tab === 'journal') {
+    const caught = FISH.filter(f => S.journal[f.id]).length;
+    body.innerHTML = `<p class="note">Species discovered: <b>${caught}/${FISH.length}</b> · Lifetime earnings: <b>${money(S.earned)}</b>${atShop ? '' : ' · <i>Visit the shop to buy & sell.</i>'}</p><div class="grid">` +
+      FISH.map(f => {
+        const j = S.journal[f.id];
+        if (j) return `<div class="card"><img src="${fishIcon(f.id)}"><div class="nm">${f.name}</div><div>Caught: ${j.n} · Best: ${fmtW(j.best)}</div><div>Value: ~${money(f.base * FISH_PRICE_MULT)}${f.night ? ' · 🌙' : ''}</div></div>`;
+        const hints = [];
+        if (f.game) hints.push('Hunted with a gun (buy one at the shop)');
+        if (f.luck > 0) hints.push(`Bait: ${GEAR.bait.items[f.luck].name}+`);
+        if (f.creek) hints.push('Lives in the creek');
+        if (f.treasure) hints.push('Something shiny, deep down');
+        if (f.depth >= 0.3) hints.push(f.depth >= 0.7 ? 'Very deep water' : 'Deep water');
+        if (f.night) hints.push('Bites at night');
+        return `<div class="card unk"><img src="${fishIcon(f.id)}"><div class="nm">???</div><div>${hints.join(' · ') || 'Common near shore'}</div></div>`;
+      }).join('') + `</div><p style="margin-top:14px;text-align:right"><button class="btn" id="resetBtn" style="background:#8b3a2e">Start a new game</button></p>`;
+    $('resetBtn').onclick = () => { if (confirm('Erase all progress and start over?')) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); } };
+    return;
+  }
+
+  // gear tabs
+  const cat = GEAR[tab], lvl = S.gear[tab];
+  body.innerHTML = cat.items.map((it, i) => {
+    let stat = '';
+    if (tab === 'rod') stat = `Cast distance ${it.cast} · Strength ×${it.str}`;
+    if (tab === 'reel') stat = `Reel speed ×${it.mult}`;
+    if (tab === 'line') stat = `Line strength ×${it.mult}`;
+    if (tab === 'bait') { const nf = FISH.filter(f => f.luck === it.luck && !f.junk).map(f => S.journal[f.id] ? f.name : '???'); stat = `Bites ×${it.speed} faster` + (i ? ` · Attracts: ${nf.join(', ')}` : ''); }
+    if (tab === 'cooler') stat = `Holds ${it.cap} fish`;
+    if (tab === 'gun') stat = i ? `Range ${it.range} · Reload ${it.reload}s · Press G to draw it` : 'Can’t hunt ducks';
+    if (tab === 'boat') stat = i ? `Speed ${it.speed} · Waits for you at the end of the dock` : 'Fish from the shore and the dock';
+    const btn = i < lvl ? '<span class="tag">Owned</span>' : i === lvl ? '<span class="tag">✔ Equipped</span>'
+      : `<button class="btn" data-b="${i}" ${S.money < it.price ? 'disabled' : ''}>Buy ${money(it.price)}</button>`;
+    return `<div class="item ${i <= lvl ? 'owned' : ''}"><div class="info"><div class="nm">${it.name}</div><div class="ds">${it.desc}</div><div class="ds"><b>${stat}</b></div></div>${btn}</div>`;
+  }).join('');
+  body.querySelectorAll('[data-b]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.b, it = cat.items[i];
+    if (S.money < it.price) return;
+    S.money -= it.price; S.gear[tab] = i; save(); sfx.cash();
+    toast(tab === 'boat' ? `Bought a ${it.name}! It’s waiting for you at the end of the dock.` : `Bought ${it.name}!`, 3000);
+    renderPanel(); updateHud();
+  });
+}
+function sell(idxs) {
+  let total = 0;
+  const keep = S.cooler.filter((c, i) => { if (idxs.includes(i)) { total += c.v; return false; } return true; });
+  S.cooler = keep; S.money += total; S.earned += total; save(); sfx.cash();
+  toast(`Sold for ${money(total)}!`); renderPanel(); updateHud();
+}
+
+// ===================== LOOP =====================
+let last = performance.now(), saveTimer = 0;
+function loop(t) {
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  update(dt); render(); updateHud(); setHint();
+  if ((saveTimer += dt) > 5) { saveTimer = 0; save(); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
