@@ -165,18 +165,18 @@ if(!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.proto
 const FONT = "'Nunito', system-ui, sans-serif";
 
 // ---------- World ----------
-const WW = 4800, WH = 3600;   // big open map
-const LAKE = {x:2400, y:2050, rx:1150, ry:820};
-const SHOP = {x:2400, y:900, w:170, h:110};
-const CABIN = {x:1650, y:900, w:150, h:100};
-const START = {x:2400, y:1040}; // where you stand when you arrive at a lake
+const WW = 6400, WH = 4800;   // huge open map
+const LAKE = {x:3200, y:2650, rx:1322, ry:943};
+const SHOP = {x:3200, y:1380, w:170, h:110};
+const CABIN = {x:2450, y:1380, w:150, h:100};
+const START = {x:3200, y:1520}; // where you stand when you arrive at a lake
 const TRAIL = {rx:LAKE.rx+100, ry:LAKE.ry+95}; // rough size only; the real trail follows the wavy shore
 const TRAIL_OFF = 105;          // how far the trail runs from the shore
 const DOCKS = [{x:0,y:0,w:48,h:175},{x:0,y:0,w:175,h:48},{x:0,y:0,w:175,h:48}];
 const BOAT_HOME = {x:0, y:0};
-const HOME_SHAPE = {y:2050, rx:1150, ry:820};
+const HOME_SHAPE = {y:2650, rx:1322, ry:943};
 // GEO = this map's water: a wavy lake shore, islands, rivers & creeks, a secret pond, brush piles, deep holes, bridges, treasure spots
-let GEO = {harm:[], islands:[], rivers:[], ponds:[], brush:[], holes:[], bridges:[], treasures:[], bottles:[], pads:[], wreck:null};
+let GEO = {harm:[], islands:[], rivers:[], ponds:[], brush:[], holes:[], bridges:[], treasures:[], bottles:[], pads:[], fields:[], blinds:[], wreck:null};
 const ANCHORS = [-Math.PI/2, Math.PI/2, 0, Math.PI]; // the shore stays smooth here (shop path and docks)
 function wrapA(a){ a=(a+Math.PI)%(Math.PI*2); if(a<0) a+=Math.PI*2; return a-Math.PI; }
 function shoreF(a){ let f=0; for(const h of GEO.harm) f+=h.a*Math.sin(h.k*a+h.p);
@@ -275,6 +275,7 @@ function genGeo(){
   if(G.holes[0]) tSpot(G.holes[0].x, G.holes[0].y, 'sunken', true);
   // messages in bottles floating on the lake (they give clues)
   for(let n=0,tries=0;n<2&&tries<200;tries++){ const a=r()*6.283, p=shorePt(a,.35+r()*.4); if(onIsland(p.x,p.y,60)) continue; G.bottles.push({x:p.x,y:p.y,k:n}); n++; }
+  genFields(G, r);
 }
 function applyShape(sh){
   sh = sh || HOME_SHAPE;
@@ -282,9 +283,10 @@ function applyShape(sh){
   TRAIL.rx=LAKE.rx+100; TRAIL.ry=LAKE.ry+95;
   GEO.harm = []; // docks are placed on the smooth anchor points, so they don't depend on the waves
   const b=shorePt(Math.PI/2), l=shorePt(Math.PI), rr=shorePt(0);
-  DOCKS[0]={x:b.x-24, y:b.y-150, w:48, h:175};
-  DOCKS[1]={x:l.x-20, y:l.y-24, w:175, h:48};
-  DOCKS[2]={x:rr.x-155, y:rr.y-24, w:175, h:48};
+  const ey=LAKE.ry*.035+38, ex=LAKE.rx*.035+38; // docks reach far enough onto the sand to walk on
+  DOCKS[0]={x:b.x-24, y:b.y-150, w:48, h:150+ey};
+  DOCKS[1]={x:l.x-ex, y:l.y-24, w:155+ex, h:48};
+  DOCKS[2]={x:rr.x-155, y:rr.y-24, w:155+ex, h:48};
   BOAT_HOME.x=b.x; BOAT_HOME.y=b.y-185;
   if(typeof LK!=='undefined') genGeo();
 }
@@ -456,7 +458,7 @@ const BEAST = {
 // Each lake: price, animals [kind, max by day, max at night], duck & deer looks, weather type, and colors (T)
 const LAKES = [
   {id:'home', n:'Home Lake', p:0, d:'Where it all started', precip:'rain', freezes:true,
-   shape:{y:2050, rx:1150, ry:820}, geo:{islands:1, river:true, creek:true, pond:true, wild:1},
+   shape:{y:2650, rx:1322, ry:943}, geo:{islands:1, river:true, creek:true, pond:true, wild:1},
    beasts:[['wolf',1,3],['boar',2,2],['bear',1,1]],
    duck:{n:'Duck', body:'#7d5e40', wing:'#5d4430', head:'#1f7a34', beak:'#ffb300'},
    deer:{n:'Deer', bn:'Big Buck', col:'#b07440', buck:'#8f5a2c'},
@@ -464,7 +466,7 @@ const LAKES = [
       trail:['#b8955a','#cfae72','#e0c48a'], sand:['#e8d59c','#dcc488'], water:['#123f75','#1d5a99','#2f7fc4','#56b2e6'],
       pad:'#3f9a46', padFlower:'#ffb3d1', rock:'#9a9a92', shimmer:'#fff', trees:'mix'}},
   {id:'frozen', n:'Frozen Lake', p:2500, d:'Ice Fish, Narwhals & the Yeti Fish', precip:'snow', freezes:true,
-   shape:{y:2060, rx:1080, ry:790}, geo:{islands:2, river:true, creek:true, pond:true, wild:.9},
+   shape:{y:2660, rx:1242, ry:908}, geo:{islands:2, river:true, creek:true, pond:true, wild:.9},
    beasts:[['wolf',2,4],['polar',1,1]],
    duck:{n:'Snow Duck', body:'#eef2f6', wing:'#c8d2dc', head:'#3a4a5a', beak:'#ff9a30'},
    deer:{n:'Caribou', bn:'Big Caribou', col:'#c8b49a', buck:'#9a8468'},
@@ -472,7 +474,7 @@ const LAKES = [
       trail:['#aab6c4','#c8d2dc','#e2e8ee'], sand:['#d8e2ec','#c6d4e2'], water:['#2a6a9a','#4a8fc0','#7ab8e0','#bfe6f8'],
       pad:'#e4f4fc', padFlower:'#ffffff', rock:'#8a96a2', shimmer:'#fff', trees:'snowpine'}},
   {id:'swamp', n:'Spooky Swamp', p:6000, d:'Alligators & the Swamp Monster', precip:'rain', freezes:true,
-   shape:{y:2080, rx:1260, ry:860}, geo:{islands:3, river:true, creek:true, pond:true, wild:1.5},
+   shape:{y:2680, rx:1449, ry:989}, geo:{islands:3, river:true, creek:true, pond:true, wild:1.5},
    beasts:[['gator',3,4],['boar',2,2]],
    duck:{n:'Swamp Duck', body:'#5a5a3a', wing:'#3a3a22', head:'#2a5a2a', beak:'#c9a030'},
    deer:{n:'Swamp Deer', bn:'Swamp Buck', col:'#7a5a3a', buck:'#5a4028'},
@@ -480,7 +482,7 @@ const LAKES = [
       trail:['#5a4a30','#6e5c3c','#7e6a48'], sand:['#6a6a44','#5a5a3a'], water:['#1a2e1a','#2a4428','#3a5a34','#5a7a4a'],
       pad:'#5a8a3a', padFlower:'#e0e06a', rock:'#5a5a50', shimmer:'#c9e06a', trees:'swamp'}},
   {id:'volcano', n:'Volcano Lake', p:15000, d:'A LAVA lake! Lava Eels & the Phoenix Fish', precip:'ash',
-   shape:{y:2050, rx:1020, ry:760}, geo:{islands:1, river:true, creek:false, pond:false, wild:1.2}, riverCol:['#ffb020','#ff5a10'],
+   shape:{y:2650, rx:1173, ry:874}, geo:{islands:1, river:true, creek:false, pond:false, wild:1.2}, riverCol:['#ffb020','#ff5a10'],
    beasts:[['firewolf',2,3],['lavaboar',2,2]],
    duck:{n:'Fire Duck', body:'#c0402a', wing:'#8a2a1a', head:'#2a1a1a', beak:'#ffcc33'},
    deer:{n:'Ash Deer', bn:'Ash Buck', col:'#6a5a52', buck:'#4a3c36'},
@@ -488,14 +490,14 @@ const LAKES = [
       trail:['#4a3c34','#5e4c42','#6e5a4e'], sand:['#2a2220','#1e1816'], water:['#ffe066','#ffa21f','#e2541a','#8a1e0e'],
       pad:'#2a2220', padFlower:'#ff7a2a', rock:'#1e1a18', shimmer:'#fff3a0', trees:'dead'}},
   {id:'ocean', n:'The Ocean', p:25000, d:'HUGE water! Sharks, the Blue Whale & the Kraken', precip:'rain',
-   shape:{y:2200, rx:1720, ry:1000}, waves:true, geo:{islands:2, river:false, creek:false, pond:false, wild:.75},
+   shape:{y:2800, rx:1978, ry:1150}, waves:true, geo:{islands:2, river:false, creek:false, pond:false, wild:.75},
    beasts:[['crab',3,4],['kingcrab',1,1]],
    duck:{n:'Seagull', body:'#f4f4f4', wing:'#9aa4ae', head:'#ffffff', beak:'#ffc42a'},
    deer:{n:'Beach Deer', bn:'Beach Buck', col:'#c49a6a', buck:'#9a7448'},
    T:{fill:'#e8d090', ground:'#f0dca0', tuft:['#e6d090','#f8e8b8'], flowers:['#ffffff','#ffc8d8','#ffe0a0'], path:'#d8bc80',
       trail:['#a0703f','#c08a50','#d8a868'], sand:['#e2c888','#cfb070'], water:['#06305e','#0a4f8e','#1486c8','#4ad0e0'],
       pad:'#2f8a6a', padFlower:'#ffc8d8', rock:'#a89a88', shimmer:'#fff', trees:'palm'}},
-  {id:'candy', n:'Candy Lake', p:40000, shape:{y:2050, rx:1120, ry:800}, geo:{islands:1, river:true, creek:false, pond:true, wild:1.1}, riverCol:['#a8683a','#6a3a1a'], d:'A soda lake! Gummy Fish & the Candy Whale', precip:'sprinkles',
+  {id:'candy', n:'Candy Lake', p:40000, shape:{y:2650, rx:1288, ry:920}, geo:{islands:1, river:true, creek:false, pond:true, wild:1.1}, riverCol:['#a8683a','#6a3a1a'], d:'A soda lake! Gummy Fish & the Candy Whale', precip:'sprinkles',
    beasts:[['gummy',1,2],['licorice',2,3]],
    duck:{n:'Rubber Duck', body:'#ffd23f', wing:'#f0b820', head:'#ffd23f', beak:'#ff7a2a'},
    deer:{n:'Candy Deer', bn:'Candy Buck', col:'#ff9ad5', buck:'#e060b0'},
@@ -516,6 +518,8 @@ try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) S = Object.as
 if((S.worldV||0)<3){ // the map changed: give back any traps that were set, and send the boat home
   for(const tr of S.placed||[]) if(!tr.sprung && S.traps) S.traps[tr.type]=(S.traps[tr.type]||0)+1;
   S.placed=[]; S.bx=-1; S.by=-1; S.worldV=3; }
+if(S.worldV<4){ for(const tr of S.placed||[]) if(!tr.sprung && S.traps) S.traps[tr.type]=(S.traps[tr.type]||0)+1;
+  S.placed=[]; S.bx=-1; S.by=-1; S.holes=[]; S.explored={}; S.worldV=4; } // the maps got bigger
 let LK = lakeById(S.lake);
 applyShape(LK.shape);
 function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} }
@@ -590,7 +594,7 @@ function srnd(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }
 let trees = [], shimmer = [];
 const spriteCache = new Map(); // painted trees & buildings, rebuilt for each lake
 const SMALL_DEVICE = matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
-const BGS = SMALL_DEVICE ? .6 : 1; // map picture scale
+const BGS = SMALL_DEVICE ? .55 : 1; // map picture scale (smaller on phones & tablets to save memory)
 const bg = document.createElement('canvas'); bg.width=Math.round(WW*BGS); bg.height=Math.round(WH*BGS);
 // ---------- Seasons & ice ----------
 const SEASONS=['spring','summer','fall','winter'], SEASON_ICON={spring:'🌸',summer:'☀️',fall:'🍂',winter:'❄️'}, SEASON_DAYS=2;
@@ -650,6 +654,7 @@ function drawMinimap(){
   // places
   const dot=(px,py,col,r=3)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x+px*k,y+py*k,r,0,7); ctx.fill(); };
   dot(SHOP.x,SHOP.y,'#e53935',4); dot(CABIN.x,CABIN.y,'#2e9a54',4);
+  for(const bl of GEO.blinds){ ctx.fillStyle='#d8b46a'; ctx.fillRect(x+bl.x*k-2,y+bl.y*k-2,4,4); }
   if(S.boat>0) dot(boat.x,boat.y,'#ffd54a',3);
   const found=(S.found||{})[LK.id]||[];
   GEO.treasures.forEach((tr,i)=>{ if(found.includes(i)) dot(tr.x,tr.y,'#8a6a2a',2.5); else if(S.tmap){ ctx.strokeStyle='#ffd23f'; ctx.lineWidth=2; const X=x+tr.x*k, Y=y+tr.y*k; ctx.beginPath(); ctx.moveTo(X-3,Y-3); ctx.lineTo(X+3,Y+3); ctx.moveTo(X+3,Y-3); ctx.lineTo(X-3,Y+3); ctx.stroke(); } });
@@ -665,7 +670,7 @@ function drawMinimap(){
 // draws the whole map for the current lake (LK)
 function riverStroke(b,R,w,col){ b.strokeStyle=col; b.lineWidth=w; b.lineCap='round'; b.lineJoin='round'; b.beginPath(); R.pts.forEach((q,i)=>i?b.lineTo(q[0],q[1]):b.moveTo(q[0],q[1])); b.stroke(); }
 function landFree(x,y,pad){ // true if this spot is plain land (not water, trail, buildings or rivers)
-  if(nearTrail(x,y,pad) || inBldg(x,y,pad+20)) return false;
+  if(nearTrail(x,y,pad) || inBldg(x,y,pad+20) || inField(x,y,pad*.5)) return false;
   for(const R of GEO.rivers) if(riverDist(R,x,y)<R.w/2+pad+30) return false;
   for(const p of GEO.ponds) if(blobVal(p,x,y,pad+40)<1) return false;
   return true;
@@ -675,12 +680,13 @@ function buildWorld(){
   seed = 4242 + LAKES.indexOf(LK)*977;
   trees = []; spriteCache.clear();
   const mkTree=(x,y)=>trees.push({x, y, r:28+Math.floor(srnd()*5)*4, k:(Math.floor(srnd()*8)+.5)/8});
-  for (let i=0; i<6000 && trees.length<470; i++){
+  for (let i=0; i<11000 && trees.length<840; i++){
     const x=40+srnd()*(WW-80), y=60+srnd()*(WH-100);
     if (!landFree(x,y,55)) continue;
     if (Math.abs(x-SHOP.x)<60 && y>SHOP.y && y<shopPathEnd()) continue;
     if (Math.abs(x-CABIN.x)<50 && y>CABIN.y && y<cabinPathEnd()) continue;
     if (GEO.ponds.some(p=>Math.hypot(x-p.x,y-p.y)<p.rx+260)) continue; // the pond's tree wall is added below
+    if (inField(x,y,70) || GEO.blinds.some(b=>Math.hypot(b.x-x,b.y-y)<95)) continue;
     if (trees.some(t=>Math.hypot(t.x-x,t.y-y)<80)) continue;
     mkTree(x,y);
   }
@@ -703,13 +709,14 @@ function buildWorld(){
     g.putImageData(img,0,0); b.save(); b.globalAlpha=alpha; b.globalCompositeOperation='soft-light'; b.imageSmoothingEnabled=true; b.imageSmoothingQuality='high'; b.drawImage(nc,0,0,WW,WH); b.restore(); };
   noiseLayer(140,.55); noiseLayer(46,.4); noiseLayer(14,.3);
   for(const t of trees){ const gg=b.createRadialGradient(t.x+t.r*.2,t.y,0,t.x+t.r*.2,t.y,t.r*1.6); gg.addColorStop(0,'rgba(0,0,0,.24)'); gg.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=gg; b.fillRect(t.x-t.r*2,t.y-t.r*2,t.r*4,t.r*4); }
-  for(let i=0;i<380;i++){ const x=srnd()*WW, y=srnd()*WH, r=60+srnd()*170, light=srnd()<.5;
+  for(let i=0;i<680;i++){ const x=srnd()*WW, y=srnd()*WH, r=60+srnd()*170, light=srnd()<.5;
     const gg=b.createRadialGradient(x,y,0,x,y,r); gg.addColorStop(0, light?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)'); gg.addColorStop(1,'rgba(0,0,0,0)');
     b.fillStyle=gg; b.fillRect(x-r,y-r,r*2,r*2); }
-  for(let i=0;i<55000;i++){ const x=srnd()*WW, y=srnd()*WH, h=5+srnd()*5, lean=(srnd()-.5)*3;
+  for(let i=0;i<(SMALL_DEVICE?70000:95000);i++){ const x=srnd()*WW, y=srnd()*WH, h=5+srnd()*5, lean=(srnd()-.5)*3;
     b.strokeStyle=srnd()<.5?T.tuft[0]:T.tuft[1]; b.lineWidth=1.6; b.beginPath(); b.moveTo(x,y); b.lineTo(x+lean,y-h); b.stroke(); }
-  for(let i=0;i<2000;i++){ const x=srnd()*WW, y=srnd()*WH; if(shoreDist(x,y)<60 || inLake(x,y,1.4)) continue;
+  for(let i=0;i<3500;i++){ const x=srnd()*WW, y=srnd()*WH; if(shoreDist(x,y)<60 || inLake(x,y,1.4)) continue;
     b.fillStyle=T.flowers[Math.floor(srnd()*T.flowers.length)]; b.beginPath(); b.arc(x,y,3,0,7); b.fill(); }
+  for(const f of GEO.fields) drawFieldBg(b,f);
   b.fillStyle=T.path; b.fillRect(SHOP.x-24, SHOP.y+40, 48, shopPathEnd()-SHOP.y-40);
   b.fillRect(CABIN.x-20, CABIN.y+40, 40, cabinPathEnd()-CABIN.y-40);
   // the trail follows the wavy shore all the way around
@@ -773,7 +780,7 @@ function buildWorld(){
     b.fillStyle=T.rock; b.beginPath(); b.ellipse(p.x,p.y,rx,ry,0,0,7); b.fill();
     b.fillStyle='rgba(255,255,255,.3)'; b.beginPath(); b.ellipse(p.x-rx*.3,p.y-ry*.4,rx*.45,ry*.35,0,0,7); b.fill(); }
   const okSpot=(x,y)=>landFree(x,y,40) && !trees.some(t=>Math.hypot(t.x-x,t.y-y)<45);
-  for(let i=0;i<2000;i++){ const x=40+srnd()*(WW-80), y=60+srnd()*(WH-100); if(!okSpot(x,y)) continue;
+  for(let i=0;i<3600;i++){ const x=40+srnd()*(WW-80), y=60+srnd()*(WH-100); if(!okSpot(x,y)) continue;
     const kind=srnd();
     if(kind<.55 && T.trees!=='dead' && T.trees!=='lolli'){ // bush
       const r=10+srnd()*9, dk=shade(T.ground,.62), md=shade(T.ground,.78), lt=shade(T.ground,.95);
@@ -790,7 +797,7 @@ function buildWorld(){
     }
   }
   grass = [];
-  for(let i=0;i<4000 && grass.length<1400;i++){ const x=30+srnd()*(WW-60), y=50+srnd()*(WH-80);
+  for(let i=0;i<7000 && grass.length<2500;i++){ const x=30+srnd()*(WW-60), y=50+srnd()*(WH-80);
     if(!landFree(x,y,30) || trees.some(t=>Math.hypot(t.x-x,t.y-y)<30)) continue;
     grass.push({x, y, n:4+Math.floor(srnd()*3), h:10+srnd()*9}); }
   buildMinimap();
@@ -1032,8 +1039,12 @@ function landSpot(minDist){
     return {x,y}; }
   return null;
 }
-function spawnDeer(){ const p=landSpot(550); if(!p) return; const buck=Math.random()<.2;
-  deer.push({x:p.x,y:p.y,vx:0,vy:0,t:0,hp:buck?8:4,max:buck?8:4,buck,scared:0,face:1,anim:0}); }
+function spawnDeer(){
+  let p=null, graze=null;
+  if(GEO.fields.length && Math.random()<.55){ const f=GEO.fields[Math.floor(Math.random()*GEO.fields.length)]; const q=fieldPt(f,(Math.random()-.5)*f.w*.8,(Math.random()-.5)*f.h*.8); // deer love to graze in fields
+    if(Math.hypot(q.x-P.x,q.y-P.y)>450 && !treeAt(q.x,q.y)){ p=q; graze=f; } }
+  if(!p) p=landSpot(550); if(!p) return; const buck=Math.random()<.2;
+  deer.push({x:p.x,y:p.y,vx:0,vy:0,t:0,hp:buck?8:4,max:buck?8:4,buck,scared:0,face:1,anim:0,graze}); }
 function spawnBeast(kind){ const p=landSpot(650); if(!p) return; const b=BEAST[kind];
   beasts.push({kind,x:p.x,y:p.y,vx:0,vy:0,t:0,hp:b.hp,max:b.hp,scared:0,cool:0,face:1,anim:0,chasing:false}); }
 function spawnOwl(){ const p=landSpot(400); if(!p) return; const a=Math.random()*6.28;
@@ -1070,7 +1081,7 @@ function makeNPCs(){
     if(inLake(x,y,1.02) || GEO.rivers.some(R=>riverDist(R,x,y)<R.w/2+40) || GEO.bridges.some(b=>Math.hypot(b.x-x,b.y-y)<120)) continue;
     spots.push({x,y, a:Math.atan2(LAKE.y-y, LAKE.x-x)});
   }
-  const d1=DOCKS[1]; spots.push({x:d1.x+28, y:d1.y+d1.h/2, dock:true, a:0});
+  const d1=DOCKS[1]; spots.push({x:d1.x+d1.w-20, y:d1.y+d1.h/2, dock:true, a:0}); // fishing off the end of the dock
   for(const R of GEO.rivers) for(const f of [.25,.5]){ const i=Math.floor(R.pts.length*f), q=R.pts[i], n=R.pts[i+1]; if(!q||!n) continue;
     const ta=Math.atan2(n[1]-q[1],n[0]-q[0]), nx=-Math.sin(ta), ny=Math.cos(ta), x=q[0]+nx*(R.w/2+26), y=q[1]+ny*(R.w/2+26);
     if(x>60&&x<WW-60&&y>60&&y<WH-60 && !inLake(x,y,1.02) && !GEO.bridges.some(b=>Math.hypot(b.x-x,b.y-y)<140)) spots.push({x,y,a:Math.atan2(-ny,-nx)}); }
@@ -1133,13 +1144,14 @@ function nearShop(){ return Math.hypot(P.x-SHOP.x, P.y-(SHOP.y+SHOP.h/2+20)) < 9
 function nearCabin(){ return Math.hypot(P.x-CABIN.x, P.y-(CABIN.y+CABIN.h/2+20)) < 90; }
 function nearBoat(){ return S.boat>0 && !P.inBoat && Math.hypot(P.x-boat.x,P.y-boat.y) < 90; }
 function bagCap(){ return BAGS[S.bag].c + (S.boat>0 ? (BOAT_UPS.storage[S.boatUp.storage].c||0) : 0); }
-function playerSafe(){ return P.inBoat || onDock(P.x,P.y) || nearBldg(P.x,P.y,230); }
+function playerSafe(){ return P.inBoat || !!P.blind || onDock(P.x,P.y) || nearBldg(P.x,P.y,230); }
 
 function blocked(x,y){
   if(x<15||y<20||x>WW-15||y>WH-10) return true;
   if(inLake(x,y,1.03) && !onDock(x,y) && !onBridge(x,y) && !onIce(x,y)) return true;
   for(const t of trees) if(Math.hypot(t.x-x,t.y-y) < t.r*.4+10) return true;
   for(const n of npcs) if(Math.hypot(n.x-x,n.y-y) < 13) return true;
+  for(const bl of GEO.blinds) if(Math.hypot(bl.x-x,bl.y-y) < (bl.kind==='stand'?16:28)) return true;
   if(inBldg(x,y,10) && y<(Math.abs(x-SHOP.x)<200?SHOP.y:CABIN.y)+55) return true;
   return false;
 }
@@ -1186,6 +1198,7 @@ function setTool(t){
 }
 function toggleBoat(){
   if(P.room) return;
+  if(P.blind){ toast(`Get out of the ${blindName(P.blind)} first (${touchMode?'tap 🏠':'press E'})`); return; }
   if(P.inBoat){
     // find the closest shore or dock in any direction
     let best=null;
@@ -1225,7 +1238,9 @@ function toggleBoat(){
 function splashAt(x,y){ SFX.splash(); burst(x,y,'#dff3ff',14,90); for(let i=0;i<3;i++) ripples.push({x:x+(Math.random()-.5)*30, y:y+(Math.random()-.5)*12, t:.6}); }
 function useKey(){
   if(P.room){ roomUse(); return; }
+  if(P.blind){ leaveBlind(); return; }
   const tk=nearTreasure(); if(tk>=0){ openTreasure(tk); return; }
+  const bl=nearBlind(); if(bl && !P.inBoat){ enterBlind(bl); return; }
   if(nearShop()) enterRoom('shop');
   else if(nearCabin()) enterRoom('cabin');
   else toast('Walk to the shop or your cabin first');
@@ -1460,8 +1475,9 @@ function hit(t, b){
   else if(t.kind==='deer'){ val=a.buck?200:75; name=a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++; }
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
   else { const s=BEAST[a.kind]; val=s.val; name=s.n; S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs'}[s.look]]++; }
+  if(P.blind){ val=Math.round(val*1.25); S.st.blindHunt=(S.st.blindHunt||0)+1; }
   S.money += val; S.st.earned += val; SFX.cash();
-  float(t.cx, t.cy-24, `+$${val} ${name}!`, '#7CFC00');
+  float(t.cx, t.cy-24, `+$${val} ${name}!${P.blind?' 🎯 blind bonus':''}`, '#7CFC00');
   burst(t.cx, t.cy, t.kind==='duck'||t.kind==='owl' ? '#f5f0e1' : '#8b5a2b', 16, 140);
   save();
 }
@@ -2330,7 +2346,7 @@ function updateExplore(dt){
     S.secrets[LK.id+'_pond']=true; S.money+=300; SFX.trophy(); float(P.x,P.y-60,'🤫 SECRET POND! +$300','#9af0ff');
     toast('🤫 You found a SECRET POND hidden in the woods! Rare fish live here...'); save(); }
   // exploring the map: every new area you visit counts
-  const cell=Math.floor(P.x/400)+Math.floor(P.y/400)*12, ex=(S.explored[LK.id]=S.explored[LK.id]||[]);
+  const cell=Math.floor(P.x/400)+Math.floor(P.y/400)*Math.ceil(WW/400), ex=(S.explored[LK.id]=S.explored[LK.id]||[]);
   if(!ex.includes(cell)){ ex.push(cell); if(exploredCount()===60 && !S.owned.hats.includes('explorer')){ S.owned.hats.push('explorer'); toast('🧭 You explored 60 places! You earned the EXPLORER HAT (wear it from your cabin wardrobe)'); } }
 }
 let noteText='';
@@ -2682,6 +2698,185 @@ function buyOrEquip(b){
   else if(kind==='shades'){ if(!pay(80)) return; S.owned.shades=true; S.look.shades=true; }
 }
 
+// ===================== Farm fields & hunting blinds =====================
+var FIELD_NAMES = {corn:'Corn Field', hay:'Hay Field', pumpkin:'Pumpkin Patch', sunflower:'Sunflower Field', pepper:'Hot Pepper Farm', dune:'Dune Grass', candycorn:'Candy Corn Field', lollipop:'Lollipop Garden'};
+function inField(x,y,pad=0){ for(const f of GEO.fields||[]){ const dx=x-f.x, dy=y-f.y, c=Math.cos(f.ang), s=Math.sin(f.ang), u=dx*c+dy*s, v=-dx*s+dy*c; if(Math.abs(u)<f.w/2+pad && Math.abs(v)<f.h/2+pad) return f; } return null; }
+function fieldPt(f,u,v){ const c=Math.cos(f.ang), s=Math.sin(f.ang); return {x:f.x+u*c-v*s, y:f.y+u*s+v*c}; }
+// called at the end of genGeo with its seeded random numbers
+function genFields(G, r){
+  G.fields=[]; G.blinds=[];
+  const FK={ home:['corn','hay','pumpkin','sunflower','corn','hay'], swamp:['corn','hay','pumpkin','corn'], frozen:['hay','corn','hay','corn'],
+    volcano:['pepper','hay','pepper'], ocean:['dune','dune','hay','dune'], candy:['candycorn','lollipop','candycorn','lollipop'] }, kinds=FK[LK.id]||FK.home;
+  const okLand=(x,y,m)=> x>m+40 && y>m+60 && x<WW-m-40 && y<WH-m-40 && shoreDist(x,y)>TRAIL_OFF+m+70
+    && !G.rivers.some(R=>riverDist(R,x,y)<R.w/2+m+50) && !G.ponds.some(p=>Math.hypot(p.x-x,p.y-y)<p.rx+m+340)
+    && Math.hypot(x-SHOP.x,y-SHOP.y)>m+280 && Math.hypot(x-CABIN.x,y-CABIN.y)>m+280 && !G.treasures.some(t=>Math.hypot(t.x-x,t.y-y)<m+70);
+  for(let n=0,tries=0; n<kinds.length && tries<900; tries++){
+    const w=440+r()*260, h=300+r()*180, x=300+r()*(WW-600), y=300+r()*(WH-600), ang=(r()-.5)*.5, m=Math.hypot(w,h)/2;
+    if(!okLand(x,y,m) || G.fields.some(f=>Math.hypot(f.x-x,f.y-y)<m+Math.hypot(f.w,f.h)/2+120)) continue;
+    const f={x,y,w,h,ang,kind:kinds[n], bales:[], rows:[]};
+    const la=Math.atan2(LAKE.y-y,LAKE.x-x)-ang; f.gate = Math.abs(Math.cos(la))>Math.abs(Math.sin(la)) ? (Math.cos(la)>0?'r':'l') : (Math.sin(la)>0?'b':'t');
+    if(f.kind==='hay') for(let k=0;k<6;k++) f.bales.push([(r()-.5)*(w-80),(r()-.5)*(h-80)]);
+    if(f.kind==='corn') f.scare=[(r()-.5)*w*.3,(r()-.5)*h*.3];
+    G.fields.push(f); n++;
+  }
+  // every field gets a deer stand or a ground blind on its edge, looking in
+  for(const f of G.fields){ const side=r()<.5?1:-1, v=(r()-.5)*f.h*.5, p=fieldPt(f, side*(f.w/2+6), v);
+    G.blinds.push({x:p.x, y:p.y, kind: f.kind==='corn'||f.kind==='candycorn'||r()<.45 ? 'stand' : 'ground', field:f, look:Math.atan2(f.y-p.y,f.x-p.x)}); }
+  // duck blinds on the shore, facing the water (with decoys floating in front)
+  const npcA=[.25,.7,1.1,2.0,2.45,2.85,3.55,3.95,4.35,5.15,5.55,5.95];
+  for(let n=0,tries=0; n<2 && tries<200; tries++){ const a=r()*6.283;
+    if(ANCHORS.some(an=>Math.abs(wrapA(a-an))<.4) || npcA.some(q=>Math.abs(wrapA(a-q))<.16)) continue;
+    const p=shorePt(a,1,38); if(G.rivers.some(R=>riverDist(R,p.x,p.y)<R.w/2+150) || G.blinds.some(b=>b.kind==='duck'&&Math.hypot(b.x-p.x,b.y-p.y)<1200)) continue;
+    const look=Math.atan2(LAKE.y-p.y,LAKE.x-p.x), dec=[];
+    for(let k=0;k<5;k++){ const d=110+(k%3)*40, s=(k-2)*38, x=p.x+Math.cos(look)*d-Math.sin(look)*s, y=p.y+Math.sin(look)*d+Math.cos(look)*s; if(lakeVal(x,y,.95)<1) dec.push({x,y,ph:k*1.3}); }
+    G.blinds.push({x:p.x, y:p.y, kind:'duck', look, decoys:dec}); n++; }
+}
+// paints a field onto the map picture (it changes with the seasons)
+function drawFieldBg(b, f){
+  const sn=(['ocean','volcano','candy'].includes(LK.id))?'summer':season(), snowy=(sn==='winter'&&LK.freezes)||LK.id==='frozen', K=f.kind, W=f.w, H=f.h;
+  b.save(); b.translate(f.x,f.y); b.rotate(f.ang);
+  const soil={dune:'#e6d29a', candycorn:'#b8784a', lollipop:'#f4c4dc', pepper:'#3a2a24'}[K] || (snowy?'#e4ebf2':'#7a5434');
+  b.fillStyle='rgba(0,0,0,.14)'; b.fillRect(-W/2-10,-H/2-8,W+20,H+18);
+  b.fillStyle=soil; b.fillRect(-W/2,-H/2,W,H);
+  const gap=K==='hay'?20:K==='pumpkin'?42:K==='dune'?34:26, step=K==='pumpkin'?36:K==='sunflower'?22:K==='hay'?13:K==='lollipop'?30:K==='corn'?10:14;
+  const green=sn==='spring'?'#7ac850':'#3f8a34', gold=sn==='fall'?'#c8a040':'#d8c060';
+  for(let y=-H/2+gap/2; y<H/2-4; y+=gap){
+    if(K!=='dune'){ b.fillStyle=shade(soil,.78); b.fillRect(-W/2+6,y-3,W-12,6); }
+    for(let x=-W/2+14; x<W/2-10; x+=step){ const j=srnd(), px=x+(j-.5)*5, py=y+(srnd()-.5)*3;
+      if(snowy && !['dune','pepper','candycorn','lollipop'].includes(K)){ b.strokeStyle='#8a6a42'; b.lineWidth=1.5; b.beginPath(); b.moveTo(px,py); b.lineTo(px+1,py-4); b.stroke(); continue; } // winter stubble
+      if(K==='corn'){ if(sn==='spring'){ b.fillStyle=green; b.fillRect(px-1,py-5,2,5); continue; }
+        const c=sn==='fall'?'#c8a24a':'#3f8a34', h=26+j*8; b.strokeStyle=shade(c,.75); b.lineWidth=3; b.beginPath(); b.moveTo(px,py); b.lineTo(px,py-h); b.stroke();
+        b.strokeStyle=c; b.lineWidth=2.6; for(const [sd,k] of [[-1,.35],[1,.5],[-1,.65],[1,.8]]){ b.beginPath(); b.moveTo(px,py-h*k); b.quadraticCurveTo(px+sd*9,py-h*(k+.2),px+sd*12,py-h*(k-.08)); b.stroke(); }
+        b.fillStyle='#e8c860'; b.fillRect(px-1.5,py-h-4,3,5); if(sn!=='fall' && j<.4){ b.fillStyle='#e8d070'; b.beginPath(); b.ellipse(px+3,py-h*.45,2,4,.3,0,7); b.fill(); } }
+      else if(K==='hay'){ b.strokeStyle=sn==='spring'?green:gold; b.lineWidth=1.4; b.beginPath(); b.moveTo(px,py); b.lineTo(px-1,py-8-j*3); b.moveTo(px+3,py); b.lineTo(px+4,py-7-j*3); b.stroke(); }
+      else if(K==='pumpkin'){ b.strokeStyle='#3f7a2a'; b.lineWidth=2; b.beginPath(); b.moveTo(px-14,py); b.quadraticCurveTo(px,py-6,px+14,py+1); b.stroke();
+        if(sn==='fall'||(sn==='summer'&&j<.5)){ const pr=sn==='fall'?7+j*4:4; b.fillStyle=sn==='fall'?'#e8761a':'#8aa040'; b.beginPath(); b.ellipse(px,py-pr*.6,pr*1.2,pr,0,0,7); b.fill(); b.strokeStyle='rgba(0,0,0,.25)'; b.lineWidth=1; b.beginPath(); b.moveTo(px,py-pr*1.5); b.lineTo(px,py); b.stroke(); b.fillStyle='#4a6a2a'; b.fillRect(px-1,py-pr*1.7,2,3); } }
+      else if(K==='sunflower'){ const h=sn==='spring'?6:22+j*6; b.strokeStyle='#4a8a34'; b.lineWidth=2.2; b.beginPath(); b.moveTo(px,py); b.lineTo(px,py-h); b.stroke();
+        if(sn!=='spring'){ b.fillStyle=sn==='fall'?'#a87a2a':'#ffd23f'; b.beginPath(); b.arc(px,py-h,6,0,7); b.fill(); b.fillStyle='#5a3a1a'; b.beginPath(); b.arc(px,py-h,2.6,0,7); b.fill(); } }
+      else if(K==='pepper'){ b.fillStyle='#2e5a24'; b.beginPath(); b.arc(px,py-4,6,0,7); b.fill(); b.fillStyle=j<.5?'#e8341a':'#ff9a1a'; b.beginPath(); b.ellipse(px+2,py-3,2,4,.4,0,7); b.fill(); }
+      else if(K==='dune'){ b.strokeStyle=j<.5?'#a8b870':'#c8d090'; b.lineWidth=1.4; for(let q=0;q<4;q++){ b.beginPath(); b.moveTo(px,py); b.lineTo(px+(q-1.5)*3,py-9-j*5); b.stroke(); } }
+      else if(K==='candycorn'){ b.fillStyle='#fff6e0'; b.beginPath(); b.moveTo(px,py-12); b.lineTo(px-4,py); b.lineTo(px+4,py); b.fill(); b.fillStyle='#ff9a1a'; b.fillRect(px-3,py-7,6,4); b.fillStyle='#ffd23f'; b.fillRect(px-4,py-3,8,3); }
+      else if(K==='lollipop'){ b.strokeStyle='#fff'; b.lineWidth=1.5; b.beginPath(); b.moveTo(px,py); b.lineTo(px,py-14); b.stroke(); b.fillStyle=['#ff4f9a','#5ad0ff','#ffe14d','#8aff8a'][Math.floor(j*4)]; b.beginPath(); b.arc(px,py-17,6,0,7); b.fill(); b.strokeStyle='rgba(255,255,255,.7)'; b.beginPath(); b.arc(px,py-17,3,0,5); b.stroke(); }
+    }
+  }
+  if(snowy){ b.fillStyle='rgba(255,255,255,.45)'; b.fillRect(-W/2,-H/2,W,H); }
+  // round hay bales
+  for(const [u,v] of f.bales){ b.fillStyle='rgba(0,0,0,.2)'; b.beginPath(); b.ellipse(u+4,v+4,17,9,0,0,7); b.fill();
+    b.fillStyle='#d8b450'; b.beginPath(); b.ellipse(u,v-6,16,13,0,0,7); b.fill(); b.strokeStyle='#a8842a'; b.lineWidth=1.5; b.beginPath(); b.arc(u,v-6,9,0,5.5); b.stroke(); b.beginPath(); b.arc(u,v-6,4,0,5); b.stroke();
+    if(snowy){ b.fillStyle='#fff'; b.beginPath(); b.ellipse(u,v-15,12,4,0,0,7); b.fill(); } }
+  // split-rail fence with a gate facing the lake
+  if(K!=='dune'){ const post=(x,y)=>{ b.fillStyle='#4a3018'; b.fillRect(x-3,y-3,6,6); };
+    const side=(x0,y0,x1,y1,gate)=>{ const L=Math.hypot(x1-x0,y1-y0), n=Math.max(2,Math.round(L/46));
+      for(let i=0;i<n;i++){ const t0=i/n, t1=(i+1)/n; if(gate && t0>=.4 && t1<=.6) continue;
+        const ax=x0+(x1-x0)*t0, ay=y0+(y1-y0)*t0, bx=x0+(x1-x0)*t1, by=y0+(y1-y0)*t1; b.strokeStyle='#8a6038'; b.lineWidth=3; b.beginPath(); b.moveTo(ax,ay); b.lineTo(bx,by); b.stroke(); post(ax,ay); post(bx,by); } };
+    const w=W/2+6, h=H/2+6; side(-w,-h,w,-h,f.gate==='t'); side(w,-h,w,h,f.gate==='r'); side(w,h,-w,h,f.gate==='b'); side(-w,h,-w,-h,f.gate==='l'); }
+  b.restore();
+}
+// the things in a field that stand up: scarecrow
+function drawScarecrow(f, t){
+  const p=fieldPt(f,f.scare[0],f.scare[1]), c=ctx, sway=Math.sin(t*1.5+f.x)*.05*(weather.wind*3+1);
+  c.save(); c.translate(p.x,p.y); c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(0,0,12,4,0,0,7); c.fill(); c.rotate(sway);
+  c.strokeStyle='#6a4422'; c.lineWidth=3; c.beginPath(); c.moveTo(0,0); c.lineTo(0,-46); c.moveTo(-18,-34); c.lineTo(18,-34); c.stroke();
+  c.fillStyle='#4a6ab0'; c.beginPath(); c.roundRect(-9,-38,18,20,3); c.fill(); c.fillStyle='#c94a2a'; c.fillRect(-18,-36,9,5); c.fillRect(9,-36,9,5);
+  c.fillStyle='#e8c860'; for(const sx of [-19,17]){ c.fillRect(sx,-36,3,8); } c.fillRect(-6,-19,4,6); c.fillRect(2,-19,4,6);
+  c.fillStyle=season()==='fall'?'#e8761a':'#f0e0b0'; c.beginPath(); c.arc(0,-46,7,0,7); c.fill(); c.fillStyle='#222'; c.fillRect(-4,-48,2,2); c.fillRect(2,-48,2,2);
+  c.fillStyle='#c8a050'; c.beginPath(); c.ellipse(0,-52,12,3.5,0,0,7); c.fill(); c.beginPath(); c.arc(0,-53,6,Math.PI,0); c.fill();
+  c.restore();
+}
+// blinds and deer stands (you can climb in with E)
+function drawBlind(bl, t, noPlayer){
+  const c=ctx, inside=P.blind===bl && !noPlayer;
+  c.save(); c.translate(bl.x,bl.y);
+  c.fillStyle='rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(4,2,bl.kind==='duck'?38:30,9,0,0,7); c.fill();
+  const camo=(x,y,w,h,base)=>{ c.fillStyle=base; c.fillRect(x,y,w,h); const cols=['#3a4a24','#6a5a34','#2a3418','#7a7a44'];
+    for(let i=0;i<14;i++){ c.fillStyle=cols[i%4]; c.beginPath(); c.ellipse(x+((i*37)%w),y+((i*23)%h),6,3.5,i,0,7); c.fill(); } };
+  if(bl.kind==='stand'){
+    const H=58;
+    c.strokeStyle='#5a4028'; c.lineWidth=3; c.beginPath(); c.moveTo(-14,0); c.lineTo(-10,-H); c.moveTo(14,0); c.lineTo(10,-H); c.stroke();
+    c.lineWidth=2; for(let y=-8;y>-H;y-=9){ c.beginPath(); c.moveTo(-13+(-y/H)*3,y); c.lineTo(13-(-y/H)*3,y); c.stroke(); }
+    c.fillStyle='#6a4a2a'; c.fillRect(-20,-H-4,40,8);
+    if(inside){ c.save(); c.translate(-bl.x,-bl.y-H); drawPlayer(t); c.restore(); }
+    camo(-20,-H-22,40,18,'#5a6a34'); c.strokeStyle='#3a2a18'; c.lineWidth=2; c.strokeRect(-20,-H-22,40,18);
+  } else if(bl.kind==='ground'){
+    c.fillStyle='#3a4424'; c.beginPath(); c.moveTo(-30,-40); c.lineTo(30,-40); c.lineTo(24,-50); c.lineTo(-24,-50); c.closePath(); c.fill(); // roof back
+    if(inside){ c.save(); c.translate(-bl.x,-bl.y-2); drawPlayer(t); c.restore(); }
+    camo(-30,-34,60,34,'#4a5a2c'); c.fillStyle='#1a1a10'; c.fillRect(-18,-30,36,6); // window slit
+    c.fillStyle='#4a5a2c'; c.beginPath(); c.moveTo(-32,-34); c.lineTo(32,-34); c.lineTo(28,-42); c.lineTo(-28,-42); c.closePath(); c.fill();
+  } else { // duck blind: a box covered in reeds
+    if(inside){ c.save(); c.translate(-bl.x,-bl.y); drawPlayer(t); c.restore(); }
+    c.fillStyle='#8a7444'; c.fillRect(-36,-26,72,26); c.strokeStyle='#5a4a24'; c.lineWidth=1.5; c.strokeRect(-36,-26,72,26);
+    for(let i=0;i<26;i++){ const x=-35+i*2.8, h=8+((i*7)%9), w=Math.sin(t*2+i)*1.5*(weather.wind+.3); c.strokeStyle=i%3?'#b8a060':'#9a8448'; c.lineWidth=1.6; c.beginPath(); c.moveTo(x,-20); c.lineTo(x+w,-26-h); c.stroke(); }
+  }
+  c.restore();
+}
+function drawDecoys(t){
+  for(const bl of GEO.blinds) if(bl.decoys) for(const d of bl.decoys){ if(iceOn()) break; const bob=Math.sin(t*2+d.ph)*1.2;
+    ctx.save(); ctx.translate(d.x,d.y+bob); ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(0,3,10,3,0,0,7); ctx.fill();
+    ctx.fillStyle=LK.duck.body; ctx.beginPath(); ctx.ellipse(0,0,10,5,0,0,7); ctx.fill(); ctx.fillStyle=LK.duck.head; ctx.beginPath(); ctx.arc(8,-4,3.5,0,7); ctx.fill(); ctx.fillStyle=LK.duck.beak; ctx.fillRect(11,-4,3,1.6); ctx.restore(); }
+}
+function nearBlind(){ let best=null, bd=62; for(const b of GEO.blinds||[]){ const d=Math.hypot(b.x-P.x,b.y-P.y); if(d<bd){ bd=d; best=b; } } return best; }
+function blindName(b){ return b.kind==='stand'?'deer stand':b.kind==='duck'?'duck blind':'ground blind'; }
+function enterBlind(b){
+  if(P.inBoat) return; P.blind=b; P.bx0=P.x; P.by0=P.y; P.x=b.x; P.y=b.y; P.fx=Math.cos(b.look); P.fy=Math.sin(b.look); fishing={state:'none'}; b.lureT=3;
+  if(FP.on){ FP.yaw=b.look; FP.pitch=b.kind==='stand'?-.25:-.08; }
+  tone(400,.08,'triangle',.08); tone(300,.1,'triangle',.08,.08);
+  toast(b.kind==='duck' ? `🦆 You're hiding in the duck blind! Ducks will fly in to the decoys. ${touchMode?'Tap 🏠':'Press E'} to get out`
+    : b.kind==='stand' ? `🦌 You climbed the deer stand! Deer can't see you up here. ${touchMode?'Tap 🏠':'Press E'} to climb down`
+    : `🦌 You're hiding in the ground blind! Deer can't see you. ${touchMode?'Tap 🏠':'Press E'} to get out`);
+  if(S.gun<0) toast('🔫 You need a gun to hunt. Buy one at the shop!'); else setTool('gun');
+}
+function leaveBlind(){
+  const b=P.blind; P.blind=null;
+  for(let k=0;k<16;k++){ const a=b.look+Math.PI+(k%2?1:-1)*Math.ceil(k/2)*.4, x=b.x+Math.cos(a)*58, y=b.y+Math.sin(a)*58; if(!blocked(x,y)){ P.x=x; P.y=y; return; } }
+  P.x=P.bx0; P.y=P.by0;
+}
+// while you hide, animals come to you
+function updateBlinds(dt){
+  const b=P.blind; if(!b) return;
+  b.lureT-=dt; if(b.lureT>0) return; b.lureT=7+Math.random()*6;
+  if(b.kind==='duck'){
+    if(isNight() || iceOn() || ducks.filter(d=>Math.hypot(d.x-b.x,d.y-b.y)<500).length>=6) return;
+    const goal=b.decoys[Math.floor(Math.random()*b.decoys.length)]||{x:b.x+Math.cos(b.look)*130,y:b.y+Math.sin(b.look)*130};
+    let added=0; for(let k=0;k<30 && added<3;k++){ const a=Math.random()*6.283, d=300+Math.random()*250, x=goal.x+Math.cos(a)*d, y=goal.y+Math.sin(a)*d;
+      if(inLake(x,y,.85)){ ducks.push({x,y,vx:0,vy:0,t:3,hp:1,scared:0,face:1,bob:Math.random()*6,goal:{x:goal.x+(Math.random()-.5)*60,y:goal.y+(Math.random()-.5)*40}}); added++; } }
+    if(added) float(b.x,b.y-60,'🦆 Ducks are flying in!','#bfe6ff');
+  } else {
+    const f=b.field; if(!f || deer.filter(d=>inField(d.x,d.y,60)===f).length>=3) return;
+    const sd=Math.cos(Math.atan2(b.y-f.y,b.x-f.x)-f.ang)>0?-1:1, p=fieldPt(f, sd*(f.w/2-30), (Math.random()-.5)*f.h*.7);
+    if(treeAt(p.x,p.y)) return; const buck=Math.random()<.3;
+    deer.push({x:p.x,y:p.y,vx:0,vy:0,t:0,hp:buck?8:4,max:buck?8:4,buck,scared:0,face:1,anim:0,graze:f});
+    float(b.x,b.y-80,buck?'🦌 A big buck walked into the field!':'🦌 A deer walked into the field...','#ffe9a0');
+  }
+}
+// 3D crops for first person
+function fpFields(sc, dmy){
+  const sn=(['ocean','volcano','candy'].includes(LK.id))?'summer':season(), snowy=(sn==='winter'&&LK.freezes)||LK.id==='frozen';
+  const tall=[], bales=[], balls=[];
+  for(const f of GEO.fields){ const K=f.kind, gap=K==='hay'?20:K==='pumpkin'?42:26, step=FP.lite?28:(K==='hay'?18:16);
+    for(const [u,v] of f.bales){ const p=fieldPt(f,u,v); bales.push([p.x,p.y,f.ang]); }
+    if(snowy && !['dune','pepper','candycorn','lollipop'].includes(K)) continue;
+    for(let v=-f.h/2+gap/2; v<f.h/2-4; v+=gap) for(let u=-f.w/2+14; u<f.w/2-10; u+=step){ const p=fieldPt(f,u+(Math.random()-.5)*5,v);
+      if(K==='pumpkin'){ if(sn==='fall') balls.push([p.x,p.y,6+Math.random()*4,'#e8761a']); continue; }
+      if(K==='lollipop'||K==='candycorn'){ balls.push([p.x,p.y,K==='lollipop'?6:4,K==='lollipop'?['#ff4f9a','#5ad0ff','#ffe14d','#8aff8a'][Math.floor(Math.random()*4)]:'#ff9a1a', K==='lollipop'?16:5]); continue; }
+      const h = K==='corn' ? (sn==='spring'?8:48+Math.random()*14) : K==='sunflower' ? (sn==='spring'?8:40+Math.random()*10) : K==='hay' ? (sn==='spring'?9:14+Math.random()*5) : K==='dune'?16:12;
+      const col = K==='corn' ? (sn==='fall'?'#c8a24a':'#3f8a34') : K==='hay' ? (sn==='spring'?'#7ac850':'#d8c060') : K==='dune' ? '#b8c47a' : K==='pepper' ? '#2e5a24' : '#4a8a34';
+      tall.push([p.x,p.y,h,col]);
+      if(K==='sunflower' && sn!=='spring') balls.push([p.x,p.y,5,sn==='fall'?'#a87a2a':'#ffd23f',h]);
+      if(K==='pepper') balls.push([p.x,p.y,2.2,'#e8341a',8]); } }
+  if(tall.length){ const g=new THREE.ConeGeometry(1,1,4,1,true); g.translate(0,.5,0);
+    const m=new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({side:THREE.DoubleSide}), tall.length);
+    tall.forEach((it,i)=>{ dmy.position.set(it[0],hillAt(it[0],it[1]),it[1]); dmy.rotation.set(0,Math.random()*6.28,(Math.random()-.5)*.15); dmy.scale.set(it[2]*.16+2,it[2],it[2]*.16+2); dmy.updateMatrix(); m.setMatrixAt(i,dmy.matrix); m.setColorAt(i,lin(it[3])); });
+    m.castShadow=true; m.receiveShadow=true; sc.add(m); }
+  if(bales.length){ const m=new THREE.InstancedMesh(new THREE.CylinderGeometry(14,14,22,14), new THREE.MeshLambertMaterial({color:lin('#d8b450')}), bales.length);
+    bales.forEach((it,i)=>{ dmy.position.set(it[0],hillAt(it[0],it[1])+13,it[1]); dmy.rotation.set(0,-it[2],Math.PI/2); dmy.scale.set(1,1,1); dmy.updateMatrix(); m.setMatrixAt(i,dmy.matrix); }); m.castShadow=true; sc.add(m); }
+  if(balls.length){ const m=new THREE.InstancedMesh(new THREE.SphereGeometry(1,10,8), new THREE.MeshLambertMaterial(), balls.length);
+    balls.forEach((it,i)=>{ dmy.position.set(it[0],hillAt(it[0],it[1])+(it[4]||it[2]*.8),it[1]); dmy.rotation.set(0,0,0); dmy.scale.set(it[2]*1.15,it[2],it[2]*1.15); dmy.updateMatrix(); m.setMatrixAt(i,dmy.matrix); m.setColorAt(i,lin(it[3])); }); m.castShadow=true; sc.add(m); }
+}
+MISSIONS.push(
+  {id:'blind1',  n:'Hunt from a blind or deer stand',  r:150,  e:'🎯', p:()=>[S.st.blindHunt||0,1]},
+  {id:'blind10', n:'Hunt 10 animals from blinds',       r:1200, e:'🦌', p:()=>[S.st.blindHunt||0,10]},
+);
+
 // ---------- Update ----------
 function update(dt){
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
@@ -2701,7 +2896,7 @@ function update(dt){
     const fwd = ((keys['w']||keys['arrowup'])?1:0) - ((keys['s']||keys['arrowdown'])?1:0) - joy.y;
     const turn = ((keys['d']||keys['arrowright'])?1:0) - ((keys['a']||keys['arrowleft'])?1:0) + joy.x*.85;
     if(fishing.state!=='fight') FP.yaw += turn*2.3*dt;
-    dx = Math.cos(FP.yaw)*fwd; dy = Math.sin(FP.yaw)*fwd;
+    dx = P.blind?0:Math.cos(FP.yaw)*fwd; dy = P.blind?0:Math.sin(FP.yaw)*fwd;
   } else {
     if(!P.room){
     if(keys['w']||keys['arrowup']) dy--;
@@ -2710,9 +2905,10 @@ function update(dt){
     if(keys['d']||keys['arrowright']) dx++; }
   }
   const len = Math.hypot(dx,dy);
+  if(P.blind && len>.15 && !FP.on){ P.fx=dx/len; P.fy=dy/len; }
   // while charging a cast, the arrows / joystick aim instead of walking
   if(fishing.state==='charge' && len>.15){ P.fx=dx/len; P.fy=dy/len; }
-  P.moving = len > .15 && fishing.state!=='charge' && fishing.state!=='fight' && !P.room;
+  P.moving = len > .15 && fishing.state!=='charge' && fishing.state!=='fight' && !P.room && !P.blind;
   if(P.moving){
     const k = Math.min(1,len); dx/=len; dy/=len; P.fx=dx; P.fy=dy;
     if(P.inBoat){
@@ -2780,7 +2976,8 @@ function update(dt){
     for(const d of ducks){
       d.t-=dt; d.scared-=dt; d.bob+=dt*4;
       const dist = Math.hypot(d.x-P.x,d.y-P.y);
-      if(dist<110 || d.scared>0){ const a=Math.atan2(d.y-P.y,d.x-P.x)+(Math.random()-.5)*.6; d.vx=Math.cos(a)*95; d.vy=Math.sin(a)*95; }
+      if((dist<110 && !P.blind) || d.scared>0){ const a=Math.atan2(d.y-P.y,d.x-P.x)+(Math.random()-.5)*.6; d.vx=Math.cos(a)*95; d.vy=Math.sin(a)*95; }
+      else if(d.goal){ const a=Math.atan2(d.goal.y-d.y,d.goal.x-d.x); d.vx=Math.cos(a)*75; d.vy=Math.sin(a)*75; if(Math.hypot(d.goal.x-d.x,d.goal.y-d.y)<35){ d.goal=null; d.vx=d.vy=0; d.t=3; } }
       else if(d.t<=0){ d.t=2+Math.random()*3; const a=Math.random()*6.28, s=Math.random()<.3?0:25; d.vx=Math.cos(a)*s; d.vy=Math.sin(a)*s; }
       const nx=d.x+d.vx*dt, ny=d.y+d.vy*dt;
       if(inLake(nx,ny,.92) && !onDock(nx,ny)){ d.x=nx; d.y=ny; }
@@ -2818,13 +3015,15 @@ function update(dt){
     if(checkTraps(d,'deer')){ d.anim+=dt*30; continue; }
     d.t-=dt; d.scared-=dt;
     const dist = Math.hypot(d.x-P.x,d.y-P.y);
-    if(dist<190 || d.scared>0){
+    if((dist<190 && !(P.blind && dist>30)) || d.scared>0){
       if(!d.fleeing || Math.random()<.02) d.fleeA=Math.atan2(d.y-P.y,d.x-P.x)+(Math.random()-.5)*.8;
       steerTo(d, Math.cos(d.fleeA)*200, Math.sin(d.fleeA)*200, 5);
       d.fleeing=true;
     } else {
       d.fleeing=false;
-      if(d.t<=0){ d.t=2+Math.random()*3; if(Math.random()<.45){ d.wx=0; d.wy=0; } else { const a=Math.random()*6.28; d.wx=Math.cos(a)*55; d.wy=Math.sin(a)*55; } }
+      if(d.t<=0){ d.t=2+Math.random()*3; const f=d.graze||inField(d.x,d.y,20);
+        if(f){ const q=fieldPt(f,(Math.random()-.5)*f.w*.8,(Math.random()-.5)*f.h*.8), a=Math.atan2(q.y-d.y,q.x-d.x); if(Math.random()<.55){ d.wx=0; d.wy=0; } else { d.wx=Math.cos(a)*32; d.wy=Math.sin(a)*32; } } // grazing in the field
+        else if(Math.random()<.45){ d.wx=0; d.wy=0; } else { const a=Math.random()*6.28; d.wx=Math.cos(a)*55; d.wy=Math.sin(a)*55; } }
       steerTo(d, d.wx||0, d.wy||0, 3);
     }
     walk(d, false);
@@ -2866,14 +3065,14 @@ function update(dt){
   }
   owls = owls.filter(o=>!o.dead);
 
-  updateTraps(dt); updateNPCs(dt);
+  updateTraps(dt); updateNPCs(dt); updateBlinds(dt);
   // spawns
   spawnT -= dt;
   if(spawnT<=0){
     const h=hour(), dawn = h>=5 && h<8;
     spawnT = dawn ? 2 : 5;
-    if(ducks.length<14) spawnDuck();
-    if(deer.length<(dawn?13:8)) spawnDeer();
+    if(ducks.length<18) spawnDuck();
+    if(deer.length<(dawn?18:12)) spawnDeer();
     for(const [kind, day, nite] of LK.beasts){
       const have = beasts.filter(b=>b.kind===kind).length;
       if(have < (night?nite:day) && (BEAST[kind].look!=='bear' || Math.random()<.3)) spawnBeast(kind);
@@ -3617,7 +3816,7 @@ function draw(t){
   ctx.globalAlpha=1;
 
   if(!night) for(const d of ducks) drawDuck(d);
-  drawBottles(t); drawCand(t);
+  drawBottles(t); drawDecoys(t); drawCand(t);
   drawBobber(t);
 
   drawGrass(t, vw, vh);
@@ -3630,7 +3829,9 @@ function draw(t){
   list.push([SHOP.y+SHOP.h/2, drawShop]);
   list.push([CABIN.y+CABIN.h/2, drawCabin]);
   if(S.boat>0) list.push([boat.y, ()=>{ drawBoatHull(); if(P.inBoat) drawPlayer(t); }]);
-  if(!P.inBoat) list.push([P.y, ()=>drawPlayer(t)]);
+  if(!P.inBoat && !P.blind) list.push([P.y, ()=>drawPlayer(t)]);
+  for(const bl of GEO.blinds) if(bl.x>cam.x-80 && bl.x<cam.x+vw+80 && bl.y>cam.y-40 && bl.y<cam.y+vh+120) list.push([bl.y, ()=>drawBlind(bl,t)]);
+  for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(q.x>cam.x-60&&q.x<cam.x+vw+60&&q.y>cam.y-20&&q.y<cam.y+vh+80) list.push([q.y, ()=>drawScarecrow(f,t)]); }
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,f] of list) f();
   drawJump(t);
@@ -3702,6 +3903,8 @@ function draw(t){
   ctx.textAlign='center'; ctx.font=`800 ${15/Z}px ${FONT}`;
   const label = (txt,x,y)=>{ ctx.lineWidth=4/Z; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.strokeText(txt,x,y); ctx.fillStyle='#fff'; ctx.fillText(txt,x,y); };
   if(!started){}
+  else if(P.blind) label(touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden! Press E to get out of the ${blindName(P.blind)}`, P.x, P.y-(P.blind.kind==='stand'?140:84));
+  else if(nearBlind() && !P.inBoat){ const bl=nearBlind(); label(touchMode?`Tap 🏠 to ${bl.kind==='stand'?'climb the deer stand':'hide in the '+blindName(bl)}`:`Press E to ${bl.kind==='stand'?'climb the deer stand':'hide in the '+blindName(bl)}`, bl.x, bl.y-(bl.kind==='stand'?110:70)); }
   else if(nearTreasure()>=0){ const tr=GEO.treasures[nearTreasure()]; label(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!', tr.x, tr.y-44); }
   else if(nearShop()) label(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop', SHOP.x, SHOP.y-SHOP.h/2-70);
   else if(nearCabin()) label(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin', CABIN.x, CABIN.y-CABIN.h/2-62);
@@ -3989,12 +4192,13 @@ function fpBuild(){
   FP.grassU={value:0};
   bmat.onBeforeCompile=sh=>{ sh.uniforms.uTime=FP.grassU; sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
     '#include <begin_vertex>\n float sway = sin(uTime*2.0 + instanceMatrix[3].x*0.05 + instanceMatrix[3].z*0.03) * position.y * 2.2; transformed.x += sway; transformed.z += sway*0.4;'); };
-  const want = T.trees==='dead'?1500 : T.trees==='snowpine'?2500 : FP.lite?6000:22000;
+  const want = T.trees==='dead'?2500 : T.trees==='snowpine'?4000 : FP.lite?9000:34000;
   const grassM=new THREE.InstancedMesh(bgeo,bmat,want); let gi=0;
   for(let k=0;k<want*3 && gi<want;k++){ const x=40+Math.random()*(WW-80), z=60+Math.random()*(WH-100);
     if(!landFree(x,z,28)) continue;
     const h=8+Math.random()*9; dmy.position.set(x,hillAt(x,z),z); dmy.rotation.set(0,Math.random()*6.28,0); dmy.scale.set(1,h,1); dmy.updateMatrix(); grassM.setMatrixAt(gi++,dmy.matrix); }
   grassM.count=gi; grassM.receiveShadow=true; sc.add(grassM);
+  fpFields(sc, dmy);
   // buildings: wooden walls + shingled roof, with the painted front
   const planks=canvasTex(128,128,(g)=>{ for(let i=0;i<8;i++){ g.fillStyle=i%2?'#8a5a2e':'#9a6634'; g.fillRect(i*16,0,15,128); g.fillStyle='#4a2e16'; g.fillRect(i*16+15,0,1,128); } },[2,1]);
   const shingles=(col)=>canvasTex(128,128,(g)=>{ g.fillStyle=col; g.fillRect(0,0,128,128); for(let y=0;y<128;y+=16){ g.fillStyle='rgba(0,0,0,.28)'; g.fillRect(0,y+14,128,2); for(let x=(y/16)%2*10;x<128;x+=20){ g.fillStyle='rgba(0,0,0,.18)'; g.fillRect(x,y,1.5,16); } } },[4,3]);
@@ -4112,7 +4316,7 @@ function fpFrame(t){
     for(const h of myHoles){ const m=new THREE.Mesh(new THREE.CircleGeometry(11,20), new THREE.MeshBasicMaterial({color:lin('#0d2f4f')})); m.rotation.x=-Math.PI/2; m.position.set(h.x,1.9,h.y); FP.scene.add(m); FP.holeMeshes.push(m); }
     FP.holeCount=myHoles.length; }
   // camera = your eyes
-  const gyP=hillAt(P.x,P.y), eye=(P.inBoat?30:42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
+  const gyP=hillAt(P.x,P.y), eye=(P.inBoat?30:P.blind?(P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
   FP.cam.position.set(P.x+shake, eye+bob, P.y); FP.lamp.position.set(P.x, eye+20, P.y);
   FP.cam.lookAt(P.x+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, eye+bob+Math.sin(FP.pitch)*100, P.y+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
   FP.cam.updateMatrixWorld();
@@ -4127,6 +4331,8 @@ function fpFrame(t){
   for(const o of owls) fpEnt(o, 60,90,30,30, 55, ()=>drawOwl(o), 1);
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-P.x,tr.y-P.y)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
+  for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-P.x,bl.y-P.y)<1800) fpEnt(bl,90,110,45,100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y));
+  for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(Math.hypot(q.x-P.x,q.y-P.y)<1800){ f._sc=f._sc||{}; f._sc.x=q.x; f._sc.y=q.y; fpEnt(f._sc,60,70,30,62,0,()=>drawScarecrow(f,t),lit(q.x,q.y)); } }
   for(const b of GEO.bottles) if(!myBottles().includes(b.k) && Math.hypot(b.x-P.x,b.y-P.y)<1400) fpEnt(b,50,30,25,15,1.5,()=>drawBottleOne(b,t),lit(b.x,b.y));
   if(fishing.state==='fight' && fishing.phase==='jump' && fishing.chest==null){ const F=fishing, f=FISH[F.fish], L=Math.min(90,26+f.s*22);
     fpEnt(F, 130,90,65,45, Math.sin(F.jumpK*Math.PI)*(30+F.str*30), ()=>{ ctx.save(); ctx.translate(F.bx,F.by); ctx.rotate((F.jumpK-.5)*1.4); drawSpecies(f,0,0,L,t,F.variant); ctx.restore(); }, 1); }
@@ -4181,7 +4387,7 @@ function fpFrame(t){
     const g=ctx.createLinearGradient(bx,0,bx+bw,0); g.addColorStop(0,'#4caf50'); g.addColorStop(.6,'#ffeb3b'); g.addColorStop(1,'#ff5722'); ctx.fillStyle=g; ctx.fillRect(bx,by,bw*F.p,12);
     ctx.font=`800 14px ${FONT}`; ctx.fillStyle='#fff'; ctx.fillText(F.p>.85?'MAX POWER!':'Let go to cast', W/2, by-8); }
   ctx.font=`800 16px ${FONT}`; ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillStyle='#fff';
-  const lab = nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
+  const lab = P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
   for(const nn of npcs) if(nn.near){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); break; }
