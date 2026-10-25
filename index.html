@@ -94,6 +94,10 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 #start h1{justify-content:center;font-size:52px;color:var(--wood);margin:6px 0}
 #start p{margin:6px 0;font-size:15px}
 #start button{font-size:22px;padding:10px 34px;margin-top:12px;font-family:var(--display);font-weight:400;letter-spacing:.5px}
+#modePick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+#start #modePick button{font-size:17px;padding:8px 16px;margin-top:4px;background:#efe4c6;border-color:#c8b48a}
+@media (max-width:420px){#start #modePick button{font-size:15px;padding:6px 9px}#modePick{gap:5px}}
+#start #modePick button.on{background:var(--gold);border-color:var(--gold-dark);box-shadow:0 0 0 3px rgba(0,0,0,.15) inset}
 #touch{position:fixed;inset:0;pointer-events:none}
 #pad,#btns{touch-action:none}
 #pad{position:absolute;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.4);pointer-events:auto;touch-action:none}
@@ -151,6 +155,8 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
   <p>Walk into the shop for rods, reels, line, hooks, lures, boats and clothes. Hunt for treasure, legendary fish and boss fish!</p>
   <p>12 worlds (even a cave and the Moon!) · <span id="fishTotal">87</span> kinds of fish · hunting, 4-wheelers &amp; drones · seasons &amp; ice fishing · a story with Grandpa Joe!</p>
   <p id="phoneTip" hidden><b>On a phone:</b> left joystick walks, hold the yellow button to cast (longer = farther) and to shoot. When a fish runs, push the joystick the other way! Tap 🏠 to go inside or open treasure. Tap ❤️ to eat food. Tap 👁️ for first person. Turn your phone sideways to see more!</p>
+  <div id="modePick" role="radiogroup" aria-label="Game mode"><button data-mode="easy">🙂 Easy</button><button data-mode="medium">😎 Medium</button><button data-mode="hard">🔥 Hard</button></div>
+  <p id="modeInfo" style="font-size:14px;margin:6px 0 0"></p>
   <button id="playBtn">Play</button>
 </div></div>
 
@@ -1252,7 +1258,17 @@ function nextWeather(){
 function newDeer(p,buck,graze){ const trophy=buck && Math.random()<(S.gear&&S.gear.deercall?.2:.14), pts=trophy?[10,10,12,12,14,16][Math.floor(Math.random()*6)]:0, hp=trophy?14:buck?8:4;
   if(trophy) setTimeout(()=>{ if(started){ toast(`🦌 You hear a deep grunt... a TROPHY BUCK is somewhere nearby!`); tone(120,.5,'sawtooth',.06,0,80); } },0); // (can happen while the page is still loading)
   return {x:p.x,y:p.y,vx:0,vy:0,t:0,hp,max:hp,buck,trophy,pts,scared:0,face:1,anim:0,graze}; }
-function biteMult(){ return (fishing && frenzyNear(fishing.bx,fishing.by)?.25:1) * curLure().m * (weather.type==='rain'?.6 : weather.type==='storm'?.45 : weather.type==='fog'?.85 : 1); }
+
+// ===================== Game modes: Easy, Medium & Hard =====================
+const MODES={
+  easy:  {n:'Easy',   e:'🙂', bite:.7,  hook:1.4, ten:.6,  grace:1.2, teeth:0, dmg:.5,  aggro:.7,  drop:0,   pay:1,    lure:.4, d:'Fish bite fast, lines hardly ever snap, animals are gentle and you keep your fish if you faint.'},
+  medium:{n:'Medium', e:'😎', bite:1,   hook:1,   ten:1,   grace:.7,  teeth:0, dmg:1,   aggro:1,   drop:1,   pay:1,    lure:1,  d:'The normal game.'},
+  hard:  {n:'Hard',   e:'🔥', bite:1.25,hook:.65, ten:1.35,grace:.3,  teeth:1, dmg:1.5, aggro:1.3, drop:.5,  pay:1.3,  lure:1,  d:'Fish fight harder, toothy fish bite through line, animals hit hard and spot you sooner. Fish & hunting pay 30% more!'},
+};
+function MODE(){ return MODES[S.mode]||MODES.medium; }
+function fishPay(i){ return Math.round(FISH[i].v*MODE().pay); }
+function setMode(m){ if(!MODES[m]) return; S.mode=m; save(); }
+function biteMult(){ return MODE().bite * (fishing && frenzyNear(fishing.bx,fishing.by)?.25:1) * curLure().m * (weather.type==='rain'?.6 : weather.type==='storm'?.45 : weather.type==='fog'?.85 : 1); }
 
 // ---------- Spawning ----------
 function spawnDuck(){
@@ -1430,7 +1446,7 @@ function boatBlocked(x,y){
 }
 // ---------- Health ----------
 function damage(n, reason){
-  if(P.hurt>0) return;
+  if(P.hurt>0) return; n=Math.max(1,Math.round(n*MODE().dmg));
   S.hp = Math.max(0, S.hp-n); P.hurt = 1.5; SFX.hurt(); setAct('hurt', .6); flash = Math.max(flash,.25);
   float(P.x, P.y-60, `-${n} ❤️`, '#ff6b6b');
   try{ navigator.vibrate && navigator.vibrate(120); }catch(e){}
@@ -1441,7 +1457,7 @@ function damage(n, reason){
 function faint(){
   if(S.ride){ veh.x=P.x; veh.y=P.y; veh.id=S.ride; S.ride=null; P.air=0; }
   if(P.blind) leaveBlind(); if(drone) landDrone(); scopeOff();
-  const n = Math.min(1, S.fish.length); // only drop one fish
+  const dr=MODE().drop, n = dr>=1 ? Math.min(1, S.fish.length) : Math.ceil(S.fish.length*dr); // easy: none · medium: one · hard: half
   for(let i=0;i<n;i++) S.fish.splice(Math.floor(Math.random()*S.fish.length),1);
   P.inBoat=false; P.x=CABIN.x; P.y=CABIN.y+CABIN.h/2+40; P.hurt=3; S.hp=50; setAct('faint', 2.8);
   fishing={state:'none'}; for(const b of beasts){ b.chasing=false; b.cool=10; }
@@ -1766,6 +1782,7 @@ function hit(t, b){
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
   else if(t.kind==='game'){ const g=GAME[a.kind]; val=Math.round(g.val*(a.bull?1.6:1)); name=(a.bull&&g.bn)||g.n; S.st.game[a.kind]=(S.st.game[a.kind]||0)+1; }
   else { const s=BEAST[a.kind]; val=s.val; name=s.n; S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]=(S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]||0)+1; }
+  val=Math.round(val*MODE().pay);
   if(P.blind){ val=Math.round(val*1.25); S.st.blindHunt=(S.st.blindHunt||0)+1; }
   S.money += val; S.st.earned += val; SFX.cash();
   float(t.cx, t.cy-24, `+$${val} ${name}!${P.blind?' 🎯 blind bonus':''}`, '#7CFC00');
@@ -1901,7 +1918,7 @@ function lakeRows(){
 }
 function shopHTML(){
   const counts = {}; let total = 0;
-  for(const i of S.fish){ counts[i]=(counts[i]||0)+1; total+=FISH[i].v; }
+  for(const i of S.fish){ counts[i]=(counts[i]||0)+1; total+=fishPay(i); }
   const list = Object.keys(counts).map(i=>`${counts[i]}× ${FISH[i].n}`).join(', ') || 'No fish yet. Go catch some!';
   return `
   <h1>${LK.n} Shop <span class="money">$${S.money.toLocaleString()}</span></h1>
@@ -1934,7 +1951,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -1974,6 +1991,7 @@ box.addEventListener('click', e=>{
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
+  if(b.hasAttribute('data-modecycle')){ const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
   if(b.hasAttribute('data-music')){ S.music = S.music===false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-say')){ const ch=STORY[S.story]; if(ch) sayAloud(ch.say+' Your goal: '+ch.goal); return; }
   if(b.hasAttribute('data-story')){ panel='story'; renderPanel(); box.scrollTop=0; return; }
@@ -2004,7 +2022,7 @@ box.addEventListener('click', e=>{
     S.money-=l.p; S.lakes.push(l.id); SFX.cash(); save(); checkMissions(); closePanel(); travel(l.id); return;
   }
   if(b.hasAttribute('data-sell')){
-    let total=0; for(const i of S.fish) total+=FISH[i].v;
+    let total=0; for(const i of S.fish) total+=fishPay(i);
     const nf=S.fish.length; S.money+=total; S.st.earned+=total; S.fish=[]; SFX.cash(); toast(`Sold fish for $${total.toLocaleString()}! 💰`);
     for(let k=0;k<Math.min(nf,12);k++) tone(1100+k*70,.06,'square',.045,.12+k*.07); if(nf) banner('💰','PAYDAY!',`You sold ${nf} fish for $${total.toLocaleString()}`,'#7CFC00');
   } else if(b.dataset.k){
@@ -2479,7 +2497,7 @@ function decideBite(){
       toast(`👀 A ${S.book[C.i]?f.n:'fish'} looked at your ${curLure().n} and swam away.${L.length?` Try: ${L.join(', ')}`:''}`); }
   }
 }
-function strikeNow(){ const F=fishing; F.state='bite'; F.t=1.5+S.rod*.12; setAct('bite',.6); SFX.bite(); SFX.splash(); burst(F.bx,F.by,'#dff3ff',8,70); shake(3,.2); vib(35); }
+function strikeNow(){ const F=fishing; F.state='bite'; F.t=(1.5+S.rod*.12)*MODE().hook; setAct('bite',.6); SFX.bite(); SFX.splash(); burst(F.bx,F.by,'#dff3ff',8,70); shake(3,.2); vib(35); }
 // the fish shadow swimming up to your lure
 function drawCand(t){
   const F=fishing, C=F.cand; if(!C || C.chest!=null || F.ice || F.state!=='wait') return;
@@ -2544,7 +2562,7 @@ function loseLure(){ const id=S.lure; if(lureForever(id)) return '';
   S.lureN[id]=Math.max(0,(S.lureN[id]||0)-1); const l=lureById(id), left=S.lureN[id];
   if(left<=0){ S.lure='worm'; setTimeout(()=>toast(`😢 That was your last ${l.n}! You're using worms now. Buy more at the shop`),2700); }
   save(); return ` You lost your ${l.e} ${l.n}${left>0?` (${left} left)`:''}.`; }
-function loseFish(msg, lure){ if(streak>=3) float(P.x,P.y-80,`🔥 Streak of ${streak} ended`,'#ffb070'); streak=0; shake(6,.3); vib(90); setAct('lost',1.4); SFX.miss(); toast(msg+(lure?loseLure():'')); fishing={state:'none'}; }
+function loseFish(msg, lure){ if(lure && Math.random()>MODE().lure) lure=false; /* easy mode: you usually keep your lure */ if(streak>=3) float(P.x,P.y-80,`🔥 Streak of ${streak} ended`,'#ffb070'); streak=0; shake(6,.3); vib(90); setAct('lost',1.4); SFX.miss(); toast(msg+(lure?loseLure():'')); fishing={state:'none'}; }
 // fish fight: hold to reel, steer the opposite way when it runs sideways, let go when it jumps!
 function updateFight(dt){
   const F=fishing, f=FISH[F.fish], holding=keys[' ']||actHeld, rod=1+S.rod*.15, reel=REELS[S.reel], line=LINES[S.line], capPx=reel.cap*5;
@@ -2569,9 +2587,9 @@ function updateFight(dt){
   if(F.wrong){ pull*=1.4; F.tension+=(.08+ratio*.3)*dt; }
   if(holding && ph!=='jump'){
     const r=60*reel.spd*(1.15-.7*F.sta)*(F.chest!=null?.55:1);
-    if(pull>r*.6){ F.d += (pull-r*.5)*.5*dt; F.tension += (.05+ratio*.7)*dt/rod; } // drag slips, line still goes out, and the line gets tight
+    if(pull>r*.6){ F.d += (pull-r*.5)*.5*dt; F.tension += (.05+ratio*.7)*dt/rod*MODE().ten; } // drag slips, line still goes out, and the line gets tight
     else { F.d -= (r-pull)*dt; F.tension += (ratio*.15-.12)*dt/rod; }   // steady reeling: tension settles down
-    if(ph==='shake') F.tension += ratio*1.2*dt/rod;
+    if(ph==='shake') F.tension += ratio*1.2*dt/rod*MODE().ten;
     F.sta -= .045*dt*rod/tough;
     F.clickT-=dt; if(F.clickT<=0){ F.clickT=.08; SFX.reel(); }
   } else {
@@ -2601,7 +2619,7 @@ function updateFight(dt){
       else toast('😅 Phew! Your line came loose from the brush'); } }
   else F.dive=Math.max(0,F.dive-dt);
   if(F.chest==null){
-    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ if(!F.toothWarn){ F.toothWarn=1; toast(`🦷 The ${nm} has sharp teeth! A Wire Leader keeps it from chewing your line`); } }
+    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ if(MODE().teeth){ loseFish(`🦷 The ${nm} bit through your line! A Wire Leader stops that.`, true); return; } if(!F.toothWarn){ F.toothWarn=1; toast(`🦷 The ${nm} has sharp teeth! A Wire Leader keeps it from chewing your line`); } }
     const hs=HOOKS[S.hook].sz, need=hookNeed(f);
     if(hs<need && holding && Math.random()<dt*.035*(need-hs)){ loseFish(`🪝 The hook bent straight! A ${nm} needs a ${HOOKS[Math.min(3,need-1)].n} or bigger`); return; }
     if((f.needLb && line.lb<f.needLb) || (f.needHook && hs<f.needHook)){ F.chk+=dt;
@@ -2609,7 +2627,7 @@ function updateFight(dt){
   }
   if(F.d>capPx){ loseFish(`🧵 The ${nm} took ALL your line! A bigger reel holds more.`, true); return; }
   if(F.tension>=1){ F.snapT=(F.snapT||0)+dt; // a short warning first: let go and it won't snap
-    if(F.snapT>.7){ loseFish(`💥 SNAP! Too much pull for ${line.n} line!`, true); return; }
+    if(F.snapT>MODE().grace){ loseFish(`💥 SNAP! Too much pull for ${line.n} line!`, true); return; }
     if(!F.snapWarn){ F.snapWarn=1; tone(160,.25,'square',.09); vib(60); float(F.bx,F.by-40,'⚠️ LET GO!','#ff5a4a'); } }
   else { F.snapT=0; F.snapWarn=0; }
   if(F.d<=(F.ice?14:S.gear.net?85:40)){ if(F.chest!=null){ const k=F.chest; fishing={state:'none'}; openTreasure(k, true); } else landFish(F.fish); }
@@ -3081,7 +3099,7 @@ const money=()=>`<span class="money">$${S.money.toLocaleString()}</span>`;
 function gearSummary(){ return `<div class="sellrow"><span>Now using: 🎣 ${RODS[S.rod].n} · ⚙️ ${REELS[S.reel].n} · 🧵 ${LINES[S.line].n} · 🪝 ${HOOKS[S.hook].n} · ${curLure().e} ${curLure().n}${S.gear.wire&&S.wireOn?' · 〰️ Wire leader':''}</span></div>`; }
 function stationHTML(kind){
   if(kind==='counter'){
-    const counts={}; let total=0; for(const i of S.fish){ counts[i]=(counts[i]||0)+1; total+=FISH[i].v; }
+    const counts={}; let total=0; for(const i of S.fish){ counts[i]=(counts[i]||0)+1; total+=fishPay(i); }
     const list=Object.keys(counts).map(i=>`${counts[i]}× ${FISH[i].n}`).join(', ') || 'No fish yet. Go catch some!';
     return `<h1>💰 Cash Register ${money()}</h1>${H2(`🐟 Sell Fish (${S.fish.length}/${bagCap()})`)}
       <div class="sellrow"><span>${list}</span><button data-sell ${total?'':'disabled'}>Sell all for $${total.toLocaleString()}</button></div>
@@ -4576,7 +4594,7 @@ function update(dt){
     b.t-=dt; b.scared-=dt; b.cool-=dt; b.growlT=(b.growlT||0)-dt;
     const dist = Math.hypot(b.x-P.x,b.y-P.y);
     // start chasing when close; keep chasing until you get far away or stay somewhere safe for a moment
-    const wantChase = b.cool<=0 && b.scared<=0 && !(safe && (P.safeT>.6 || !b.chasing)) && (dist<s.aggro || (b.chasing && dist<s.aggro*1.7));
+    const wantChase = b.cool<=0 && b.scared<=0 && !(safe && (P.safeT>.6 || !b.chasing)) && (dist<s.aggro*MODE().aggro || (b.chasing && dist<s.aggro*MODE().aggro*1.7));
     if(wantChase){
       if(!b.chasing){ b.chasing=true; if(b.growlT<=0){ SFX.growl(); toast(`⚠️ A ${s.n.toLowerCase()} is chasing you! Run to a dock or building!`); b.growlT=12; } }
       const a=Math.atan2(P.y-b.y,P.x-b.x); steerTo(b, Math.cos(a)*s.spd, Math.sin(a)*s.spd, 6);
@@ -6168,6 +6186,10 @@ function playIntro(done){
   }
   requestAnimationFrame(frame);
 }
+function showModePick(){ const m=S.mode||'medium'; document.querySelectorAll('#modePick button').forEach(b=>{ const on=b.dataset.mode===m; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+  document.getElementById('modeInfo').innerHTML=`<b>${MODES[m].e} ${MODES[m].n}:</b> ${MODES[m].d}`; }
+document.querySelectorAll('#modePick button').forEach(b=>b.addEventListener('click',()=>{ ac(); setMode(b.dataset.mode); tone(660,.08,'triangle',.08); showModePick(); }));
+showModePick();
 document.getElementById('playBtn').addEventListener('click', ()=>{
   ac(); document.getElementById('start').hidden=true;
   const go=()=>{ started=true; setTimeout(dailyGift,2500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
