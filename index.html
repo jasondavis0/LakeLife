@@ -280,6 +280,7 @@ function genGeo(){
   for(let n=0,tries=0;n<10&&tries<400;tries++){ const a=r()*6.283, d=.5+r()*.42, p=shorePt(a,d); if(!okWater(p.x,p.y,120)||onIsland(p.x,p.y,40)) continue; G.brush.push({x:p.x,y:p.y,r:28+r()*20}); n++; }
   for(const I of G.islands) for(let k=0;k<2;k++){ const a=r()*6.283; G.brush.push({x:I.x+Math.cos(a)*(I.rx+50), y:I.y+Math.sin(a)*(I.ry+45), r:26+r()*14}); }
   for(const R of G.rivers) for(const f of [.3,.62]){ const q=R.pts[Math.floor(R.pts.length*f)]; if(q && q[0]>40&&q[0]<WW-40&&q[1]>40&&q[1]<WH-40) G.brush.push({x:q[0],y:q[1],r:R.w*.32}); }
+  genCover(G, okWater);
   for(let i=0;i<64;i++){ const a=r()*6.283, p=shorePt(a,.82+r()*.14); if(!onIsland(p.x,p.y,10) && !DOCKS.some(d=>p.x>d.x-30&&p.x<d.x+d.w+30&&p.y>d.y-30&&p.y<d.y+d.h+30)) G.pads.push({x:p.x,y:p.y,r:9+r()*6,flower:r()<.3}); }
   for(const p of G.ponds) for(let i=0;i<14;i++){ const a=r()*6.283; G.pads.push({x:p.x+Math.cos(a)*p.rx*.8, y:p.y+Math.sin(a)*p.ry*.8, r:9+r()*6, flower:r()<.5}); }
   for(let n=0,tries=0;n<2&&tries<300;tries++){ const a=r()*6.283, d=.25+r()*.3, p=shorePt(a,d); if(!okWater(p.x,p.y,160)||onIsland(p.x,p.y,80)||G.holes.some(h=>Math.hypot(h.x-p.x,h.y-p.y)<300)) continue; G.holes.push({x:p.x,y:p.y,r:95+r()*45}); n++; }
@@ -926,7 +927,7 @@ function buildWorld(){
   // deep holes look darker; brush piles are tangled sticks under the water
   for(const h of GEO.holes){ const hg=b.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r); hg.addColorStop(0, LK.id==='volcano'?'rgba(120,10,0,.5)':'rgba(0,8,30,.55)'); hg.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=hg; b.beginPath(); b.arc(h.x,h.y,h.r,0,7); b.fill();
     if(h.wreck){ b.save(); b.translate(h.x,h.y); b.rotate(.4); b.globalAlpha=.45; b.fillStyle='#2a1a10'; b.beginPath(); b.moveTo(-70,-18); b.lineTo(55,-18); b.quadraticCurveTo(85,0,55,18); b.lineTo(-70,18); b.closePath(); b.fill(); b.fillRect(-10,-50,6,100); b.restore(); } }
-  for(const br of GEO.brush){ b.save(); b.translate(br.x,br.y); b.globalAlpha=.55; b.strokeStyle='#2e2416'; b.lineCap='round';
+  for(const br of GEO.brush){ if(br.kind){ drawCoverBg(b,br); continue; } b.save(); b.translate(br.x,br.y); b.globalAlpha=.55; b.strokeStyle='#2e2416'; b.lineCap='round';
     for(let k=0;k<12;k++){ const a=srnd()*6.28, l=br.r*(.5+srnd()*.6); b.lineWidth=2+srnd()*3; b.beginPath(); b.moveTo(Math.cos(a)*l*.3,Math.sin(a)*l*.3); b.lineTo(Math.cos(a)*l,Math.sin(a)*l*.7); b.stroke(); }
     b.globalAlpha=1; b.strokeStyle='#8a6a42'; b.lineWidth=3; for(let k=0;k<3;k++){ const x=(srnd()-.5)*br.r, y=(srnd()-.5)*br.r*.6; b.beginPath(); b.moveTo(x,y); b.lineTo(x+(srnd()-.5)*8,y-12-srnd()*8); b.stroke(); }
     b.restore(); }
@@ -1396,6 +1397,7 @@ function blocked(x,y){
 function boatBlocked(x,y){
   if(x<30||y<30||x>WW-30||y>WH-30) return true;
   if(!inLake(x,y,.95) || onIsland(x,y,34) || onIce(x,y)) return true;
+  for(const br of GEO.brush){ if(br.kind==='stump' && Math.hypot(br.x-x,br.y-y)<20) return true; if(br.kind==='downtree' && Math.abs(br.x-x)<br.r+60 && Math.abs(br.y-y)<br.r+60 && segDist(x,y,br.bx,br.by,br.bx+(br.tx-br.bx)*.6,br.by+(br.ty-br.by)*.6)<18) return true; }
   if(S.boat>=3){ const R=inRiver(x,y); if(R && R.kind==='creek' && lakeVal(x,y)>=1) return true; } // bass boats are too big for the creek
   return DOCKS.some(d=>x>d.x-20 && x<d.x+d.w+20 && y>d.y-20 && y<d.y+d.h+20);
 }
@@ -4056,6 +4058,59 @@ function drawCabinDecor(c,t){
     for(let i=0;i<3;i++){ c.fillStyle='rgba(255,240,120,.8)'; c.beginPath(); c.arc(707+Math.sin(t+i)*4,500+Math.sin(t*.7+i*2)*14,3,0,7); c.fill(); } }
 }
 
+// fallen trees, stumps, weed beds and rock piles in the water: fish love to hide by them
+function genCover(G, okWater){
+  let sd=777+LAKES.indexOf(LK)*131; const r=()=>{ sd=(sd*16807)%2147483647; return (sd-1)/2147483646; };
+  const clear=(x,y,m)=>lakeVal(x,y,.985)<1 && !DOCKS.some(d=>Math.hypot(d.x+d.w/2-x,d.y+d.h/2-y)<m+90) && Math.hypot(x-BOAT_HOME.x,y-BOAT_HOME.y)>m+60 && !onIsland(x,y,30) && !G.brush.some(o=>Math.hypot(o.x-x,o.y-y)<(o.r||30)+m*.6);
+  if(LK.id==='volcano') return;
+  for(let n=0,t=0;n<7&&t<300;t++){ const a=r()*6.283; if(ANCHORS.some(an=>Math.abs(wrapA(a-an))<.35)) continue; const base=shorePt(a,1,12), tip=shorePt(a,.86+r()*.04);
+    const mx=base.x+(tip.x-base.x)*.7, my=base.y+(tip.y-base.y)*.7, L=Math.hypot(tip.x-base.x,tip.y-base.y); if(!clear(mx,my,110) || G.rivers.some(R=>riverDist(R,base.x,base.y)<R.w/2+80)) continue;
+    G.brush.push({kind:'downtree', x:mx, y:my, r:L*.42, bx:base.x, by:base.y, tx:tip.x, ty:tip.y, seed:r()*1000}); n++; }
+  for(let n=0,t=0;n<9&&t<300;t++){ const p=shorePt(r()*6.283,.9+r()*.05); if(!clear(p.x,p.y,70)) continue; G.brush.push({kind:'stump', x:p.x, y:p.y, r:24, seed:r()*1000}); n++; }
+  for(let n=0,t=0;n<8&&t<300;t++){ const p=shorePt(r()*6.283,.78+r()*.14); if(!clear(p.x,p.y,90)) continue; G.brush.push({kind:'weeds', x:p.x, y:p.y, r:50+r()*35, seed:r()*1000}); n++; }
+  for(let n=0,t=0;n<5&&t<300;t++){ const p=shorePt(r()*6.283,.45+r()*.3); if(!clear(p.x,p.y,90)) continue; G.brush.push({kind:'rocks', x:p.x, y:p.y, r:44, seed:r()*1000}); n++; }
+  for(const p of G.ponds){ for(let k=0;k<2;k++){ const a=r()*6.283, f=blobF(p,a), bx=p.x+Math.cos(a)*p.rx*f, by=p.y+Math.sin(a)*p.ry*f, tx=p.x+Math.cos(a)*p.rx*.35, ty=p.y+Math.sin(a)*p.ry*.35;
+      G.brush.push({kind:'downtree', x:(bx+tx)/2, y:(by+ty)/2, r:Math.hypot(tx-bx,ty-by)*.45, bx, by, tx, ty, seed:r()*1000}); }
+    G.brush.push({kind:'weeds', x:p.x+p.rx*.3, y:p.y-p.ry*.3, r:45, seed:r()*1000}); }
+}
+function drawCoverBg(b, br){
+  let sd=br.seed||1; const rr=()=>{ sd=(sd*16807+7)%2147483647; return (sd%10000)/10000; };
+  if(br.kind==='downtree'){
+    const ang=Math.atan2(br.ty-br.by,br.tx-br.bx), L=Math.hypot(br.tx-br.bx,br.ty-br.by);
+    b.save(); b.translate(br.bx,br.by); b.rotate(ang);
+    b.fillStyle='rgba(0,10,20,.25)'; b.beginPath(); b.ellipse(L*.55,6,L*.55,14,0,0,7); b.fill(); // shadow in the water
+    b.fillStyle='#4a3420'; b.beginPath(); b.ellipse(-4,0,16,20,0,0,7); b.fill(); // root ball on the bank
+    b.strokeStyle='#3a2414'; b.lineWidth=2; for(let i=0;i<7;i++){ const a2=rr()*6.283; b.beginPath(); b.moveTo(-4,0); b.lineTo(-4+Math.cos(a2)*22,Math.sin(a2)*24); b.stroke(); }
+    const g=b.createLinearGradient(0,-8,0,8); g.addColorStop(0,'#8a6440'); g.addColorStop(1,'#4a3018'); b.fillStyle=g; b.beginPath(); b.moveTo(0,-9); b.lineTo(L,-3); b.lineTo(L,3); b.lineTo(0,9); b.closePath(); b.fill();
+    b.strokeStyle='rgba(30,20,10,.45)'; b.lineWidth=1.2; for(let x=8;x<L;x+=14){ b.beginPath(); b.moveTo(x,-7+x/L*4); b.lineTo(x+8,-6+x/L*4); b.stroke(); }
+    b.strokeStyle='#5a3c22'; b.lineCap='round'; for(let i=0;i<9;i++){ const x=L*(.35+rr()*.62), sd2=rr()<.5?-1:1, l=14+rr()*26; b.lineWidth=2.5+rr()*2; b.beginPath(); b.moveTo(x,sd2*2); b.lineTo(x+l*.6,sd2*(8+l*.6)); b.stroke(); }
+    b.fillStyle='rgba(40,90,120,.35)'; b.fillRect(L*.55,-14,L*.5,28); // the far end is under the water
+    b.restore(); return; }
+  if(br.kind==='stump'){
+    b.fillStyle='rgba(255,255,255,.35)'; b.beginPath(); b.ellipse(br.x,br.y+3,16,6,0,0,7); b.fill();
+    b.fillStyle='#5a3c22'; b.beginPath(); b.ellipse(br.x,br.y,10,7,0,0,7); b.fill(); b.fillStyle='#b8905a'; b.beginPath(); b.ellipse(br.x,br.y-2,8.5,5.5,0,0,7); b.fill();
+    b.strokeStyle='rgba(90,60,30,.6)'; b.lineWidth=1; for(const k of [3,5.5]){ b.beginPath(); b.ellipse(br.x,br.y-2,k,k*.65,0,0,7); b.stroke(); } return; }
+  if(br.kind==='weeds'){
+    for(let i=0;i<60;i++){ const a=rr()*6.283, d=Math.sqrt(rr())*br.r, x=br.x+Math.cos(a)*d, y=br.y+Math.sin(a)*d*.7;
+      b.strokeStyle=rr()<.5?'rgba(40,100,40,.55)':'rgba(70,130,50,.5)'; b.lineWidth=2+rr()*2; b.beginPath(); b.moveTo(x,y); b.quadraticCurveTo(x+(rr()-.5)*10,y-6,x+(rr()-.5)*14,y-10-rr()*8); b.stroke(); }
+    b.fillStyle='rgba(30,80,30,.22)'; b.beginPath(); b.ellipse(br.x,br.y,br.r,br.r*.7,0,0,7); b.fill(); return; }
+  if(br.kind==='rocks'){
+    for(let i=0;i<9;i++){ const a=rr()*6.283, d=rr()*br.r*.8, x=br.x+Math.cos(a)*d, y=br.y+Math.sin(a)*d*.7, s=8+rr()*12;
+      b.fillStyle=`rgba(90,90,96,${.35+rr()*.25})`; b.beginPath(); b.ellipse(x,y,s,s*.7,rr()*3,0,7); b.fill(); b.fillStyle='rgba(255,255,255,.12)'; b.beginPath(); b.ellipse(x-s*.3,y-s*.25,s*.4,s*.25,0,0,7); b.fill(); } return; }
+}
+function fpCover(sc, br){
+  const wood=FP.coverWood||(FP.coverWood=new THREE.MeshLambertMaterial({color:lin('#5a3c22')}));
+  if(br.kind==='downtree'){ const L=Math.hypot(br.tx-br.bx,br.ty-br.by), ang=Math.atan2(br.ty-br.by,br.tx-br.bx);
+    const tr=new THREE.Mesh(new THREE.CylinderGeometry(4,7,L,8), wood); tr.rotation.z=Math.PI/2; const g=new THREE.Group(); g.add(tr); tr.position.x=L/2;
+    for(let i=0;i<6;i++){ const br2=new THREE.Mesh(new THREE.CylinderGeometry(1,2,26+i*3,5), wood); br2.position.set(L*(.4+i*.1),6,(i%2?1:-1)*8); br2.rotation.set((i%2?1:-1)*.9,0,.5); br2.castShadow=true; g.add(br2); }
+    g.position.set(br.bx,4,br.by); g.rotation.y=-ang; g.rotation.z=-.06; tr.castShadow=true; sc.add(g); return; }
+  if(br.kind==='stump'){ const m=new THREE.Mesh(new THREE.CylinderGeometry(9,11,12,10), wood); m.position.set(br.x,4,br.y); m.castShadow=true; sc.add(m); return; }
+  if(br.kind==='weeds'){ const geo=FP.weedG||(FP.weedG=new THREE.ConeGeometry(1.2,1,4)), mat=FP.weedM||(FP.weedM=new THREE.MeshLambertMaterial({color:lin('#3a7a32')})), n=26, m=new THREE.InstancedMesh(geo,mat,n), d3=new THREE.Object3D();
+    let sd=br.seed||1; const rr=()=>{ sd=(sd*16807+7)%2147483647; return (sd%10000)/10000; };
+    for(let i=0;i<n;i++){ const a=rr()*6.283, d=Math.sqrt(rr())*br.r; d3.position.set(br.x+Math.cos(a)*d,2+rr()*3,br.y+Math.sin(a)*d*.7); d3.scale.set(1,8+rr()*10,1); d3.rotation.set((rr()-.5)*.4,0,(rr()-.5)*.4); d3.updateMatrix(); m.setMatrixAt(i,d3.matrix); }
+    sc.add(m); return; }
+}
+
 // ---------- Update ----------
 function update(dt){
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
@@ -5363,7 +5418,7 @@ function fpBuild(){
   FP.holeMeshes=[]; FP.holeCount=-1;
   // brush piles poke sticks out of the water
   const stickG=new THREE.CylinderGeometry(.8,1.3,1,5), stickM=new THREE.MeshLambertMaterial({color:lin('#6a4e2e')});
-  for(const br of GEO.brush) for(let k=0;k<4;k++){ const st=new THREE.Mesh(stickG,stickM), a=k*1.7+br.x; st.scale.set(1,14+((k*7)%9),1); st.position.set(br.x+Math.cos(a)*br.r*.5,4,br.y+Math.sin(a)*br.r*.4); st.rotation.set(.3*Math.sin(a),0,.4*Math.cos(a)); st.castShadow=true; sc.add(st); }
+  for(const br of GEO.brush) if(br.kind) fpCover(sc,br); else for(let k=0;k<4;k++){ const st=new THREE.Mesh(stickG,stickM), a=k*1.7+br.x; st.scale.set(1,14+((k*7)%9),1); st.position.set(br.x+Math.cos(a)*br.r*.5,4,br.y+Math.sin(a)*br.r*.4); st.rotation.set(.3*Math.sin(a),0,.4*Math.cos(a)); st.castShadow=true; sc.add(st); }
   // bridges
   const bplank=canvasTex(128,128,(g)=>{ for(let i=0;i<8;i++){ g.fillStyle=i%2?'#9a6a3a':'#a8774a'; g.fillRect(0,i*16,128,15); g.fillStyle='#4a2e16'; g.fillRect(0,i*16+15,128,1); } });
   for(const br of GEO.bridges){ const bt=bplank.clone(); bt.needsUpdate=true; bt.repeat.set(1,br.len/40);
