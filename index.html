@@ -125,7 +125,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 <button id="helpBtn" aria-label="Show or hide the instructions">‹</button>
 <div id="help">
 <b>WASD/Arrows</b> walk · <b>SPACE</b> cast, reel &amp; shoot · <b>1</b> rod · <b>2/G</b> gun (again to switch guns) · <b>Click</b> shoot<br>
-<b>Hold SPACE</b> longer to cast farther · <b>A/D</b> steer when a fish runs · <b>H</b> eat · <b>T</b> traps · <b>V</b> first person · <b>E</b> go inside / open chests · <b>B</b> boat · <b>R</b> ride 4-wheeler · <b>X</b> scope · <b>Y</b> drone · <b>F</b> fireworks · <b>M</b> missions · <b>P</b> photo · <b>N</b> map · <b>C</b> animal call · <b>Z</b> binoculars
+<b>Hold SPACE</b> longer to cast farther · <b>A/D</b> steer when a fish runs · <b>H</b> eat · <b>T</b> traps · <b>V</b> first person · <b>E</b> go inside / open chests · <b>B</b> boat · <b>R</b> ride 4-wheeler · <b>X</b> scope · <b>Y</b> drone · <b>F</b> fireworks · <b>M</b> missions · <b>P</b> photo · <b>K</b> track · <b>N</b> map · <b>C</b> animal call · <b>Z</b> binoculars
 </div>
 <div id="toast"></div>
 <div id="panel" class="overlay" hidden><div id="box" class="box"></div></div>
@@ -145,6 +145,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 <button id="toolsBtn" class="sideBtn" aria-label="Show your tools" hidden>🧰</button>
 <button id="fwBtn" class="sideBtn" aria-label="Launch a firework" hidden>🎆</button>
 <button id="camBtn" class="sideBtn" aria-label="Take a photo" hidden>📷</button>
+<button id="trackBtn" class="sideBtn" aria-label="Track animals" hidden>🐾</button>
 <button id="droneBtn" class="sideBtn" aria-label="Fly your drone" hidden>🛸</button>
 <button id="scopeBtn" class="sideBtn" aria-label="Aim with your scope" hidden>🎯</button>
 <button id="rideBtn" class="sideBtn" aria-label="Ride your 4-wheeler" hidden>🏍️</button>
@@ -722,6 +723,8 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'track5',  n:'Track down 5 animals',      r:700,   e:'🐾', p:()=>[S.st.tracked||0,5]},
+  {id:'track25', n:'Track down 25 animals',     r:4000,  e:'🐾', p:()=>[S.st.tracked||0,25]},
   {id:'photo10', n:'Take photos of 10 animals', r:800,   e:'📷', p:()=>[Object.keys(S.album||{}).length,10]},
   {id:'photo40', n:'Take photos of 40 animals', r:5000,  e:'📚', p:()=>[Object.keys(S.album||{}).length,40]},
   {id:'star5',  n:'See 5 shooting stars',       r:600,   e:'🌠', p:()=>[S.st.stars||0,5]},
@@ -1414,7 +1417,7 @@ function updateNPCs(dt){
 function npcTip(n){ const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
-  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
+  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
   for(let i=0;i<14;i++) spawnDuck();
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
@@ -1844,6 +1847,7 @@ addEventListener('keydown', e=>{
   if(k==='y') toggleDrone();
   if(k==='f') launchFirework();
   if(k==='p') takePhoto();
+  if(k==='k') trackNow();
   if(k==='m') openPanel('missions');
   if(k==='h') eat();
   if(k==='t') trapKey();
@@ -1880,7 +1884,7 @@ let toolsOpen=false; const shortScreen=()=>matchMedia('(max-height:560px)').matc
 function layoutSideButtons(side){
   const tb=document.getElementById('toolsBtn'); if(!touchMode){ tb.hidden=true; return; }
   for(const id of ['missBtn','healBtn','trapBtn','viewBtn']) document.getElementById(id).hidden=!side;
-  const vis=['missBtn','healBtn','trapBtn','viewBtn','callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn'].map(id=>document.getElementById(id)).filter(b=>!b.hidden);
+  const vis=['missBtn','healBtn','trapBtn','viewBtn','callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn','trackBtn'].map(id=>document.getElementById(id)).filter(b=>!b.hidden);
   tb.hidden=!side; tb.textContent=toolsOpen?'✖':'☰'; tb.style.top='calc(10px + env(safe-area-inset-top,0px))'; tb.style.right='calc(10px + env(safe-area-inset-right,0px))';
   const tall=VH>560, perRow=Math.max(1,Math.floor((VW-240)/56));
   vis.forEach((b,i)=>{ if(!toolsOpen){ b.hidden=true; return; }
@@ -1889,7 +1893,8 @@ function layoutSideButtons(side){
 }
 document.getElementById('toolsBtn').addEventListener('click', ()=>{ ac(); toolsOpen=!toolsOpen; });
 document.getElementById('camBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) takePhoto(); });
-for(const id of ['callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn']) document.getElementById(id).addEventListener('click', ()=>{ if(touchMode) setTimeout(()=>toolsOpen=false,50); });
+document.getElementById('trackBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) trackNow(); });
+for(const id of ['callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn','trackBtn']) document.getElementById(id).addEventListener('click', ()=>{ if(touchMode) setTimeout(()=>toolsOpen=false,50); });
 document.getElementById('fwBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) launchFirework(); });
 document.getElementById('droneBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) toggleDrone(); });
 document.getElementById('scopeBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) toggleScope(); });
@@ -2356,6 +2361,7 @@ const OUTDOOR=[
   {id:'predcall',   n:'Predator Call',   e:'🐺', p:200, d:'Calls foxes & coyotes... careful!'},
   {id:'binos',      n:'Binoculars',      e:'🔭', p:150, d:'Press Z (or tap 🔭) to see much farther'},
   {id:'lantern',    n:'Bright Lantern',  e:'🏮', p:200, d:'A much bigger light at night'},
+  {id:'tracker',    n:'Animal Tracking Kit', e:'🐾', p:150, d:'Press K (or tap 🐾) near footprints to follow them to the animal!'},
   {id:'camera',     n:'Wildlife Camera', e:'📷', p:250, d:'Press P (or tap 📷) to take photos of animals for your album!'},
   {id:'camoscent',  n:'Cover Scent',     e:'🌲', p:180, d:'Animals don\'t smell you · get closer before they run'},
 ];
@@ -4398,6 +4404,7 @@ function updateMusic(dt){
 function drawGuide(t){
   if(!started || panel || P.room || FP.on || drone) return;
   if(race && race.pts[race.k]){ edgeArrow(race.pts[race.k].x, race.pts[race.k].y, '🏁', t); return; }
+  if(tracking){ const mine=tracks.filter(p=>p.obj===tracking.obj), last=mine[mine.length-1]; if(last){ edgeArrow(last.x,last.y,'🐾',t); return; } }
   if(S.dig && S.dig.lake===LK.id && S.fish.length<bagCap()){ edgeArrow(S.dig.x, S.dig.y, '❌', t); return; }
   const full=S.fish.length>=bagCap(), ch1=S.story===0 && S.fish.length>=3, fz=!full && frenzy && !frenzyNear(P.x,P.y) && fishing.state==='none';
   if(!full && !ch1 && !fz) return;
@@ -4644,9 +4651,45 @@ function updatePetDig(dt){ if(!S.pet || S.pet==='parrot' || P.room || P.inBoat |
   for(let i=0;i<12;i++) parts.push({x:pet.x+(Math.random()-.5)*10,y:pet.y,vx:(Math.random()-.5)*80,vy:-40-Math.random()*50,t:.5,col:'rgba(140,100,60,.8)',sz:4});
   tone(700,.08,'square',.06); tone(900,.1,'square',.06,.1); float(pet.x,pet.y-40,`${PETS[S.pet].e} Found ${msg}!`,'#ffe9a0'); toast(`${PETS[S.pet].e} Your ${nm} dug up ${msg}!`); save(); }
 
+// ===================== Animal tracks: footprints you can follow =====================
+var tracks=[], tracking=null;
+const HOOF=['javelina','goat','bison','pronghorn','moose','elk','boar'], BIGPRINT=['bison','moose','bear','elk'];
+function printOf(a,kind){ if(kind==='deer') return {type:'hoof',sz:1,name:a.trophy?'Trophy Buck':a.buck?LK.deer.bn:LK.deer.n};
+  if(kind==='game'){ const g=GAME[a.kind], L=g.look; return {type:L==='turkey'?'bird':HOOF.includes(L)?'hoof':'paw', sz:BIGPRINT.includes(L)?1.5:g.small?.6:1, name:g.n}; }
+  const b=BEAST[a.kind], L=b.look; if(L==='crab'||L==='gator') return null; return {type:HOOF.includes(L)?'hoof':'paw', sz:L==='bear'?1.6:1.1, name:b.n}; }
+function leaveTracks(list,kind,dt){ for(const a of list){ if(a.dead || a.hide || a.climb) continue; if(a._px==null){ a._px=a.x; a._py=a.y; continue; }
+    const d=Math.hypot(a.x-a._px,a.y-a._py); if(d>200){ a._px=a.x; a._py=a.y; continue; } a._tk=(a._tk||0)+d; a._px=a.x; a._py=a.y;
+    if(a._tk>26 && !inLake(a.x,a.y,1.02)){ a._tk=0; const pr=a._pr||(a._pr=printOf(a,kind)); if(!pr) continue; a._side=-(a._side||1);
+      tracks.push({x:a.x, y:a.y, a:Math.atan2(a.vy||0,a.vx||1), side:a._side, type:pr.type, sz:pr.sz, obj:a, t:0}); } }
+  if(tracks.length>700) tracks.splice(0,tracks.length-700); }
+function updateTracks(dt){ if(P.room) return; leaveTracks(deer,'deer',dt); leaveTracks(game,'game',dt); leaveTracks(beasts,'beast',dt);
+  const life=(iceOn()||LK.id==='frozen')?150:60; for(const p of tracks) p.t+=dt; if(tracks.length && tracks[0].t>life) tracks=tracks.filter(p=>p.t<=life);
+  if(tracking){ const o=tracking.obj; tracking.t-=dt;
+    if(o.dead || o.hide || tracking.t<=0 || !(deer.includes(o)||game.includes(o)||beasts.includes(o))){ if(!o.dead && tracking.t<=0) toast('🐾 The trail went cold... look for fresh tracks'); tracking=null; }
+    else if(Math.hypot(o.x-P.x,o.y-P.y)<160){ S.st.tracked=(S.st.tracked||0)+1; const cash=40+Math.round(tracking.far/20); S.money+=cash; S.st.earned+=cash; addXP(30);
+      banner('🐾','TRACKED IT!',`You followed the tracks to a ${tracking.name}! +$${cash}`,'#c8a070'); tone(660,.1,'triangle',.1); tone(990,.16,'triangle',.1,.1); tracking=null; save(); } } }
+function trackNow(){
+  if(!S.gear.tracker){ toast('🐾 Buy an Animal Tracking Kit at the shop\'s Outdoor Gear shelf!'); return; } if(P.room){ toast('Go outside to look for tracks'); return; }
+  if(tracking){ tracking=null; toast('🐾 You stopped tracking'); return; }
+  const life=(iceOn()||LK.id==='frozen')?150:60; let best=null, bd=260;
+  for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide){ bd=d; best=p; } }
+  if(!best){ toast('🐾 No fresh tracks right here. Walk around fields and woods and look at the ground!'); tone(300,.1,'square',.04); return; }
+  const o=best.obj, pr=o._pr||{name:'animal'}, far=Math.hypot(o.x-P.x,o.y-P.y), dir=['east','south-east','south','south-west','west','north-west','north','north-east'][Math.round(((Math.atan2(o.y-P.y,o.x-P.x)+6.283)%6.283)/0.785)%8];
+  tracking={obj:o, name:pr.name, t:45, far}; tone(520,.08,'triangle',.08); tone(700,.12,'triangle',.08,.08);
+  toast(`🐾 ${best.type==='hoof'?'Hoof prints':best.type==='bird'?'Bird tracks':'Paw prints'}! A ${pr.name.toLowerCase()} went ${dir}${best.t<15?' just now':''}. Follow the glowing tracks!`); }
+function drawPrint(c,p,glow){ c.save(); c.translate(p.x+Math.cos(p.a+1.57)*4*p.side, p.y+Math.sin(p.a+1.57)*4*p.side); c.rotate(p.a); const s=p.sz*1.4;
+  c.fillStyle=glow?'rgba(255,214,90,.95)':(iceOn()||LK.id==='frozen')?'rgba(110,130,160,.6)':'rgba(70,50,30,.55)';
+  if(p.type==='hoof'){ for(const sd of [-1,1]){ c.beginPath(); c.ellipse(1*s,sd*1.6*s,3*s,1.3*s,0,0,7); c.fill(); } }
+  else if(p.type==='bird'){ c.strokeStyle=c.fillStyle; c.lineWidth=1.3*s; c.lineCap='round'; c.beginPath(); c.moveTo(-3*s,0); c.lineTo(3*s,0); c.moveTo(0,0); c.lineTo(3*s,-2.5*s); c.moveTo(0,0); c.lineTo(3*s,2.5*s); c.stroke(); }
+  else { c.beginPath(); c.ellipse(0,0,2.2*s,2.6*s,0,0,7); c.fill(); for(const [tx,ty] of [[2.8,-2.4],[3.6,-.8],[3.6,.8],[2.8,2.4]]){ c.beginPath(); c.arc(tx*s,ty*s,.9*s,0,7); c.fill(); } }
+  c.restore(); }
+function drawTracks(t){ if(!tracks.length) return; const life=(iceOn()||LK.id==='frozen')?150:60, x0=cam.x-40, y0=cam.y-40, x1=cam.x+VW/Z+40, y1=cam.y+VH/Z+40;
+  for(const p of tracks){ if(p.x<x0||p.x>x1||p.y<y0||p.y>y1) continue; const glow=tracking && p.obj===tracking.obj; ctx.globalAlpha=Math.max(0,1-p.t/life)*(glow?.6+.4*Math.sin(t*6):1); drawPrint(ctx,p,glow); }
+  ctx.globalAlpha=1; }
+
 // ---------- Update ----------
 function update(dt){
-  updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
+  updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -5618,7 +5661,7 @@ function draw(t){
   ctx.save(); ctx.scale(Z,Z); ctx.translate(-ox,-oy);
   { const sx=Math.max(0,ox), sy=Math.max(0,oy), sw=Math.min(WW-sx,vw+2), sh=Math.min(WH-sy,vh+2);
     if(sw>0 && sh>0) ctx.drawImage(bg,sx*BGS,sy*BGS,sw*BGS,sh*BGS,sx,sy,sw,sh); }
-  drawWaterFx(t, vw, vh);
+  drawWaterFx(t, vw, vh); drawTracks(t);
   ctx.strokeStyle='#fff'; ctx.lineWidth=2;
   if(LK.waves){ // foamy waves rolling onto the beach
     ctx.save(); ctx.lineCap='round';
@@ -6306,6 +6349,7 @@ function updateHud(){
     `${S.story<STORY.length?`📖 ${STORY[S.story].goal}<br>`:''}📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}${touchMode&&VW<900?` · ${clockText()}`:`<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}`}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
   if(P.inBoat) s += S.boatUp.sonar ? `<br>📡 ${Math.round(3+depthAt(P.x,P.y)*57)} ft deep${depthAt(P.x,P.y)>.7?' · big fish!':''}` : `<br>🌊 ${depthAt(P.x,P.y)>.7?'Deep water! Big fish here':'Shallow water'}`;
   if(S.ride) s += `<br>${VEH[S.ride].e} Riding your ${VEH[S.ride].n}`;
+  if(tracking) s += `<br><span style="color:#e8c890">🐾 Tracking a ${tracking.name} · ${Math.ceil(tracking.t)}s</span>`;
   if(derby) s += `<br><span style="color:#ffd54a">🏆 Derby ${Math.floor(derby.t/60)}:${String(Math.floor(derby.t%60)).padStart(2,'0')} · best ${derby.best} lb</span>`;
   if(race) s += `<br><span style="color:#ff8a7a">🏁 Race ${Math.ceil(race.t)}s · flag ${race.k+1}/${race.pts.length}</span>`;
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
@@ -6321,7 +6365,7 @@ function updateHud(){
   if(swapBtn.textContent!==sw){ swapBtn.textContent = sw; swapBtn.setAttribute('aria-label', tool==='rod'?'Switch to gun':'Switch to fishing pole'); }
   swapBtn.style.opacity = S.gun<0 ? .45 : 1;
   const cb=document.getElementById('callBtn'), bb=document.getElementById('binoBtn'), side=touchMode && !panel && started;
-  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room && !S.ride); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room); document.getElementById('camBtn').hidden = !(side && S.gear.camera && !P.room);
+  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room && !S.ride); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room); document.getElementById('camBtn').hidden = !(side && S.gear.camera && !P.room); document.getElementById('trackBtn').hidden = !(side && S.gear.tracker && !P.room); document.getElementById('trackBtn').style.background = tracking?'#ffd54a':'';
   bb.hidden = !(side && S.gear.binos);
   layoutSideButtons(side);
 }
