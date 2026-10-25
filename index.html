@@ -1699,6 +1699,8 @@ function landFish(i){
     SFX.trophy(); burst(fishing.bx, fishing.by, f.boss?'#ff5a8a':'#ffd54a', 40, 190); flash=Math.max(flash,.2);
   }
   popup = {i, t:trophy||vr||f.legend||f.boss?4.5:2.8, isNew, lb, inch, pb, trophy, bonus, vr, legend:!!f.legend, boss:!!f.boss};
+  addXP((4+Math.sqrt(f.v))*(trophy?3:1)+(f.boss||f.legend?100:0), P.x, P.y-96); questProg('fish',1); questProg('species',1,i); questProg('big',lb);
+  if(i===fishOfDay()){ const fb=fishPay(i)*2; S.money+=fb; S.st.earned+=fb; float(P.x,P.y-120,`🌟 Fish of the Day! +$${fb}`,'#ffe14d'); }
   streak++; if([3,5,10,15,20,30].includes(streak)){ const sb=streak*25; S.money+=sb; S.st.earned+=sb; banner('🔥',`${streak} IN A ROW!`,`Catch streak bonus +$${sb}`,'#ff9a3a'); }
   if(f.boss||f.legend||trophy){ shake(9,.5); vib([60,40,90]); banner(f.boss?'👑':f.legend?'⭐':'🏆', f.boss?'BOSS FISH!':f.legend?'LEGENDARY FISH!':'TROPHY FISH!', `${f.n} · ${lb>=100?Math.round(lb).toLocaleString():Math.round(lb*10)/10} lb`); } else { shake(3,.25); vib(50); } setAct(trophy||vr||f.legend||f.boss?'cheer':'catch', 1.6, {i, vr});
   SFX.catch(); burst(fishing.bx, fishing.by, '#bfe6ff', 16);
@@ -1784,7 +1786,7 @@ function hit(t, b){
   else { const s=BEAST[a.kind]; val=s.val; name=s.n; S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]=(S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]||0)+1; }
   val=Math.round(val*MODE().pay);
   if(P.blind){ val=Math.round(val*1.25); S.st.blindHunt=(S.st.blindHunt||0)+1; }
-  S.money += val; S.st.earned += val; SFX.cash();
+  S.money += val; S.st.earned += val; SFX.cash(); addXP(5+Math.sqrt(val)); questProg('hunt',1);
   float(t.cx, t.cy-24, `+$${val} ${name}!${P.blind?' 🎯 blind bonus':''}`, '#7CFC00');
   burst(t.cx, t.cy, t.kind==='duck'||t.kind==='owl' ? '#f5f0e1' : '#8b5a2b', 16, 140);
   save();
@@ -1951,7 +1953,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -2023,7 +2025,7 @@ box.addEventListener('click', e=>{
   }
   if(b.hasAttribute('data-sell')){
     let total=0; for(const i of S.fish) total+=fishPay(i);
-    const nf=S.fish.length; S.money+=total; S.st.earned+=total; S.fish=[]; SFX.cash(); toast(`Sold fish for $${total.toLocaleString()}! 💰`);
+    const nf=S.fish.length; S.money+=total; S.st.earned+=total; questProg('sell',total); S.fish=[]; SFX.cash(); toast(`Sold fish for $${total.toLocaleString()}! 💰`);
     for(let k=0;k<Math.min(nf,12);k++) tone(1100+k*70,.06,'square',.045,.12+k*.07); if(nf) banner('💰','PAYDAY!',`You sold ${nf} fish for $${total.toLocaleString()}`,'#7CFC00');
   } else if(b.dataset.k){
     const key=b.dataset.k, i=+b.dataset.i;
@@ -4429,6 +4431,41 @@ function dailyGift(){
   banner('🎁','DAILY GIFT!',`${msg}${S.giftStreak>1?` · ${S.giftStreak} days in a row!`:''}`,'#ff8af0'); [523,659,784,988].forEach((f,i)=>tone(f,.16,'triangle',.12,i*.09)); save();
 }
 
+// ===================== Angler levels, daily quests & Fish of the Day =====================
+const TITLES=[[1,'Beginner'],[5,'Angler'],[10,'Pro Angler'],[15,'Expert Angler'],[20,'Master Angler'],[30,'Lake Legend'],[40,'Fishing Superstar']];
+function xpFor(l){ return Math.round(80*Math.pow(l,1.45)); } // XP needed to go from level l to l+1
+function levelInfo(){ let l=1, x=S.xp||0; while(x>=xpFor(l)){ x-=xpFor(l); l++; } return {l, into:x, need:xpFor(l), title:TITLES.filter(t=>l>=t[0]).pop()[1]}; }
+function addXP(n, x, y){ if(!(n>0)) return; const before=levelInfo().l; S.xp=(S.xp||0)+Math.round(n); if(x!=null) float(x,y,`+${Math.round(n)} XP`,'#c8a0ff');
+  const L=levelInfo(); if(L.l>before){ const cash=150*L.l; S.money+=cash; S.st.earned+=cash; if(L.l%5===0) S.items.fireworks=(S.items.fireworks||0)+5;
+    banner('⭐',`LEVEL ${L.l}!`,`You're a${/^[AEIOU]/.test(L.title)?'n':''} ${L.title}! +$${cash.toLocaleString()}${L.l%5===0?' + 5 fireworks':''}`,'#c8a0ff'); [523,659,784,1046,1318].forEach((f,i)=>tone(f,.2,'triangle',.13,i*.08)); } }
+const dayKey=()=>new Date().toDateString();
+function dayHash(str){ let h=2166136261; for(const ch of str){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; }
+function questFish(){ return FISH.map((f,i)=>({f,i})).filter(({f})=>!f.boss && !f.legend && !f.ice && f.v<=90 && (!f.lake||f.lake===LK.id) && (!f.lakes||f.lakes.includes(LK.id)) && !(f.minRod>S.rod)); }
+function fishOfDay(){ const pool=questFish(); if(!pool.length) return -1; return pool[dayHash(dayKey()+LK.id)%pool.length].i; }
+function ensureQuests(){
+  const day=dayKey(); if(S.quests && S.quests.day===day) return S.quests;
+  const lv=levelInfo().l, pool=questFish(), kinds=['fish','species','hunt','sell','big'].sort(()=>Math.random()-.5).slice(0,3), list=[];
+  for(const k of kinds){ const r=150+Math.floor(Math.random()*8)*50+lv*20;
+    if(k==='fish') list.push({k, n:5+Math.floor(Math.random()*3)*2+Math.min(6,Math.floor(lv/4)), h:0, r});
+    if(k==='species' && pool.length){ const p=pool[Math.floor(Math.random()*pool.length)]; list.push({k, i:p.i, n:1+Math.floor(Math.random()*2), h:0, r:r+100}); }
+    if(k==='hunt') list.push({k, n:2+Math.floor(Math.random()*3), h:0, r});
+    if(k==='sell') list.push({k, n:(3+Math.floor(Math.random()*6))*100+lv*50, h:0, r});
+    if(k==='big') list.push({k, n:1, lb:[2,3,5,8][Math.min(3,Math.floor(lv/5))], h:0, r:r+50}); }
+  S.quests={day, list, bonus:false}; return S.quests; }
+function questName(q){ return q.k==='fish'?`Catch ${q.n} fish`: q.k==='species'?`Catch ${q.n} ${FISH[q.i]?FISH[q.i].n:'fish'}`: q.k==='hunt'?`Hunt ${q.n} animals`: q.k==='sell'?`Sell $${q.n.toLocaleString()} of fish`: `Catch a fish over ${q.lb} lb`; }
+function questProg(k, amt, extra){ const Q=ensureQuests(); let changed=false;
+  for(const q of Q.list){ if(q.h>=q.n || q.k!==k) continue; if(k==='species' && extra!==q.i) continue; if(k==='big'){ if(amt<q.lb) continue; amt=1; }
+    q.h=Math.min(q.n,q.h+amt); changed=true;
+    if(q.h>=q.n){ S.money+=q.r; S.st.earned+=q.r; addXP(50); banner('📅','QUEST DONE!',`${questName(q)} · +$${q.r}`,'#8aff5a'); tone(880,.1,'triangle',.1); tone(1320,.18,'triangle',.1,.1); } }
+  if(!Q.bonus && Q.list.length && Q.list.every(q=>q.h>=q.n)){ Q.bonus=true; S.money+=1000; S.st.earned+=1000; S.items.fireworks=(S.items.fireworks||0)+5; addXP(150);
+    banner('🎉','ALL QUESTS DONE!','Bonus +$1,000 and 5 fireworks! New quests tomorrow'); }
+  if(changed) save(); }
+function questHTML(){ const Q=ensureQuests(), L=levelInfo(), fd=fishOfDay();
+  return `<div class="list"><div class="mission"><div class="e">⭐</div><div><b>Level ${L.l} · ${L.title}</b><div class="bar"><span style="width:${Math.round(L.into/L.need*100)}%"></span></div><small>${L.into.toLocaleString()} / ${L.need.toLocaleString()} XP to level ${L.l+1} · catch, hunt and finish quests to level up!</small></div><span class="tag">Lv ${L.l}</span></div></div>
+  <h2>📅 Today's Quests <small style="font-weight:600">(new ones every day!)</small></h2><div class="list">${Q.list.map(q=>{ const d=q.h>=q.n; return `<div class="mission ${d?'done':''}"><div class="e">${d?'✅':{fish:'🎣',species:'🐟',hunt:'🦌',sell:'💰',big:'📏'}[q.k]}</div><div><b>${questName(q)}</b><div class="bar"><span style="width:${Math.min(100,q.h/q.n*100)}%"></span></div><small>${d?'Done!':`${(q.k==='sell'?'$':'')+Math.floor(q.h).toLocaleString()} / ${(q.k==='sell'?'$':'')+q.n.toLocaleString()}`}</small></div><span class="tag">${d?'🏆':'$'+q.r}</span></div>`; }).join('')}</div>
+  ${Q.bonus?'<p>🎉 You finished all of today\'s quests! Come back tomorrow for new ones.</p>':'<p style="font-size:13px">Finish all 3 for a $1,000 bonus!</p>'}
+  ${fd>=0?`<div class="sellrow"><span>🌟 <b>Fish of the Day at ${LK.n}:</b> ${FISH[fd].n} · worth 3× today!</span></div>`:''}`; }
+
 // ---------- Update ----------
 function update(dt){
   updateFrenzy(dt); updateJumpers(dt);
@@ -6076,7 +6113,8 @@ function updateHud(){
   const holding = tool==='rod' ? `🎣 ${RODS[S.rod].n}` : `🔫 ${GUNS[S.gun].n} · ${AMMO[gunAmmo(S.gun)].e}${S.ammo[gunAmmo(S.gun)]||0}${(S.ammo[gunAmmo(S.gun)]||0)<=0?' <span class="warn">NO AMMO</span>':''}`;
   const chased = beasts.some(b=>b.chasing);
   const hpk=S.hp/MAX_HP, hpc=hpk>.6?'#4caf50':hpk>.3?'#ffb300':'#ff3b30';
-  let s = `<span class="cash">$${hudMoney().toLocaleString()}</span><br>`+
+  const QQ=ensureQuests(), qd=QQ.list.filter(q=>q.h>=q.n).length;
+  let s = `<span class="cash">$${hudMoney().toLocaleString()}</span> <span style="font-size:.85em;color:#d8c0ff">⭐ Lv ${levelInfo().l}</span> <span style="font-size:.85em">📅 ${qd}/${QQ.list.length}</span><br>`+
     `<span class="hp"><span style="width:${Math.round(hpk*100)}%;background:${hpc}"></span></span>❤️ ${Math.ceil(S.hp)}/${MAX_HP}${S.hp<30?' <span class="warn">LOW!</span>':''} · 🍽️ ${foodCount()}<br>`+
     `${holding} · ${curLure().e} ${curLure().n}${lureForever(S.lure)?'':' ×'+lureCount(S.lure)}<br>`+
     `🎒 Fish: ${S.fish.length}/${bagCap()}${S.fish.length>=bagCap()?' <span class="warn">FULL</span>':''}${streak>=2?` · 🔥${streak} in a row`:''}${frenzy?' · 🫧 FRENZY!':''}<br>`+
@@ -6192,7 +6230,7 @@ document.querySelectorAll('#modePick button').forEach(b=>b.addEventListener('cli
 showModePick();
 document.getElementById('playBtn').addEventListener('click', ()=>{
   ac(); document.getElementById('start').hidden=true;
-  const go=()=>{ started=true; setTimeout(dailyGift,2500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
+  const go=()=>{ started=true; setTimeout(dailyGift,2500); setTimeout(()=>{ const Q=ensureQuests(); if(!Q.bonus) toast(`📅 Today's quests: ${Q.list.map(questName).join(' · ')} (${touchMode?'tap 🏆':'press M'})`); },6500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
   if(!S.introSeen) playIntro(go); else go();
 });
 </script>
