@@ -673,7 +673,7 @@ const LAKES = [
    T:{fill:'#ffc2e2', ground:'#ffd6ec', tuft:['#ffc2e2','#ffe6f3'], flowers:['#ff4f9a','#5ad0ff','#ffe14d','#8aff8a'], path:'#f0b8d8',
       trail:['#e8a0c8','#f6c0dc','#ffffff'], sand:['#fff0c8','#ffe2a0'], water:['#6a2a8a','#9a4ac0','#c47ae0','#e8b8ff'],
       pad:'#8aff8a', padFlower:'#ff4f9a', rock:'#ffffff', shimmer:'#fff', trees:'lolli'}},
-  {id:'jungle', n:'Jungle River', p:55000, d:'Steamy rainforest! Piranhas, giant arapaima & jaguars', precip:'rain',
+  {id:'jungle', n:'Jungle River', p:35000, d:'Steamy rainforest! Monkeys, toucans, a hidden temple, piranhas & jaguars', precip:'rain',
    shape:{y:3250, rx:1250, ry:860}, geo:{islands:4, river:true, creek:true, pond:true, wild:1.7}, riverCol:['#5a7a3a','#3a5a2a'],
    beasts:[['jaguar',1,2],['croc',2,3]], game:[['capybara',6],['tapir',2],['peccary',3]],
    duck:{n:'Scarlet Macaw', body:'#e8302a', wing:'#2a6ad0', head:'#e8302a', beak:'#f4f0e0'},
@@ -725,6 +725,7 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'temple', n:'Find the Lost Jungle Temple', r:3000, e:'🛕', p:()=>[S.templeFound?1:0,1]},
   {id:'secret1', n:'Find a secret spot',        r:300,   e:'⭐', p:()=>[secretsTotal(),1]},
   {id:'secret10', n:'Find 10 secret spots',     r:4000,  e:'🌟', p:()=>[secretsTotal(),10]},
   {id:'bigfoot', n:'Get a photo of Bigfoot',    r:2000,  e:'👣', p:()=>[S.st.bigfoot||0,1]},
@@ -886,6 +887,7 @@ function drawMinimap(){
   const found=(S.found||{})[LK.id]||[];
   GEO.treasures.forEach((tr,i)=>{ if(found.includes(i)) dot(tr.x,tr.y,'#8a6a2a',2.5); else if(S.tmap || ((S.dseen||{})[LK.id]||[]).includes(i)){ ctx.strokeStyle='#ffd23f'; ctx.lineWidth=2; const X=x+tr.x*k, Y=y+tr.y*k; ctx.beginPath(); ctx.moveTo(X-3,Y-3); ctx.lineTo(X+3,Y+3); ctx.moveTo(X+3,Y-3); ctx.lineTo(X-3,Y+3); ctx.stroke(); } });
   for(const b of GEO.bottles) if(S.tmap && !myBottles().includes(b.k)) dot(b.x,b.y,'#7adca0',2);
+  if(LK.id==='jungle' && S.templeFound){ const T=jungleTemple(); if(T){ ctx.font=`11px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛕',x+T.x*k,y+T.y*k); ctx.textBaseline='alphabetic'; } }
   { const sg=secretsGot(); for(const sp of secretsHere()) if(sg.includes(sp.k)){ ctx.fillStyle='#ffe14d'; ctx.font=`10px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⭐',x+sp.x*k,y+sp.y*k); ctx.textBaseline='alphabetic'; } }
   if(drone){ const X=x+drone.x*k, Y=y+drone.y*k; ctx.save(); ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(90,208,255,.9)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x+P.x*k,y+P.y*k); ctx.lineTo(X,Y); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle='rgba(18,28,48,.7)'; ctx.beginPath(); ctx.arc(X,Y,9,0,7); ctx.fill(); ctx.strokeStyle='#5ad0ff'; ctx.lineWidth=2; ctx.stroke(); ctx.font=`12px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛸',X,Y+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
@@ -952,6 +954,7 @@ function buildWorld(){
   for(let i=0;i<5000;i++){ const x=srnd()*WW, y=srnd()*WH; if(shoreDist(x,y)<60 || inLake(x,y,1.4)) continue;
     b.fillStyle=T.flowers[Math.floor(srnd()*T.flowers.length)]; b.beginPath(); b.arc(x,y,3,0,7); b.fill(); }
   for(const f of GEO.fields) drawFieldBg(b,f);
+  for(const cr of GEO.craters||[]) drawCraterBg(b,cr,T);
   for(const rk of GEO.rocks) drawRockBg(b,rk,T);
   b.fillStyle=T.path; b.fillRect(SHOP.x-24, SHOP.y+40, 48, shopPathEnd()-SHOP.y-40);
   b.fillRect(CABIN.x-20, CABIN.y+40, 40, cabinPathEnd()-CABIN.y-40);
@@ -1344,7 +1347,7 @@ const LAKE_TIPS = {
   candy:['This lake is grape soda! The Candy Whale is worth $10,000!','Gummy Bears look cute, but they bite!'],
   prairie:['Bison look slow, but they charge if you get too close!','Pronghorns are the fastest animals here. Use a blind!'],
   mountain:['Golden Trout live up the creek. Try a dry fly!','Watch out for mountain lions in the rocks!'],
-  jungle:['Watch out for jaguars and crocodiles!','Peacock bass love crankbaits.'],
+  jungle:['Watch out for jaguars and crocodiles!','Peacock bass love crankbaits.','They say a LOST TEMPLE is hidden deep in the jungle...','Look up! Monkeys love to hop between the trees 🐒'],
   crystal:['It is always dark down here. Buy a bright lantern!','Glow lures work great in the caverns.'],
   moon:['Moon bunnies hop super fast!','Aliens are friendly... NOT! Run!'],
   canyon:['Javelinas will charge you. Keep your distance!','The Canyon Giant catfish hides in the deep holes.'],
@@ -3665,7 +3668,7 @@ function drawBurrows(t){ for(const h of GEO.burrows||[]){ if(h.x<cam.x-30||h.x>c
 function rockAt(x,y,pad=0){ for(const r of GEO.rocks||[]) if(Math.hypot(r.x-x,r.y-y)<r.r*.85+pad) return r; return null; }
 // called at the end of genGeo
 function genRocks(G, r){
-  G.rocks=[]; G.burrows=[];
+  G.rocks=[]; G.burrows=[]; G.craters=[];
   const id=LK.id, plan = id==='mountain' ? [[5,260,380,'peak'],[40,40,110,'boulder']] : id==='canyon' ? [[9,120,240,'mesa'],[20,30,70,'boulder']]
     : id==='prairie' ? [[6,20,45,'boulder']] : id==='frozen' ? [[3,180,260,'peak'],[12,25,60,'boulder']] : id==='candy'||id==='ocean' ? [[6,20,40,'boulder']] : [[12,20,55,'boulder']];
   const ok=(x,y,rad)=> !caveWall(x,y,rad) && x>rad+60 && y>rad+80 && x<WW-rad-60 && y<WH-rad-60 && shoreDist(x,y)>TRAIL_OFF+rad+90
@@ -3676,9 +3679,20 @@ function genRocks(G, r){
   for(const [n,r0,r1,kind] of plan) for(let k=0,tries=0;k<n && tries<n*80;tries++){
     const rad=r0+r()*(r1-r0), x=rad+60+r()*(WW-2*rad-120), y=rad+80+r()*(WH-2*rad-140); if(!ok(x,y,rad)) continue;
     G.rocks.push({x,y,r:rad,kind,seed:r()*1000,h:kind==='peak'?rad*2.4:kind==='mesa'?rad*.9:rad*.8}); k++; }
+  if(id==='moon') for(let k=0,tries=0;k<34 && tries<3000;tries++){ const rad=k<5?160+r()*120:k<15?70+r()*70:28+r()*34, x=rad+80+r()*(WW-2*rad-160), y=rad+100+r()*(WH-2*rad-200);
+    if(caveWall(x,y,rad) || shoreDist(x,y)<TRAIL_OFF+rad+40 || G.rivers.some(R=>riverDist(R,x,y)<R.w/2+rad+40) || Math.hypot(x-SHOP.x,y-SHOP.y)<rad+260 || Math.hypot(x-CABIN.x,y-CABIN.y)<rad+260 || Math.hypot(x-START.x,y-START.y)<rad+200 || G.rocks.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+rad+40) || G.craters.some(o=>Math.hypot(o.x-x,o.y-y)<(o.r+rad)*.9)) continue;
+    G.craters.push({x,y,r:rad,seed:r()*1000}); k++; }
   if(id==='prairie'||id==='canyon'){ for(let town=0,tries=0; town<(id==='prairie'?3:1) && tries<200; tries++){ const x=400+r()*(WW-800), y=400+r()*(WH-800);
     if(!ok(x,y,140)) continue; for(let k=0;k<7;k++){ const a=r()*6.283, d=r()*120; G.burrows.push({x:x+Math.cos(a)*d, y:y+Math.sin(a)*d*.7}); } town++; } }
 }
+function drawCraterBg(b, cr, T){ const x=cr.x, y=cr.y, R=cr.r, ry=R*.72;
+  b.fillStyle='rgba(255,255,255,.10)'; b.beginPath(); b.ellipse(x,y,R*1.18,ry*1.18,0,0,7); b.fill(); // splashed-out dust
+  const g=b.createRadialGradient(x+R*.25,y+ry*.25,R*.1,x,y,R); g.addColorStop(0,'rgba(60,60,72,.55)'); g.addColorStop(.75,'rgba(40,40,50,.45)'); g.addColorStop(1,'rgba(30,30,38,.15)');
+  b.fillStyle=g; b.beginPath(); b.ellipse(x,y,R,ry,0,0,7); b.fill();
+  b.strokeStyle='rgba(235,235,245,.55)'; b.lineWidth=Math.max(3,R*.09); b.beginPath(); b.ellipse(x,y,R,ry,0,Math.PI*.95,Math.PI*1.85); b.stroke(); // sunny rim
+  b.strokeStyle='rgba(20,20,28,.45)'; b.beginPath(); b.ellipse(x,y,R,ry,0,-.15,Math.PI*.85); b.stroke(); // shady rim
+  let sd=cr.seed; const rr=()=>{ sd=(sd*16807+11)%2147483647; return (sd%10000)/10000; };
+  if(R>60) for(let i=0;i<3;i++){ const a=rr()*6.283, d=rr()*R*.55, rx=x+Math.cos(a)*d, ry2=y+Math.sin(a)*d*.7, rs=R*(.08+rr()*.1); b.fillStyle='rgba(30,30,40,.35)'; b.beginPath(); b.ellipse(rx,ry2,rs,rs*.7,0,0,7); b.fill(); b.strokeStyle='rgba(230,230,240,.4)'; b.lineWidth=1.5; b.beginPath(); b.ellipse(rx,ry2,rs,rs*.7,0,Math.PI,Math.PI*1.9); b.stroke(); } }
 function drawRockBg(b, rk, T){
   const sn=season(), snowy=(sn==='winter'&&LK.freezes)||LK.id==='frozen';
   let sd=rk.seed; const rr=()=>{ sd=(sd*16807+11)%2147483647; return (sd%10000)/10000; };
@@ -3753,6 +3767,10 @@ function fpWorldExtras(sc, dmy, T){
     const m=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true, flatShading:true, emissive: style==='volcano'?lin('#401008'):new THREE.Color(0)}));
     m.position.set(x,h/2-20,z); m.rotation.y=rr()*6; sc.add(m);
   }
+  // moon craters: a raised dusty rim around a dark bowl
+  for(const cr of GEO.craters||[]){ const y0=hillAt(cr.x,cr.y), rim=new THREE.Mesh(new THREE.TorusGeometry(cr.r,Math.max(5,cr.r*.13),6,Math.max(16,Math.round(cr.r/6))), new THREE.MeshLambertMaterial({color:lin('#a8a8b2'),flatShading:true}));
+    rim.rotation.x=Math.PI/2; rim.scale.z=.45; rim.position.set(cr.x,y0+1,cr.y); rim.receiveShadow=true; sc.add(rim);
+    const bowl=new THREE.Mesh(new THREE.CircleGeometry(cr.r*.97,Math.max(16,Math.round(cr.r/6))), new THREE.MeshLambertMaterial({color:lin('#4a4a56')})); bowl.rotation.x=-Math.PI/2; bowl.position.set(cr.x,y0+.6,cr.y); bowl.receiveShadow=true; sc.add(bowl); }
   // rocks, peaks and mesas on the map
   for(const rk of GEO.rocks){ const y0=hillAt(rk.x,rk.y);
     const base = rk.kind==='mesa' ? '#b0583a' : id==='volcano' ? '#2a2420' : id==='candy' ? '#ffe0f0' : T.rock;
@@ -4141,6 +4159,7 @@ function updateRide(dt){
   if(P.air>0){ P.air-=dt; if(P.air<=0){ P.air=0; shake(4,.25); vib(40); SFX.splash&&noise(.12,.25,500); burst(P.x,P.y,'rgba(160,130,90,.8)',10,80); S.st.jumps=(S.st.jumps||0)+1; float(P.x,P.y-70,['Nice jump!','Big air!','WOW!','Awesome!'][S.st.jumps%4],'#ffe14d'); } }
   if(P.moving){ engineT-=dt; if(engineT<=0){ if(S.ride==='horse'){ engineT=.22; tone(260+Math.random()*40,.04,'square',.035); tone(200,.04,'square',.03,.08); } else { engineT=.09; tone(S.ride==='bike'?120+Math.random()*30:S.ride==='monster'?60+Math.random()*15:85+Math.random()*20,.1,'sawtooth',S.ride==='monster'?.05:.035); } }
     if(Math.random()<dt*25) parts.push({x:P.x-P.fx*24+(Math.random()-.5)*12, y:P.y-3, vx:-P.fx*60+(Math.random()-.5)*40, vy:-30-Math.random()*30, t:.5, col: onIce(P.x,P.y)?'rgba(240,248,255,.8)':'rgba(160,130,90,.6)', sz:6});
+    if(!P.air && LK.id==='moon') for(const cr of GEO.craters||[]){ const dd=Math.hypot((P.x-cr.x)/cr.r,(P.y-cr.y)/(cr.r*.72)); if(Math.abs(dd-1)<.08 && cr.r>45 && performance.now()-(window.__moonJ||0)>1800){ window.__moonJ=performance.now(); P.airMax=P.air=1.3; tone(260,.3,'sine',.05,0,700); float(P.x,P.y-70,'🌙 Moon jump!','#c8d8ff'); break; } }
     if(!P.air) for(const r of GEO.props) if(r.kind==='ramp' && Math.hypot(r.x-P.x,r.y-P.y)<26){ P.airMax=P.air=(S.ride==='bike'||S.ride==='monster'?.9:S.ride==='atv'||S.ride==='sled'||S.ride==='horse'?.7:.5)*(LK.space?2.2:1); tone(300,.2,'square',.05,0,600); break; } }
 }
 function drawRamp(p){ const c=ctx; c.save(); c.translate(p.x,p.y); c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(4,4,34,12,0,0,7); c.fill();
@@ -4683,6 +4702,7 @@ function photoSubjects(){ const L=[];
   for(const b of beasts) if(!b.dead) L.push({x:b.x,y:b.y,key:'beast:'+b.kind,n:BEAST[b.kind].n,e:BEAST_E[BEAST[b.kind].look]||'🐾'});
   if(!isNight()) for(const d of ducks) if(!d.dead) L.push({x:d.x,y:d.y,key:'duck:'+LK.id,n:LK.duck.n,e:'🦆'});
   for(const o of owls) if(!o.dead) L.push({x:o.x,y:o.y,key:'owl',n:'Owl',e:'🦉'});
+  if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree) L.push({x:m.x,y:m.y,key:'monkey',n:'Monkey',e:'🐒'}); for(const b of toucans) L.push({x:b.x,y:b.y-90,key:'toucan',n:'Toucan',e:'🦜'}); }
   if(bigfoot) L.push({x:bigfoot.x,y:bigfoot.y,key:'bigfoot',n:'BIGFOOT',e:'👣',bigfoot:1});
   for(const j of jumpers) if(FISH[j.i]) L.push({x:j.x,y:j.y,key:'fish:'+j.i,n:'Jumping '+FISH[j.i].n,e:'🐟',bonus:1});
   return L; }
@@ -4824,8 +4844,45 @@ function drawSecretOne(c,sp,t){ const K=sp.kind; c.save(); c.translate(sp.x,sp.y
 function drawSecrets(t){ const got=secretsGot(); for(const sp of secretsHere()){ const found=got.includes(sp.k), d=Math.hypot(sp.x-P.x,sp.y-P.y); if(!found && d>300) continue; if(d>1600) continue;
   if(!found){ ctx.globalAlpha=Math.max(.15,1-(d-110)/190); } drawSecretOne(ctx,sp,t); ctx.globalAlpha=1; } }
 
+// ===================== Jungle life: monkeys in the trees, toucans, and the hidden temple =====================
+var monkeys=[], toucans=[], templeSpot=null, templeLake=null;
+function jungleTemple(){ if(templeLake===LK.id) return templeSpot; templeLake=LK.id; templeSpot=null; if(LK.id!=='jungle') return null; let h=dayHash('temple');
+  const rnd=()=>{ h=Math.imul(h^(h>>>15),2246822507)>>>0; h=(h^(h>>>13))>>>0; return h/4294967296; };
+  for(let k=0;k<4000;k++){ const x=500+rnd()*(WW-1000), y=500+rnd()*(WH-1000); if(landOk(x,y) && landOk(x-90,y) && landOk(x+90,y) && Math.hypot(x-START.x,y-START.y)>1600 && !nearBldg(x,y,400)){ templeSpot={x,y}; break; } }
+  return templeSpot; }
+function updateJungle(dt){ if(LK.id!=='jungle' || P.room){ if(monkeys.length && LK.id!=='jungle'){ monkeys=[]; toucans=[]; } return; }
+  // monkeys hop from tree to tree near you
+  while(monkeys.length<9) monkeys.push({tree:null, x:P.x, y:P.y, t:0, hop:null, face:1, c:['#6a4424','#7a5030','#5a3a20'][monkeys.length%3]});
+  for(const m of monkeys){
+    if(!m.tree || Math.hypot(m.tree.x-P.x,m.tree.y-P.y)>1300){ const T=trees.filter(tr=>Math.abs(tr.x-P.x)<900 && Math.abs(tr.y-P.y)<700); if(T.length){ m.tree=T[Math.floor(Math.random()*T.length)]; m.x=m.tree.x; m.y=m.tree.y; m.hop=null; m.t=1+Math.random()*4; } continue; }
+    if(m.hop){ m.hop.k+=dt*1.6; const k=Math.min(1,m.hop.k); m.x=m.hop.x0+(m.hop.tr.x-m.hop.x0)*k; m.y=m.hop.y0+(m.hop.tr.y-m.hop.y0)*k; m.lift=Math.sin(k*Math.PI)*60; if(k>=1){ m.tree=m.hop.tr; m.hop=null; m.lift=0; m.t=2+Math.random()*5; } continue; }
+    m.t-=dt; const scared=Math.hypot(m.x-P.x,m.y-P.y)<110;
+    if(m.t<=0 || scared){ const near=treesNear(m.x,m.y).concat(trees.filter(tr=>Math.abs(tr.x-m.x)<260 && Math.abs(tr.y-m.y)<200)).filter(tr=>tr!==m.tree && Math.hypot(tr.x-m.x,tr.y-m.y)>60 && Math.hypot(tr.x-m.x,tr.y-m.y)<320);
+      if(near.length){ const tr=near[Math.floor(Math.random()*near.length)]; m.hop={tr, x0:m.x, y0:m.y, k:0}; m.face=tr.x>m.x?1:-1; if(scared || Math.random()<.3) tone(900+Math.random()*300,.07,'square',.03,0,1300); } else m.t=2; } }
+  // toucans flying past
+  while(toucans.length<4) toucans.push({x:cam.x-100, y:cam.y+Math.random()*VH/Z, vx:90+Math.random()*60, ph:Math.random()*6, set:false});
+  for(const b of toucans){ if(!b.set || b.x>cam.x+VW/Z+150 || Math.abs(b.y-(cam.y+VH/Z/2))>VH/Z){ b.set=true; b.x=cam.x-60-Math.random()*400; b.y=cam.y+Math.random()*VH/Z; } b.x+=b.vx*dt; b.y+=Math.sin(performance.now()/700+b.ph)*12*dt; }
+  // the hidden temple
+  const T=jungleTemple(); if(T && !S.templeFound && Math.hypot(T.x-P.x,T.y-P.y)<200){ S.templeFound=true; S.money+=2000; S.st.earned+=2000; addXP(250); if(!S.owned.hats.includes('explorer')) S.owned.hats.push('explorer');
+    banner('🛕','THE LOST JUNGLE TEMPLE!','You found the Golden Idol! +$2,000 and the Explorer Hat 🎩',''+'#ffd23f'); shake(7,.5); [392,523,659,784,1046,1318].forEach((f,i)=>tone(f,.18,'triangle',.12,i*.09)); save(); } }
+function drawMonkey(c,m,t){ c.save(); c.translate(m.x,m.y-(m.tree?m.tree.r*1.15:40)-(m.lift||0)); c.scale(m.face,1); const sw=Math.sin(t*3+m.x)*.3;
+  c.strokeStyle=m.c; c.lineWidth=2.2; c.lineCap='round'; c.beginPath(); c.moveTo(-5,2); c.quadraticCurveTo(-14,4+sw*8,-12,-6); c.quadraticCurveTo(-11,-10,-8,-8); c.stroke();
+  c.fillStyle=m.c; c.beginPath(); c.ellipse(0,0,5.5,6.5,0,0,7); c.fill(); c.beginPath(); c.arc(2,-8,4.5,0,7); c.fill(); c.fillStyle='#d8b088'; c.beginPath(); c.ellipse(3.5,-7.5,2.8,2.6,0,0,7); c.fill(); c.beginPath(); c.arc(-2,-10,1.6,0,7); c.arc(5.5,-11,1.6,0,7); c.fill();
+  c.fillStyle='#111'; c.beginPath(); c.arc(3,-8.5,.8,0,7); c.arc(5,-8.5,.8,0,7); c.fill(); c.strokeStyle=m.c; c.lineWidth=2; c.beginPath(); c.moveTo(4,-2); c.lineTo(8,-6+(m.hop?-4:0)); c.moveTo(-3,-2); c.lineTo(-6,3); c.stroke(); c.restore(); }
+function drawToucan(c,b,t){ c.save(); c.translate(b.x,b.y-90); const f=Math.sin(t*14+b.ph)*5; c.fillStyle='#151515'; c.beginPath(); c.ellipse(0,0,8,4.5,0,0,7); c.fill(); c.beginPath(); c.moveTo(-3,-1); c.lineTo(-8,-9-f); c.lineTo(3,-2); c.fill();
+  c.beginPath(); c.arc(7,-2,3.5,0,7); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(7.5,-.5,2.2,0,7); c.fill(); c.fillStyle='#ff9a1a'; c.beginPath(); c.moveTo(9,-4); c.quadraticCurveTo(19,-4,19,-1); c.lineTo(9,0); c.fill(); c.fillStyle='#ffd23f'; c.fillRect(9,-4,4,2); c.restore(); }
+function drawTemple(c,T,t){ c.save(); c.translate(T.x,T.y); c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(0,6,130,26,0,0,7); c.fill();
+  const lv=[[120,26,'#8a8a6a'],[96,26,'#9a9a78'],[72,26,'#8a8a6a'],[48,24,'#9a9a78']]; let y=0; for(const [w,h,col] of lv){ c.fillStyle=col; c.fillRect(-w,y-h,w*2,h); c.fillStyle='rgba(0,0,0,.15)'; c.fillRect(-w,y-4,w*2,4); c.fillStyle='#5a8a3a'; for(let i=0;i<4;i++) c.fillRect(-w+((i*37+w)%(w*2-10)),y-h,10,5); y-=h; }
+  c.fillStyle='#7a7a5a'; c.fillRect(-16,y,32,-y); for(let k=0;k<12;k++){ c.fillStyle=k%2?'#6a6a4c':'#7a7a5a'; c.fillRect(-16,-k*8.5-8,32,8); }
+  c.fillStyle='#8a8a6a'; c.fillRect(-28,y-34,56,34); c.fillStyle='#1a1408'; c.beginPath(); c.roundRect(-11,y-28,22,28,[11,11,0,0]); c.fill();
+  if(!S.templeFound){ const g=.5+.5*Math.sin(t*3); c.fillStyle=`rgba(255,214,60,${.4+g*.5})`; c.beginPath(); c.arc(0,y-12,5+g*2,0,7); c.fill(); }
+  c.strokeStyle='#3a6a2a'; c.lineWidth=3; for(const sd of [-1,1]){ c.beginPath(); c.moveTo(sd*120,0); c.quadraticCurveTo(sd*130,-40,sd*100,-70); c.stroke(); } c.restore(); }
+function drawJungle(t){ if(LK.id!=='jungle') return; const T=jungleTemple(); if(T && Math.hypot(T.x-P.x,T.y-P.y)<1800) drawTemple(ctx,T,t); }
+function drawJungleTop(t){ if(LK.id!=='jungle') return; for(const m of monkeys) if(m.tree) drawMonkey(ctx,m,t); for(const b of toucans) drawToucan(ctx,b,t); }
+
 // ---------- Update ----------
 function update(dt){
+  updateJungle(dt);
   updateSecrets();
   updateBigfoot(dt); updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
@@ -5849,13 +5906,14 @@ function draw(t){
     ctx.globalAlpha=1; }
   drawCritters(t, vw, vh);
 
-  drawSecrets(t); drawFrenzy(t); drawJumpers(t); drawRace(t); drawGoldDucks(t); drawHiddenMaps(t); drawDig(t);
+  drawJungle(t); drawSecrets(t); drawFrenzy(t); drawJumpers(t); drawRace(t); drawGoldDucks(t); drawHiddenMaps(t); drawDig(t);
   for(const b of bullets){
     if(b.sling){ ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(b.x,b.y,3.5,0,7); ctx.fill(); }
     else if(b.arrow){ const sp=Math.hypot(b.vx,b.vy), ux=b.vx/sp, uy=b.vy/sp; ctx.strokeStyle='#8a5a2a'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); ctx.strokeStyle='#e8402a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(b.x-ux*20,b.y-uy*20); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); }
     else if(b.laser){ ctx.strokeStyle='rgba(90,240,255,.45)'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*.02,b.y-b.vy*.02); ctx.stroke(); ctx.strokeStyle='#e8ffff'; ctx.lineWidth=2.5; ctx.stroke(); }
     else { ctx.strokeStyle='#ffe082'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*.015,b.y-b.vy*.015); ctx.stroke(); }
   }
+  drawJungleTop(t);
   for(const p of parts){ ctx.globalAlpha=Math.min(1,p.t*2); ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,p.sz*.6,0,7); ctx.fill(); }
   ctx.globalAlpha=1;
   ctx.restore();
@@ -6384,6 +6442,8 @@ function fpFrame(t){
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-VX,tr.y-VY)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
   for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-VX,bl.y-VY)<2200){ const tw=bl.kind==='tower'; fpEnt(bl,tw?120:90,tw?220:110,tw?60:45,tw?210:100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y)); }
+  if(LK.id==='jungle'){ const T=jungleTemple(); if(T && Math.hypot(T.x-VX,T.y-VY)<3000) fpEnt(T,280,190,140,170,0,()=>drawTemple(ctx,T,t),lit(T.x,T.y));
+    for(const m of monkeys) if(m.tree && Math.hypot(m.x-VX,m.y-VY)<1400){ m._c=m._c||{}; m._c.x=m.x; m._c.y=m.y; fpEnt(m._c,40,40,20,30,48+(m.lift||0)*.6,()=>{ const sv=m.tree; ctx.save(); ctx.translate(0,(sv?sv.r*1.15:40)+(m.lift||0)); drawMonkey(ctx,m,t); ctx.restore(); },lit(m.x,m.y)); } }
   if(bigfoot && Math.hypot(bigfoot.x-VX,bigfoot.y-VY)<2400) fpEnt(bigfoot,90,120,45,108,0,()=>drawBigfoot(ctx,bigfoot,t),lit(bigfoot.x,bigfoot.y));
   if(drone && !P.inBoat){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,S.ride?120:80,S.ride?110:100,S.ride?60:40,S.ride?96:92,0,()=>S.ride?drawRider(t):drawPlayer(t),lit(P.x,P.y)); }
   if(S.pet && !P.inBoat && !petFlies()) fpEnt(pet,60,50,30,40,0,()=>drawPet(t),lit(pet.x,pet.y));
