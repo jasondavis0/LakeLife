@@ -1178,10 +1178,12 @@ const flies = Array.from({length:34}, ()=>({x:0, y:0, ph:Math.random()*6.28, set
 
 // ---------- Time & weather ----------
 function newSeason(){
-  const sn=season(); if(sn==='spring'){ S.holes=[]; S.holeV=(S.holeV||0)+1; } buildWorld(); if(FP.on) FP.lake=null;
+  const sn=season(); if(sn==='spring'){ S.holes=[]; S.holeV=(S.holeV||0)+1; }
+  if(NOSEASON.includes(LK.id)) return; buildWorld(); if(FP.on) FP.lake=null;
   if(fishing.state!=='none') fishing={state:'none'};
   if(iceOn() && P.inBoat){ P.inBoat=false; setTimeout(()=>toast('❄️ The lake froze around your boat! You hopped out onto the ice'),2800); }
   if(!P.inBoat && !P.room && !P.blind && blocked(P.x,P.y)) rescueToShore();
+  if(typeof veh!=='undefined' && veh.x>0 && !S.ride && inLake(veh.x,veh.y,1)) parkVehicleNear(veh.x,veh.y);
   toast({spring:'🌸 Spring! Bass move shallow to spawn. Flowers everywhere!', summer:'☀️ Summer! Big fish go deep when it\'s hot.', fall:'🍂 Fall! Fish feed like crazy before winter.',
     winter: LK.freezes?'❄️ Winter! The lake froze. Buy an Ice Auger and drill a hole to ice fish!':'❄️ Winter! Fish are slow and sleepy.'}[sn]);
 }
@@ -1357,7 +1359,7 @@ function resetCreatures(){
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
   if(LK.cave && weather.type!=='clear' && weather.type!=='fog'){ weather.type='clear'; weather.t=60; } if(LK.cave) weather.wind=0;
-  makeNPCs(); S.ride=null; if(typeof veh!=='undefined' && veh) veh.x=-1;
+  makeNPCs(); S.ride=null; P.air=0; if(typeof veh!=='undefined' && veh) veh.x=-1;
   gameInit=true; // the new animals show up on the first frame
 }
 resetCreatures();
@@ -1381,7 +1383,7 @@ function nearShop(){ return Math.hypot(P.x-SHOP.x, P.y-(SHOP.y+SHOP.h/2+20)) < 9
 function nearCabin(){ return Math.hypot(P.x-CABIN.x, P.y-(CABIN.y+CABIN.h/2+20)) < 90; }
 function nearBoat(){ return S.boat>0 && !P.inBoat && Math.hypot(P.x-boat.x,P.y-boat.y) < 90; }
 function bagCap(){ return BAGS[S.bag].c + (S.boat>=5?20:0) + (S.boat>0 ? (BOAT_UPS.storage[S.boatUp.storage].c||0) : 0) + Math.max(0,...(S.vehicles||[]).map(v=>({atv:5,ranger:15})[v]||0)); }
-function playerSafe(){ return P.inBoat || !!P.blind || onDock(P.x,P.y) || nearBldg(P.x,P.y,230); }
+function playerSafe(){ return P.inBoat || !!P.blind || !!drone || onDock(P.x,P.y) || nearBldg(P.x,P.y,230); }
 
 function blocked(x,y){
   if(LK.cave && (x<230||y<240||x>WW-230||y>WH-230)) return true; // cave walls
@@ -1412,6 +1414,7 @@ function damage(n, reason){
   save();
 }
 function faint(){
+  if(P.blind) leaveBlind(); if(drone) landDrone(); scopeOff();
   const n = Math.ceil(S.fish.length/2);
   for(let i=0;i<n;i++) S.fish.splice(Math.floor(Math.random()*S.fish.length),1);
   P.inBoat=false; P.x=CABIN.x; P.y=CABIN.y+CABIN.h/2+40; P.hurt=3; S.hp=50; setAct('faint', 2.8);
@@ -1694,7 +1697,7 @@ function shoot(auto){
   S.ammo[am]--;
   let a;
   if(auto){
-    let best=null, bd=gunRange();
+    let best=null, bd=S.gun===0?GUNS[0].range:gunRange();
     for(const t of targets()){ const d=Math.hypot(t.cx-P.x, t.cy-(P.y-24)); if(d<bd){ bd=d; best=t; } }
     a = best ? Math.atan2(best.cy-(P.y-24), best.cx-P.x) : Math.atan2(P.fy,P.fx);
   } else a = Math.atan2(mouse.y/Z+cam.y-(P.y-24), mouse.x/Z+cam.x-P.x);
@@ -1893,7 +1896,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -1926,12 +1929,14 @@ function cabinHTML(){
   <button data-sleep>🛏️ Sleep until morning</button></div>
   <p style="text-align:right;margin:16px 0 0"><button class="close" data-close>Close (E)</button></p>`;
 }
-function renderPanel(){ box.innerHTML = '<button class="close xbtn" data-close aria-label="Close">✕</button>' + (panel==='shop' ? stationHTML('counter') : panel==='cabin' ? cabinHTML() : panel==='missions' ? missionsHTML() : stationHTML(panel)); }
+function renderPanel(){ box.innerHTML = '<button class="close xbtn" data-close aria-label="Close">✕</button>' + (panel==='shop' ? stationHTML('counter') : panel==='cabin' ? cabinHTML() : panel==='missions' ? missionsHTML() : panel==='story' ? storyHTML() : stationHTML(panel)); }
 box.addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b || b.disabled) return;
   if(b.hasAttribute('data-close')){ closePanel(); return; }
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
+  if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
+  if(b.hasAttribute('data-story')){ panel='story'; renderPanel(); box.scrollTop=0; return; }
   if(b.hasAttribute('data-drink')){ if(S.money<15) return; S.money-=15; P.boost=45; SFX.cash(); tone(700,.08,'triangle',.1); tone(1000,.12,'triangle',.1,.08); toast('🥤 Gulp! You feel SUPER fast for 45 seconds!'); save(); renderPanel(); return; }
   if(b.hasAttribute('data-wire')){ S.wireOn=!S.wireOn; save(); renderPanel(); return; }
   if(b.dataset.look){ const [f,v]=b.dataset.look.split(':'); S.look[f] = f==='style' ? v : f==='shades' ? v==='1' : +v; FP.lake=null; save(); renderPanel(); return; }
@@ -2219,6 +2224,7 @@ const LURES=[
   {id:'icejig',   n:'Ice Jig',       e:'❄️', p:280,   m:.75, d:'Made for ice fishing in winter'},
   {id:'glow',     n:'Glow Lure',     e:'💡', p:900,   m:.7,  mud:1, d:'It glows! Night fish & the deep'},
   {id:'goldfrog', n:'Golden Frog',   e:'🥇', p:0,     m:.6,  secret:1, d:'A legendary lure. Only found in treasure...'},
+  {id:'grandpa',  n:"Grandpa's Golden Lure", e:'🌟', p:0, m:.4, secret:1, as:['any'], d:'The end of the story! Every fish loves it'},
   // more live bait
   {id:'nightcrawler', n:'Nightcrawlers', e:'🪱', p:60,  m:.88, nat:1, as:['worm'], d:'Big juicy worms · fish bite faster'},
   {id:'leech',    n:'Leeches',       e:'〰️', p:90,    m:.82, nat:1, as:['worm','minnow'], d:'Walleye & perch love them'},
@@ -2342,7 +2348,7 @@ function fishWeight(f, sp){
   if(H.includes('deep') && sp.depth>.6) w*=2; if(H.includes('shallow') && sp.depth<.35) w*=2;
   if(H.includes('night') && isNight()) w*=2;
   if(sp.ice) w *= H.includes('ice') ? 4 : .25;
-  const sn=season();                                     // seasons change who's biting
+  const sn=NOSEASON.includes(LK.id)?'summer':season();    // seasons change who's biting
   if(sn==='spring' && (sh==='bass'||sh==='panfish'||sh==='trout')) w*=1.6;
   if(sn==='summer' && (sh==='bass'||sh==='catfish'||sh==='carp'||sh==='gar')) w*=1.5;
   if(sn==='fall' && (sh==='pike'||sh==='walleye'||sh==='perch'||sh==='trout'||sh==='sturgeon')) w*=1.8;
@@ -2487,7 +2493,13 @@ function needScreen(n){ if(FP.on){ const k=n[0]*-Math.sin(FP.yaw)+n[1]*Math.cos(
 function dirName(n){ const v=needScreen(n), hz=Math.abs(v[0])>=Math.abs(v[1]);
   const nm = hz ? (v[0]>0?'RIGHT ➡️':'⬅️ LEFT') : (v[1]>0?'DOWN ⬇️':'UP ⬆️');
   return touchMode ? nm+' (joystick)' : nm+` (${hz?(v[0]>0?'D':'A'):(v[1]>0?'S':'W')})`; }
-function loseFish(msg){ setAct('lost',1.4); SFX.miss(); toast(msg); fishing={state:'none'}; }
+const LURE_PACK=3, lureForever=id=>id==='worm'||id==='goldfrog'||id==='grandpa'; // worms are free, legendary lures never break off
+function lureCount(id){ return lureForever(id) ? (S.lures.includes(id)?Infinity:0) : (S.lureN[id]||0); }
+function loseLure(){ const id=S.lure; if(lureForever(id)) return '';
+  S.lureN[id]=Math.max(0,(S.lureN[id]||0)-1); const l=lureById(id), left=S.lureN[id];
+  if(left<=0){ S.lure='worm'; setTimeout(()=>toast(`😢 That was your last ${l.n}! You're using worms now. Buy more at the shop`),2700); }
+  save(); return ` You lost your ${l.e} ${l.n}${left>0?` (${left} left)`:''}.`; }
+function loseFish(msg, lure){ setAct('lost',1.4); SFX.miss(); toast(msg+(lure?loseLure():'')); fishing={state:'none'}; }
 // fish fight: hold to reel, steer the opposite way when it runs sideways, let go when it jumps!
 function updateFight(dt){
   const F=fishing, f=FISH[F.fish], holding=keys[' ']||actHeld, rod=1+S.rod*.15, reel=REELS[S.reel], line=LINES[S.line], capPx=reel.cap*5;
@@ -2540,18 +2552,18 @@ function updateFight(dt){
   if(ph==='dive'){ F.dive += holding ? -dt : dt;
     if(F.dive>1.3){ F.dive=0; F.phase='swim'; F.phT=1;
       if(line.braid) toast('💪 Your braid line ripped it out of the brush!');
-      else if(Math.random()<.55){ loseFish(`🌿 The ${nm} wrapped your line around a stick! Reel hard when it dives (or use braid)`); return; }
+      else if(Math.random()<.55){ loseFish(`🌿 The ${nm} wrapped your line around a stick!`, true); return; }
       else toast('😅 Phew! Your line came loose from the brush'); } }
   else F.dive=Math.max(0,F.dive-dt);
   if(F.chest==null){
-    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ loseFish(`🦷 The ${nm} bit through your line! Get a Wire Leader for toothy fish`); return; }
+    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ loseFish(`🦷 The ${nm} bit through your line! A Wire Leader stops that.`, true); return; }
     const hs=HOOKS[S.hook].sz, need=hookNeed(f);
     if(hs<need && holding && Math.random()<dt*.1*(need-hs)){ loseFish(`🪝 The hook bent straight! A ${nm} needs a ${HOOKS[Math.min(3,need-1)].n} or bigger`); return; }
     if((f.needLb && line.lb<f.needLb) || (f.needHook && hs<f.needHook)){ F.chk+=dt;
-      if(F.chk>3.5){ loseFish(`💥 The ${nm} is too strong! You need ${f.needLb&&line.lb<f.needLb?f.needLb+' lb line':''}${f.needLb&&line.lb<f.needLb&&f.needHook&&hs<f.needHook?' and ':''}${f.needHook&&hs<f.needHook?'a '+HOOKS[f.needHook-1].n:''}`); return; } }
+      if(F.chk>3.5){ loseFish(`💥 The ${nm} is too strong! You need ${f.needLb&&line.lb<f.needLb?f.needLb+' lb line':''}${f.needLb&&line.lb<f.needLb&&f.needHook&&hs<f.needHook?' and ':''}${f.needHook&&hs<f.needHook?'a '+HOOKS[f.needHook-1].n:''}`, true); return; } }
   }
-  if(F.d>capPx){ loseFish(`🧵 The ${nm} took ALL your line! Get a reel that holds more line`); return; }
-  if(F.tension>=1){ loseFish(`💥 SNAP! Too much pull for ${line.n} line! Let go when it runs`); return; }
+  if(F.d>capPx){ loseFish(`🧵 The ${nm} took ALL your line! A bigger reel holds more.`, true); return; }
+  if(F.tension>=1){ loseFish(`💥 SNAP! Too much pull for ${line.n} line!`, true); return; }
   if(F.d<=(F.ice?14:S.gear.net?85:40)){ if(F.chest!=null){ const k=F.chest; fishing={state:'none'}; openTreasure(k, true); } else landFish(F.fish); }
 }
 // the fish leaping out of the water during the fight
@@ -2645,7 +2657,7 @@ function openTreasure(k, fromWater){
   (S.found[LK.id]=S.found[LK.id]||[]).push(k); S.st.chests++;
   const loot=TREASURE_LOOT[LK.id+':'+tr.why] || {}, li=LAKES.indexOf(LK);
   let cash=(loot.cash||0) + 120 + li*250 + ({sunken:1500, island:500, pond:400, bridge:200, woods:300}[tr.why]||0), extra='';
-  if(loot.lure){ if(!S.lures.includes(loot.lure)){ S.lures.push(loot.lure); extra=` and the ${lureById(loot.lure).e} ${lureById(loot.lure).n}!`; } else cash+=500; }
+  if(loot.lure){ if(!lureForever(loot.lure)) S.lureN[loot.lure]=(S.lureN[loot.lure]||0)+3; if(!S.lures.includes(loot.lure)){ S.lures.push(loot.lure); extra=` and the ${lureById(loot.lure).e} ${lureById(loot.lure).n}!`; } else cash+=500; }
   if(loot.item){ if(!S.gear[loot.item]){ S.gear[loot.item]=true; extra=` and an ${TACKLE_ITEMS.find(x=>x.id===loot.item).n}!`; } else cash+=300; }
   if(loot.hat && !S.owned.hats.includes(loot.hat)){ S.owned.hats.push(loot.hat); extra=` and the ${HATS.find(h=>h.id===loot.hat).n}! (wear it from your cabin wardrobe)`; }
   if(loot.map && !S.tmap){ S.tmap=true; extra=' and an OLD TREASURE MAP! Every treasure now shows on your map 🗺️'; }
@@ -2786,7 +2798,7 @@ const ROOMS={
 };
 function enterRoom(id){
   if(drone) landDrone();
-  if(S.ride){ veh.x=P.x; veh.y=P.y; S.ride=null; }
+  if(S.ride){ veh.x=P.x; veh.y=P.y; S.ride=null; P.air=0; }
   const R=ROOMS[id]; P.room=id; const hp=document.getElementById('help'); if(hp){ P.helpWas=hp.hidden; hp.hidden=true; } P.rx=R.w/2; P.ry=R.h-90; P.fx=0; P.fy=-1; fishing={state:'none'};
   if(FP.on){ P.fpBack=true; fpToggle(); }
   tone(520,.08,'triangle',.08); tone(780,.12,'triangle',.08,.07);
@@ -2988,9 +3000,12 @@ const buyBtn=(data, price)=>`<button data-buy="${data}" ${S.money<price?'disable
 const eqBtn=(data, on)=>on?'<span class="tag">✔ Using</span>':`<button data-eq="${data}" class="alt">Use</button>`;
 function gearRows(list, key){ return list.map((it,i)=>{ const own=S.own[key].includes(i);
   return ownRow(it.n, it.d, own ? eqBtn(key+':'+i, S[key]===i) : buyBtn(key+':'+i, it.p), own); }).join(''); }
-function lureRows(filter){ return LURES.filter(filter).map(l=>{ const own=S.lures.includes(l.id);
+function lureRows(filter, inBox){ return LURES.filter(filter).map(l=>{ const own=S.lures.includes(l.id), n=lureCount(l.id);
   if(l.secret && !own) return ownRow(`❓ ???`, 'A secret lure. Find it somewhere on the map...', '<span class="tag">🔒</span>', false);
-  return ownRow(`${l.e} ${l.n}`, l.d+(l.mud>0?' · 🟤 muddy water':l.mud<0?' · 💧 clear water':''), own ? eqBtn('lure:'+l.id, S.lure===l.id) : buyBtn('lure:'+l.id, l.p), own); }).join(''); }
+  const info=l.d+(l.mud>0?' · 🟤 muddy water':l.mud<0?' · 💧 clear water':'')+(lureForever(l.id)?(l.id==='worm'?' · free & never runs out':' · never breaks off!'):` · you have ${n}`);
+  const use = n>0 ? eqBtn('lure:'+l.id, S.lure===l.id) : '';
+  const buy = lureForever(l.id)||l.secret||inBox ? '' : buyBtn('lure:'+l.id, l.p).replace('</button>',` · ${LURE_PACK}</button>`);
+  return ownRow(`${l.e} ${l.n}`, info, (use+' '+buy).trim()||'<span class="tag">Out!</span>', n>0); }).join(''); }
 function itemRows(){ return TACKLE_ITEMS.map(it=>{ const own=!!S.gear[it.id];
   return ownRow(`${it.e} ${it.n}`, it.d, own ? (it.id==='wire' ? `<button data-wire class="alt">${S.wireOn?'✔ On':'Off'}</button>` : '<span class="tag">Owned</span>') : buyBtn('item:'+it.id, it.p), own); }).join(''); }
 function boatUpRows(){ return Object.entries(BOAT_UPS).map(([k,list])=>{ const cur=S.boatUp[k], nx=list[cur+1];
@@ -3049,7 +3064,7 @@ function stationHTML(kind){
       ${H2('👕 Your outfits')}<div>${OUTFITS.filter(o=>S.owned.outfits.includes(o.id)).map(o=>`<button data-eq="outfit:${o.id}" class="${L.outfit===o.id?'':'alt'}">${o.n}</button>`).join(' ')}</div>
       ${S.owned.shades?`<p><button data-look="shades:${L.shades?0:1}" class="alt">😎 Sunglasses: ${L.shades?'On':'Off'}</button></p>`:''}<p style="font-size:13px">Buy more hats & outfits at the shop's clothes rack.</p>${closeP()}`; }
   if(kind==='tacklebox') return `<h1>🧰 Tackle Box</h1>${gearSummary()}<p style="margin:4px 0 10px">Pick what's on your line. Different fish want different gear! Watch the fish shadows: if a fish looks and swims away, try another lure.</p>
-    ${H2('🎏 Your lures & bait')}${G(lureRows(l=>S.lures.includes(l.id)))}${H2('🧵 Your line')}${G(gearRows(LINES,'line'))}${H2('🪝 Your hooks')}${G(gearRows(HOOKS,'hook'))}${H2('🧰 Gear')}${G(itemRows())}
+    ${H2('🎏 Your lures & bait <small style="font-weight:600">(lose one when your line breaks!)</small>')}${G(lureRows(l=>S.lures.includes(l.id),true))}${H2('🧵 Your line')}${G(gearRows(LINES,'line'))}${H2('🪝 Your hooks')}${G(gearRows(HOOKS,'hook'))}${H2('🧰 Gear')}${G(itemRows())}
     ${H2('💡 Tips')}<p style="font-size:14px;line-height:1.5">🟤 Muddy water (after rain): crankbaits, spinnerbaits, cut bait & glow lures.<br>💧 Clear water: plastic worms, flies & fluorocarbon line.<br>🌿 Bass & pike hide by brush piles, lily pads & docks.<br>🌊 River fish: catfish, trout, smallmouth, sturgeon.<br>❄️ Winter: drill a hole in the ice and use an Ice Jig.<br>🦷 Toothy fish bite through line: use a Wire Leader.</p>${closeP()}`;
   if(kind==='board') return missionsHTML(true);
   if(kind==='outdoor') return `<h1>🔭 Outdoor Gear ${money()}</h1>${G(OUTDOOR.map(it=>{ const own=!!S.gear[it.id]; return ownRow(`${it.e} ${it.n}`, it.d, own?'<span class="tag">Owned</span>':buyBtn('item:'+it.id,it.p), own); }).join(''))}
@@ -3067,13 +3082,13 @@ function buyOrEquip(b){
   const [kind,id]=(b.dataset.buy||b.dataset.eq).split(':'), buying=!!b.dataset.buy;
   const pay=p=>{ if(S.money<p) return false; S.money-=p; SFX.cash(); return true; };
   if(kind==='line'||kind==='hook'){ const i=+id, it=(kind==='line'?LINES:HOOKS)[i]; if(buying){ if(!pay(it.p)) return; S.own[kind].push(i); toast(`You got the ${it.n}!`); } S[kind]=i; }
-  else if(kind==='lure'){ const l=lureById(id); if(buying){ if(!pay(l.p)) return; S.lures.push(id); toast(`You got ${l.e} ${l.n}!`); } S.lure=id; if(!buying) toast(`${l.e} ${l.n} is on your line`); }
+  else if(kind==='lure'){ const l=lureById(id); if(buying){ if(!pay(l.p)) return; if(!S.lures.includes(id)) S.lures.push(id); if(!lureForever(id)) S.lureN[id]=(S.lureN[id]||0)+LURE_PACK; toast(`You got ${LURE_PACK} ${l.e} ${l.n}!`); } else if(lureCount(id)<=0) return; S.lure=id; if(!buying) toast(`${l.e} ${l.n} is on your line`); }
   else if(kind==='item'){ const it=TACKLE_ITEMS.find(x=>x.id===id)||OUTDOOR.find(x=>x.id===id); if(!pay(it.p)) return; S.gear[id]=true; toast(`You got the ${it.e} ${it.n}!`); }
   else if(kind==='up'){ const nx=BOAT_UPS[id][S.boatUp[id]+1]; if(!nx||!pay(nx.p)) return; S.boatUp[id]++; toast(`🔧 Installed: ${nx.n}!`); }
   else if(kind==='hat'){ const h=HATS.find(x=>x.id===id); if(buying){ if(!pay(h.p)) return; S.owned.hats.push(id); } S.look.hat=id; FP.lake=null; }
   else if(kind==='outfit'){ const o=OUTFITS.find(x=>x.id===id); if(buying){ if(!pay(o.p)) return; S.owned.outfits.push(id); } S.look.outfit=id; FP.lake=null; }
   else if(kind==='shades'){ if(!pay(80)) return; S.owned.shades=true; S.look.shades=true; }
-  else if(kind==='gun'){ const i=+id; if(buying){ if(!pay(GUNS[i].p)) return; S.guns.push(i); S.ammo[gunAmmo(i)]=(S.ammo[gunAmmo(i)]||0)+AMMO[gunAmmo(i)].qty; toast(`You got the ${GUNS[i].n}! It comes with a box of ${AMMO[gunAmmo(i)].n.toLowerCase()}`); } S.gun=i; tool='gun'; }
+  else if(kind==='gun'){ const i=+id; if(buying){ if(!pay(GUNS[i].p)) return; S.guns.push(i); S.ammo[gunAmmo(i)]=(S.ammo[gunAmmo(i)]||0)+AMMO[gunAmmo(i)].qty; toast(`You got the ${GUNS[i].n}! It comes with a box of ${AMMO[gunAmmo(i)].n.toLowerCase()}`); } S.gun=i; tool='gun'; if(i===0) scopeOff(); }
   else if(kind==='veh'){ if(buying){ if(!pay(VEH[id].p)) return; S.vehicles.push(id); toast(`${VEH[id].e} You got a ${VEH[id].n}! Go outside and press ${touchMode?'🏍️':'R'} to ride it`); } else if(S.ride){ S.ride=id; } S.vehSel=id; }
   else if(kind==='pet'){ if(!pay(PETS[id].p)) return; S.pets.push(id); S.pet=id; pet.set=false; toast(`${PETS[id].e} You got a ${PETS[id].n}! It will follow you everywhere`); }
   else if(kind==='decor'){ if(!pay(DECOR[id].p)) return; S.decor.push(id); toast(`${DECOR[id].e} The ${DECOR[id].n} is in your cabin now!`); }
@@ -3203,7 +3218,7 @@ function drawDecoys(t){
 function nearBlind(){ let best=null, bd=62; for(const b of GEO.blinds||[]){ const d=Math.hypot(b.x-P.x,b.y-P.y); if(d<bd){ bd=d; best=b; } } return best; }
 function blindName(b){ return b.kind==='tower'?'lookout tower':b.kind==='stand'?'deer stand':b.kind==='duck'?'duck blind':'ground blind'; }
 function enterBlind(b){
-  if(S.ride){ veh.x=P.x; veh.y=P.y; S.ride=null; }
+  if(S.ride){ veh.x=P.x; veh.y=P.y; S.ride=null; P.air=0; }
   if(P.inBoat) return; P.blind=b; P.bx0=P.x; P.by0=P.y; P.x=b.x; P.y=b.y; P.fx=Math.cos(b.look); P.fy=Math.sin(b.look); fishing={state:'none'}; b.lureT=3;
   if(FP.on){ FP.yaw=b.look; FP.pitch=b.kind==='stand'?-.25:-.08; }
   tone(400,.08,'triangle',.08); tone(300,.1,'triangle',.08,.08);
@@ -3536,7 +3551,7 @@ function gunAmmo(i){ return GUN_AMMO[i]; }
 function nextGun(){ // cycles through the guns you own
   const own=(S.guns||[]).slice().sort((x,y)=>GUNS[x].p-GUNS[y].p); if(!own.length){ toast('Buy a gun at the shop first! 🔫'); return; }
   if(tool!=='gun'){ setTool('gun'); return; }
-  const i=own.indexOf(S.gun); S.gun=own[(i+1)%own.length]; gunCd=.25; tone(240,.05,'square',.06); tone(320,.05,'square',.06,.06);
+  const i=own.indexOf(S.gun); S.gun=own[(i+1)%own.length]; if(S.gun===0) scopeOff(); gunCd=.25; tone(240,.05,'square',.06); tone(320,.05,'square',.06,.06);
   toast(`🔫 ${GUNS[S.gun].n} · ${S.ammo[gunAmmo(S.gun)]||0} ${AMMO[gunAmmo(S.gun)].n.toLowerCase()}`); save();
 }
 
@@ -3643,7 +3658,7 @@ function useCall(){
     toast(kind==='turkey' ? '🦃 Gobble gobble! Turkeys are coming...' : '🎺 Eeee-ooooo! Elk heard your bugle...'); }
   if(!P.blind) toast('📣 Tip: call from a blind or deer stand so they don\'t see you!');
 }
-function toggleBinos(){ if(!S.gear.binos){ toast('🔭 Buy binoculars at the shop\'s Outdoor Gear shelf'); return; } if(FP.on || P.room) return; window.binosOn=!window.binosOn; resize(); toast(window.binosOn?'🔭 Looking far away... (press Z again to stop)':'🔭 Binoculars away'); }
+function toggleBinos(){ if(!S.gear.binos){ toast('🔭 Buy binoculars at the shop\'s Outdoor Gear shelf'); return; } if(P.room) return; window.binosOn=!window.binosOn; resize(); toast(window.binosOn?'🔭 Looking far away... (press Z again to stop)':'🔭 Binoculars away'); }
 
 // ===================== More stuff in the worlds =====================
 // campsites, barns, windmills, lookout towers, caves, berry bushes, mushrooms, log piles, picnic tables, a lighthouse...
@@ -3926,6 +3941,7 @@ function drawRamp(p){ const c=ctx; c.save(); c.translate(p.x,p.y); c.fillStyle='
   c.fillStyle='#8a6a42'; c.beginPath(); c.moveTo(-30,8); c.lineTo(24,8); c.lineTo(24,-12); c.closePath(); c.fill(); c.fillStyle='#a8845a'; c.beginPath(); c.moveTo(-30,8); c.lineTo(24,-12); c.lineTo(28,-10); c.lineTo(-26,10); c.fill();
   c.fillStyle='#ffd23f'; c.font=`800 9px ${FONT}`; c.textAlign='center'; c.fillText('JUMP!',0,24); c.restore(); }
 S.vehicles=S.vehicles||[]; if(S.ride && !VEH[S.ride]) S.ride=null;
+if(!S.lureN){ S.lureN={}; for(const id of S.lures||[]) if(id!=='worm') S.lureN[id]=3; }
 MISSIONS.push(
   {id:'v_buy',  n:'Get a 4-wheeler, dirt bike or Ranger', r:200, e:'🏍️', p:()=>[S.vehicles.length?1:0,1]},
   {id:'v_jump', n:'Do 10 jumps off the dirt ramps',        r:500, e:'🤸', p:()=>[S.st.jumps||0,10]},
@@ -3941,9 +3957,11 @@ const SCOPES=[
 S.scope=S.scope||0;
 const gunRange=()=>GUNS[S.gun].range*SCOPES[S.scope||0].range*(S.gun===0?1:1);
 let scopeOn=false;
-function toggleScope(){ if(tool!=='gun' || S.gun<0 || S.gun===0){ toast(S.gun===0?'A slingshot can\'t use a scope':'Take out a gun first (2 or G)'); return; }
+function scopeOff(){ if(scopeOn||window.scopeZoom){ scopeOn=false; window.scopeZoom=false; resize(); } }
+function toggleScope(){ if(scopeOn){ scopeOff(); tone(600,.05,'square',.05); return; }
+  if(tool!=='gun' || S.gun<0 || S.gun===0){ toast(S.gun===0?'A slingshot can\'t use a scope':'Take out a gun first (2 or G)'); return; }
   if(!S.scope){ toast('🎯 Buy a scope at the shop\'s Guns & Traps counter'); return; }
-  scopeOn=!scopeOn; tone(scopeOn?900:600,.05,'square',.05); if(!FP.on){ window.scopeZoom=scopeOn; resize(); } }
+  scopeOn=true; tone(900,.05,'square',.05); window.scopeZoom=true; resize(); }
 // what you see through the scope (first person)
 function drawScopeOverlay(W,H){
   const sc=SCOPES[S.scope], r=Math.min(W,H)*.42, cx=W/2, cy=H/2;
@@ -3991,7 +4009,7 @@ function updateDrone(dt){
   const seen=(S.dseen[LK.id]=S.dseen[LK.id]||[]);
   GEO.treasures.forEach((tr,k)=>{ if(!treasureFound(k) && !seen.includes(k) && Math.hypot(tr.x-drone.x,tr.y-drone.y)<380){ seen.push(k); float(tr.x,tr.y-40,'💰 Treasure spotted!','#ffd54a'); tone(1200,.1,'triangle',.08); toast('🛸 Your drone spotted a treasure chest! It\'s marked on your map'); save(); } });
 }
-function landDrone(){ if(!drone) return; const fb=drone.fpBack; drone=null; window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb) fpToggle(); }
+function landDrone(){ if(!drone) return; const fb=drone.fpBack; drone=null; window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb && !FP.on) fpToggle(); }
 function drawDrone(t){
   if(!drone) return; const c=ctx, h=drone.h*70, D=DRONES[S.drone];
   c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(drone.x+h*.3,drone.y+4,16,6,0,0,7); c.fill();
@@ -4111,6 +4129,60 @@ function fpCover(sc, br){
     sc.add(m); return; }
 }
 
+// ===================== Story: Grandpa's Golden Lure =====================
+const STORY=[
+  {t:'Welcome Home', goal:'Catch 3 fish and sell them at the shop',
+   say:'Dear kiddo,<br><br>I\'m getting too old to fish every day, so this cabin and this lake are yours now. Go catch a few fish and sell them at the shop. Old Pete pays good money!<br><br>Love, Grandpa Joe 👴',
+   ok:()=>S.st.fish>=3 && S.st.earned>0, cash:100},
+  {t:'Gear Up', goal:'Buy a better fishing rod or a new lure',
+   say:'Great job! A real angler needs real gear. Walk into the shop and get yourself a better rod or a new lure. Different fish like different lures!',
+   ok:()=>S.rod>=1 || S.lures.length>1, cash:150},
+  {t:'Grandpa\'s Secret', goal:'Open a treasure chest',
+   say:'Here\'s a secret: when I was young I hid treasure chests all over these woods. Go find one! Look in the corners of the map, on islands and by the bridges.',
+   ok:()=>S.st.chests>=1, cash:200},
+  {t:'The Big One', goal:'Catch a giant golden TROPHY fish',
+   say:'Now for a real test. About 1 in 30 fish is a HUGE trophy fish. Catch one and hang it on your cabin wall, just like I did!',
+   ok:()=>S.st.trophy>=1, cash:400},
+  {t:'Into the Wild', goal:'Hunt an animal from a blind or deer stand',
+   say:'Fishing isn\'t all there is out here. My old deer stands are by the fields. Hide in one, stay quiet, and the animals will come right to you.',
+   ok:()=>(S.st.blindHunt||0)>=1, cash:400},
+  {t:'Beyond the Lake', goal:'Buy and travel to a brand new lake',
+   say:'I\'ve fished lakes all over the world: frozen ones, spooky swamps, even one made of lava! Save up and buy a new lake at the shop\'s cash register.',
+   ok:()=>S.lakes.length>=2, cash:600},
+  {t:'Messages in Bottles', goal:'Find and read 2 messages in bottles',
+   say:'Long ago I threw messages in bottles into the lakes. They hold clues about the LEGENDARY fish. Take a boat and find them floating on the water!',
+   ok:()=>S.st.bottles>=2, cash:600},
+  {t:'Legends Are Real', goal:'Catch a legendary fish',
+   say:'Now you know the clues. Legendary fish are real! Giant Bass, Golden Catfish, Albino Muskie... Use the right lure in the right spot, and be patient.',
+   ok:()=>S.st.legend>=1, cash:2000},
+  {t:'Old Mossback', goal:'Defeat Old Mossback in the secret pond (Home Lake)',
+   say:'Now I can tell you the truth. Fifty years ago a giant bass called OLD MOSSBACK snapped my line and swam off with my lucky GOLDEN LURE. He lives in the secret pond in the woods. Find the Golden Frog in the island treasure and use it on him!',
+   ok:()=>!!S.bosses['Old Mossback'], cash:5000},
+  {t:'The Lake Spirit', goal:'Defeat 3 different boss fish',
+   say:'You beat Old Mossback! But the Golden Lure wasn\'t in his mouth... he must have traded it to the other boss fish! Defeat 3 different bosses and the Lake Spirit will give it back.',
+   ok:()=>Object.keys(S.bosses).length>=3, cash:25000, end:true},
+];
+S.story=S.story||0;
+let storyQueue=false;
+function storyChapter(){ return STORY[Math.min(S.story,STORY.length-1)]; }
+function checkStory(){
+  if(!S.storySeen){ S.storySeen=true; storyQueue=true; save(); }
+  let done=0, cash=0, last=null; // (players who already did a lot finish several chapters at once)
+  while(S.story<STORY.length && STORY[S.story].ok()){ const ch=STORY[S.story]; cash+=ch.cash; S.story++; done++; last=ch;
+    if(ch.end){ if(!S.lures.includes('grandpa')) S.lures.push('grandpa'); S.lure='grandpa'; if(!S.owned.hats.includes('crown')) S.owned.hats.push('crown'); } }
+  if(done){ S.money+=cash; S.st.earned+=cash; SFX.trophy(); flash=.2; toast(done>1?`📖 ${done} story chapters done! +$${cash.toLocaleString()}`:`📖 Chapter done: ${last.t}! +$${cash.toLocaleString()}`); storyQueue=true; save(); }
+  if(storyQueue && !panel && fishing.state!=='fight' && !P.room){ storyQueue=false; openPanel('story'); }
+}
+function storyHTML(){
+  if(S.story>=STORY.length) return `<h1>📖 The End... for now!</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px">👴 <b>Grandpa Joe:</b> You did it! The Lake Spirit gave back my <b>Golden Lure</b>, and now it's YOURS. It works on every fish there is. You're the greatest angler these lakes have ever seen. I'm so proud of you, kiddo!<br><br>🏆 You got <b>Grandpa's Golden Lure</b> and the <b>Golden Crown</b>! Keep exploring: there are still secret missions, bosses and treasure out there...</div>
+    <h2>Chapters</h2><div class="list">${STORY.map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b><small>${c.goal}</small></div></div>`).join('')}</div><p style="text-align:right"><button class="close" data-close>Close</button></p>`;
+  const ch=STORY[S.story];
+  return `<h1>📖 Chapter ${S.story+1}: ${ch.t}</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px;background:#f4ead0;color:#4a3418;font-family:Georgia,serif">${ch.say}</div>
+    <div class="mission"><div class="e">🎯</div><div><b>Goal: ${ch.goal}</b><small>Reward: $${ch.cash.toLocaleString()}${ch.end?' + a special surprise!':''}</small></div></div>
+    <h2>Story so far</h2><div class="list">${STORY.slice(0,S.story).map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b></div></div>`).join('')||'<p>This is the very beginning!</p>'}</div>
+    <p style="text-align:right;margin:16px 0 0"><button class="close" data-close>Let's go!</button></p>`;
+}
+
 // ---------- Update ----------
 function update(dt){
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
@@ -4156,7 +4228,7 @@ function update(dt){
       if(Math.random()<.5) parts.push({x:boat.x-Math.cos(boat.a)*34, y:boat.y-Math.sin(boat.a)*34, vx:(Math.random()-.5)*30, vy:(Math.random()-.5)*30, t:.6, col:'rgba(255,255,255,.8)', sz:4});
       if(S.boat>=2){ motorT-=dt; if(motorT<=0){ motorT=.12; SFX.motor(); } }
     } else {
-      const sp = (S.ride?VEH[S.ride].s:SHOES[S.shoes].s)*dt*k*(P.boost>0?1.6:1);
+      const sp = (S.ride?VEH[S.ride].s:SHOES[S.shoes].s)*dt*k*(P.boost>0 && !S.ride?1.6:1);
       if(!blocked(P.x+dx*sp, P.y)) P.x+=dx*sp;
       if(!blocked(P.x, P.y+dy*sp)) P.y+=dy*sp;
     }
@@ -4228,7 +4300,7 @@ function update(dt){
     const sp=Math.hypot(d.vx,d.vy);
     if(sp<1){ d.stuckT=0; return; }
     const inTree=treeAt(d.x,d.y);
-    const free=(x,y)=>!(x<40||y<60||x>WW-40||y>WH-20||inLake(x,y,1.12)||(avoidBldg && nearBldg(x,y,200))||inBldg(x,y,20)||(!inTree && treeAt(x,y))||rockAt(x,y,6)||propAt(x,y,6));
+    const free=(x,y)=>!(x<40||y<60||x>WW-40||y>WH-20||inLake(x,y,1.12)||(avoidBldg && nearBldg(x,y,200))||inBldg(x,y,20)||(!inTree && treeAt(x,y))||rockAt(x,y,6)||propAt(x,y,6)||caveWall(x,y));
     const a=Math.atan2(d.vy,d.vx), sg=d.turnPref||1; let moved=false;
     for(const off of [0, .45*sg, .9*sg, 1.4*sg, -.45*sg, -.9*sg, -1.4*sg, 2*sg, -2*sg, Math.PI]){
       const aa=a+off, nx=d.x+Math.cos(aa)*sp*dt, ny=d.y+Math.sin(aa)*sp*dt;
@@ -4355,7 +4427,7 @@ function update(dt){
   floats = floats.filter(f=>f.t>0);
   if(popup){ popup.t-=dt; if(popup.t<=0) popup=null; }
   if(toastT>0){ toastT-=dt; if(toastT<=0){ if(toastQ.length) toast(toastQ.shift()); else toastEl.style.opacity=0; } }
-  missionT -= dt; if(missionT<=0){ missionT=.5; checkMissions(); }
+  missionT -= dt; if(missionT<=0){ missionT=.5; checkMissions(); checkStory(); }
   saveT -= dt; if(saveT<=0){ saveT=5; S.bx=boat.x; S.by=boat.y; save(); }
 }
 
@@ -5218,6 +5290,7 @@ function drawScreenFx(t, n){
         const x=d.x*VW, y=d.y*VH;
         if(kind==='snow'){ ctx.fillStyle='rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(x,y,1.5+d.s*1.5,0,7); ctx.fill(); }
         else if(kind==='ash'){ ctx.fillStyle= i%7===0 ? 'rgba(255,140,40,.9)' : 'rgba(90,80,75,.7)'; ctx.fillRect(x,y,2.5,2.5); }
+        else if(kind==='sparkles'){ ctx.globalAlpha=.5+.5*Math.sin(performance.now()/200+i); ctx.fillStyle=i%3?'#bff4ff':'#ffffff'; ctx.beginPath(); ctx.arc(x,y,1.2+d.s,0,7); ctx.fill(); ctx.globalAlpha=1; }
         else { ctx.save(); ctx.translate(x,y); ctx.rotate(i); ctx.fillStyle=SPR[i%5]; ctx.fillRect(-4,-1.2,8,2.4); ctx.restore(); }
       }
     }
@@ -5616,7 +5689,7 @@ function fpFrame(t){
     FP.holeCount=myHoles.length; }
   // camera = your eyes
   const gyP=hillAt(P.x,P.y), eye=(S.ride?(S.ride==='ranger'?50:48)+(P.air>0?Math.sin((1-P.air/P.airMax)*Math.PI)*30:0):P.inBoat?30:P.blind?(P.blind.kind==='tower'?170:P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
-  { const want = scopeOn && tool==='gun' ? 70/SCOPES[S.scope].zoom : 70; if(Math.abs(FP.cam.fov-want)>.1){ FP.cam.fov += (want-FP.cam.fov)*.35; FP.cam.updateProjectionMatrix(); } }
+  { const want = scopeOn && tool==='gun' ? 70/SCOPES[S.scope].zoom : window.binosOn ? 26 : 70; if(Math.abs(FP.cam.fov-want)>.1){ FP.cam.fov += (want-FP.cam.fov)*.35; FP.cam.updateProjectionMatrix(); } }
   FP.cam.position.set(P.x+shake, eye+bob, P.y); FP.lamp.position.set(P.x, eye+20, P.y);
   FP.cam.lookAt(P.x+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, eye+bob+Math.sin(FP.pitch)*100, P.y+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
   FP.cam.updateMatrixWorld();
@@ -5711,7 +5784,7 @@ function fpFrame(t){
 // look around with the mouse (after clicking) or by dragging on a phone
 document.addEventListener('mousemove', e=>{ if(FP.on && document.pointerLockElement===cv){ const zs=scopeOn?1/SCOPES[S.scope].zoom:1; FP.yaw+=e.movementX*.0025*zs; FP.pitch=Math.max(-1.1,Math.min(.6,FP.pitch-e.movementY*.002*zs)); } });
 cv.addEventListener('pointerdown', e=>{ if(FP.on && e.pointerType!=='mouse'){ FP.look={id:e.pointerId,x:e.clientX,y:e.clientY}; } }, true);
-cv.addEventListener('pointermove', e=>{ if(FP.on && FP.look && e.pointerId===FP.look.id){ FP.yaw+=(e.clientX-FP.look.x)*.006; FP.pitch=Math.max(-1.1,Math.min(.6,FP.pitch-(e.clientY-FP.look.y)*.004)); FP.look.x=e.clientX; FP.look.y=e.clientY; } });
+cv.addEventListener('pointermove', e=>{ if(FP.on && FP.look && e.pointerId===FP.look.id){ const zs=scopeOn?1/SCOPES[S.scope].zoom:1; FP.yaw+=(e.clientX-FP.look.x)*.006*zs; FP.pitch=Math.max(-1.1,Math.min(.6,FP.pitch-(e.clientY-FP.look.y)*.004*zs)); FP.look.x=e.clientX; FP.look.y=e.clientY; } });
 addEventListener('pointerup', e=>{ if(FP.look && e.pointerId===FP.look.id) FP.look=null; });
 
 // ---------- HUD ----------
@@ -5722,9 +5795,9 @@ function updateHud(){
   const hpk=S.hp/MAX_HP, hpc=hpk>.6?'#4caf50':hpk>.3?'#ffb300':'#ff3b30';
   let s = `<span class="cash">$${S.money.toLocaleString()}</span><br>`+
     `<span class="hp"><span style="width:${Math.round(hpk*100)}%;background:${hpc}"></span></span>❤️ ${Math.ceil(S.hp)}/${MAX_HP}${S.hp<30?' <span class="warn">LOW!</span>':''} · ${['🍎','🥪','🩹'].map((e,i)=>S.items[FOODS[i].id]?e+S.items[FOODS[i].id]:'').join(' ')}<br>`+
-    `${holding} · ${curLure().e} ${curLure().n}<br>`+
+    `${holding} · ${curLure().e} ${curLure().n}${lureForever(S.lure)?'':' ×'+lureCount(S.lure)}<br>`+
     `🎒 Fish: ${S.fish.length}/${bagCap()}${S.fish.length>=bagCap()?' <span class="warn">FULL</span>':''}<br>`+
-    `📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
+    `${S.story<STORY.length?`📖 ${STORY[S.story].goal}<br>`:''}📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
   if(P.inBoat) s += S.boatUp.sonar ? `<br>📡 ${Math.round(3+depthAt(P.x,P.y)*57)} ft deep${depthAt(P.x,P.y)>.7?' · big fish!':''}` : `<br>🌊 ${depthAt(P.x,P.y)>.7?'Deep water! Big fish here':'Shallow water'}`;
   if(S.ride) s += `<br>${VEH[S.ride].e} Riding your ${VEH[S.ride].n}`;
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
@@ -5740,7 +5813,7 @@ function updateHud(){
   swapBtn.style.opacity = S.gun<0 ? .45 : 1;
   const cb=document.getElementById('callBtn'), bb=document.getElementById('binoBtn'), side=touchMode && !panel && started;
   cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room);
-  bb.hidden = !(side && S.gear.binos && !FP.on);
+  bb.hidden = !(side && S.gear.binos);
   layoutSideButtons(side);
 }
 
@@ -5766,9 +5839,72 @@ function placeHelpBtn(){ const f=!!S.helpFold; helpEl.classList.toggle('folded',
 helpBtn.addEventListener('click', e=>{ e.stopPropagation(); S.helpFold=!S.helpFold; save(); placeHelpBtn(); });
 helpBtn.addEventListener('pointerdown', e=>e.stopPropagation());
 addEventListener('resize', ()=>setTimeout(placeHelpBtn,50)); setInterval(placeHelpBtn, 700); placeHelpBtn();
+
+// ===================== The intro movie (plays the first time you press Play) =====================
+function playIntro(done){
+  const cv2=document.createElement('canvas'); cv2.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;z-index:50;background:#000;touch-action:none';
+  document.body.appendChild(cv2); const g=cv2.getContext('2d'); let t0=performance.now(), over=false;
+  const skip=document.createElement('button'); skip.textContent='Skip ▶'; skip.style.cssText='position:fixed;right:16px;bottom:16px;z-index:51;font-size:18px;padding:8px 16px'; document.body.appendChild(skip);
+  const finish=()=>{ if(over) return; over=true; cv2.remove(); skip.remove(); removeEventListener('keydown',onKey,true); S.introSeen=true; save(); done(); };
+  const onKey=e=>{ if(e.key===' '||e.key==='Escape'||e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); finish(); } };
+  skip.addEventListener('click', e=>{ e.stopPropagation(); finish(); }); addEventListener('keydown',onKey,true);
+  // a happy little tune
+  const notes=[523,659,784,659,587,698,880,698,523,659,784,1046, 784,659,587,523]; notes.forEach((f,i)=>tone(f,.28,'triangle',.07,i*.36)); [262,330,392,349,262,392].forEach((f,i)=>tone(f,1.3,'sine',.05,i*1.2));
+  const say=(text,y,size,alpha,col='#fff')=>{ g.globalAlpha=Math.max(0,Math.min(1,alpha)); g.font=`800 ${size}px ${FONT}`; g.textAlign='center'; g.lineJoin='round'; g.lineWidth=size*.22; g.strokeStyle='rgba(0,0,0,.75)';
+    const W=cv2.width/devicePixelRatio; const words=text.split(' '); let line='', yy=y; const lines=[]; for(const w of words){ if(g.measureText(line+w).width>W*.86){ lines.push(line); line=''; } line+=w+' '; } lines.push(line);
+    lines.forEach((l,i)=>{ g.strokeText(l.trim(),W/2,yy+i*size*1.25); g.fillStyle=col; g.fillText(l.trim(),W/2,yy+i*size*1.25); }); g.globalAlpha=1; };
+  const fade=(t,a,b)=>Math.min(1,(t-a)*1.5,(b-t)*1.5);
+  function frame(now){
+    if(over) return; const t=(now-t0)/1000, dpr=Math.min(2,devicePixelRatio||1), W=innerWidth, H=innerHeight;
+    if(cv2.width!==Math.round(W*dpr)){ cv2.width=Math.round(W*dpr); cv2.height=Math.round(H*dpr); }
+    g.setTransform(dpr,0,0,dpr,0,0); const horizon=H*.58, saved=ctx; ctx=g;
+    try{
+      // sky changes from sunrise, to day, to night, and back to day
+      const sc = t<5?0 : t<11?1 : t<17?2 : 3;
+      const skies=[['#2a2a6a','#ff8a5a','#ffd27a'],['#3d7fd8','#8ac8ff','#d8f0ff'],['#05081a','#14204a','#2a3a6a'],['#3d7fd8','#a8d4ff','#e0f4ff']][sc];
+      const sky=g.createLinearGradient(0,0,0,horizon); sky.addColorStop(0,skies[0]); sky.addColorStop(.7,skies[1]); sky.addColorStop(1,skies[2]); g.fillStyle=sky; g.fillRect(0,0,W,horizon);
+      if(sc===0){ const sy=horizon-Math.min(1,t/4)*H*.22; const sg=g.createRadialGradient(W/2,sy,10,W/2,sy,H*.3); sg.addColorStop(0,'#fff6c8'); sg.addColorStop(.25,'#ffd86a'); sg.addColorStop(1,'rgba(255,150,80,0)'); g.fillStyle=sg; g.fillRect(0,0,W,horizon); }
+      if(sc===2){ g.fillStyle='#fff'; for(let i=0;i<80;i++){ g.globalAlpha=.4+.6*Math.abs(Math.sin(t*2+i)); g.fillRect((i*137)%W,(i*71)%(horizon*.9),2,2); } g.globalAlpha=1; g.fillStyle='#f4f4e0'; g.beginPath(); g.arc(W*.8,H*.15,26,0,7); g.fill(); }
+      // mountains and pine trees on the far shore
+      g.fillStyle=sc===2?'#0a1020':'#4a5a7a'; g.beginPath(); g.moveTo(0,horizon); for(let x=0;x<=W;x+=W/8) g.lineTo(x,horizon-H*.12-Math.abs(Math.sin(x*.01))*H*.12); g.lineTo(W,horizon); g.fill();
+      g.fillStyle=sc===2?'#050a10':'#1f3a24'; for(let x=-20;x<W+40;x+=26){ const h=30+((x*7)%23); g.beginPath(); g.moveTo(x-12,horizon); g.lineTo(x,horizon-h); g.lineTo(x+12,horizon); g.fill(); }
+      // the lake, with the sky shining in it
+      const lk=g.createLinearGradient(0,horizon,0,H); lk.addColorStop(0,sc===2?'#1a2a5a':skies[2]); lk.addColorStop(.15,sc===2?'#0a1430':'#2a6ab0'); lk.addColorStop(1,sc===2?'#040814':'#0a2a5a'); g.fillStyle=lk; g.fillRect(0,horizon,W,H-horizon);
+      g.strokeStyle='rgba(255,255,255,.25)'; g.lineWidth=2; for(let i=0;i<14;i++){ const y=horizon+12+i*((H-horizon)/14), x=((t*30*(1+i*.1)+i*90)%(W+200))-100; g.beginPath(); g.moveTo(x,y); g.lineTo(x+60+i*4,y); g.stroke(); }
+      if(sc===0){ // title
+        say('LAKE LIFE', H*.3, Math.min(90,W*.14), fade(t,.6,5), '#ffe680'); say('A fishing & hunting adventure', H*.3+Math.min(90,W*.14)*.9, Math.min(26,W*.05), fade(t,1.4,5));
+        const f=FISH[fishIdx('Bass')]; g.save(); const k=(t%2.6)/1.3; if(k<1){ g.translate(W*.7, horizon+40-Math.sin(k*Math.PI)*H*.18); g.rotate((k-.5)*1.5); drawSpecies(f,0,0,Math.min(110,W*.18),t); } g.restore(); }
+      if(sc===1){ // Grandpa at his cabin
+        const cx=W*.32, cy=horizon+H*.06; g.fillStyle='#6a4426'; g.fillRect(cx-90,cy-70,180,70); g.fillStyle='#4a2a14'; g.beginPath(); g.moveTo(cx-105,cy-66); g.lineTo(cx,cy-130); g.lineTo(cx+105,cy-66); g.fill();
+        g.fillStyle='#ffd27a'; g.fillRect(cx-60,cy-50,28,24); g.fillRect(cx+34,cy-50,28,24); g.fillStyle='#3a2210'; g.fillRect(cx-14,cy-46,28,46);
+        g.fillStyle='#a0703f'; g.fillRect(W*.55,horizon+H*.1,W*.35,16);
+        g.save(); g.translate(W*.62,horizon+H*.1); g.scale(2,2); drawPerson({x:0,y:0,fx:1,fy:.2,state:'cheer',got:true,anim:t*1.5,pants:'#3a3a4a',shirt:'#c0392b',skin:'#f2c9a0',hair:'#e8e8e8',hat:'bucket',hatCol:'#6a7a5a',beard:true,fish:fishIdx('Walleye')},t,true); g.restore();
+        say('Grandpa Joe has fished these lakes for 50 years...', H*.12, Math.min(28,W*.055), fade(t,5.3,8.3)); say('...and now he wants YOU to carry on!', H*.12, Math.min(28,W*.055), fade(t,8.4,11)); }
+      if(sc===2){ // Old Mossback steals the Golden Lure
+        const k=Math.max(0,Math.min(1,(t-12.5)/2)); const lx=W*.55, ly=horizon+H*.12;
+        if(t<14){ g.fillStyle='#ffd23f'; g.beginPath(); g.arc(lx,ly-Math.sin(t*4)*4,6,0,7); g.fill(); g.strokeStyle='rgba(255,255,255,.6)'; g.lineWidth=1; g.beginPath(); g.moveTo(lx,ly); g.lineTo(lx-W*.2,0); g.stroke();
+          g.fillStyle='rgba(255,230,120,.8)'; for(let i=0;i<4;i++){ const a=t*3+i*1.6; g.fillRect(lx+Math.cos(a)*14,ly+Math.sin(a)*10,2,2); } }
+        if(t>12.5 && t<15.5){ g.save(); g.translate(lx-60+k*120, ly+30-Math.sin(k*Math.PI)*H*.25); g.rotate((k-.5)*1.4); drawSpecies(FISH[fishIdx('Old Mossback')],0,0,Math.min(240,W*.38),t); g.restore(); }
+        if(t>12.5 && t<13.2){ g.fillStyle='rgba(220,240,255,.8)'; for(let i=0;i<20;i++){ g.beginPath(); g.arc(lx-60+(Math.random()-.5)*80,ly+20-Math.random()*40,3,0,7); g.fill(); } }
+        say('But long ago, the giant fish OLD MOSSBACK stole Grandpa\'s lucky GOLDEN LURE!', H*.12, Math.min(28,W*.055), fade(t,11.3,17), '#ffe680'); }
+      if(sc===3){ // your adventure begins
+        const sv=[P.x,P.y,P.fx,P.fy,P.moving,P.inBoat,P.act,P.hurt,fishing,tool];
+        g.fillStyle='#a0703f'; g.fillRect(W*.42-60,horizon+H*.2-16,W*.6,26); g.fillStyle='#7a5028'; for(let x=W*.42-60;x<W;x+=22) g.fillRect(x,horizon+H*.2-16,2,26);
+        try{ P.x=0;P.y=0;P.fx=1;P.fy=.3;P.moving=false;P.inBoat=false;P.hurt=0;tool='rod';fishing={state:'none'}; P.act={type:'cast',t:(t*1.2)%1*.4,dur:.4}; g.save(); g.translate(W*.42,horizon+H*.2); g.scale(2.4,2.4); drawPlayer(t); g.restore(); }
+        finally{ [P.x,P.y,P.fx,P.fy,P.moving,P.inBoat,P.act,P.hurt,fishing,tool]=sv; }
+        say('Catch fish. Hunt. Explore. Find treasure...', H*.1, Math.min(28,W*.055), fade(t,17.2,20.2)); say('...and win back the Golden Lure!', H*.1, Math.min(30,W*.06), fade(t,20.3,23), '#ffe680');
+        say('Your adventure begins!', H*.78, Math.min(40,W*.08), fade(t,21,24.5), '#ffffff'); }
+      g.fillStyle='#000'; g.globalAlpha=Math.max(0,1-t*2, (t-24)*2); g.fillRect(0,0,W,H); g.globalAlpha=1;
+    } finally { ctx=saved; }
+    if(t>24.5){ finish(); return; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 document.getElementById('playBtn').addEventListener('click', ()=>{
-  ac(); started=true; document.getElementById('start').hidden=true;
-  toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣');
+  ac(); document.getElementById('start').hidden=true;
+  const go=()=>{ started=true; toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
+  if(!S.introSeen) playIntro(go); else go();
 });
 </script>
 
