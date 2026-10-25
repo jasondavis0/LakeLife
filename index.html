@@ -725,6 +725,8 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'secret1', n:'Find a secret spot',        r:300,   e:'⭐', p:()=>[secretsTotal(),1]},
+  {id:'secret10', n:'Find 10 secret spots',     r:4000,  e:'🌟', p:()=>[secretsTotal(),10]},
   {id:'bigfoot', n:'Get a photo of Bigfoot',    r:2000,  e:'👣', p:()=>[S.st.bigfoot||0,1]},
   {id:'golddeer', n:'Hunt a Golden Deer',       r:2000,  e:'✨', p:()=>[S.st.goldDeer||0,1]},
   {id:'track5',  n:'Track down 5 animals',      r:700,   e:'🐾', p:()=>[S.st.tracked||0,5]},
@@ -884,6 +886,7 @@ function drawMinimap(){
   const found=(S.found||{})[LK.id]||[];
   GEO.treasures.forEach((tr,i)=>{ if(found.includes(i)) dot(tr.x,tr.y,'#8a6a2a',2.5); else if(S.tmap || ((S.dseen||{})[LK.id]||[]).includes(i)){ ctx.strokeStyle='#ffd23f'; ctx.lineWidth=2; const X=x+tr.x*k, Y=y+tr.y*k; ctx.beginPath(); ctx.moveTo(X-3,Y-3); ctx.lineTo(X+3,Y+3); ctx.moveTo(X+3,Y-3); ctx.lineTo(X-3,Y+3); ctx.stroke(); } });
   for(const b of GEO.bottles) if(S.tmap && !myBottles().includes(b.k)) dot(b.x,b.y,'#7adca0',2);
+  { const sg=secretsGot(); for(const sp of secretsHere()) if(sg.includes(sp.k)){ ctx.fillStyle='#ffe14d'; ctx.font=`10px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⭐',x+sp.x*k,y+sp.y*k); ctx.textBaseline='alphabetic'; } }
   if(drone){ const X=x+drone.x*k, Y=y+drone.y*k; ctx.save(); ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(90,208,255,.9)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x+P.x*k,y+P.y*k); ctx.lineTo(X,Y); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle='rgba(18,28,48,.7)'; ctx.beginPath(); ctx.arc(X,Y,9,0,7); ctx.fill(); ctx.strokeStyle='#5ad0ff'; ctx.lineWidth=2; ctx.stroke(); ctx.font=`12px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛸',X,Y+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
   if(S.dig && S.dig.lake===LK.id){ const X=x+S.dig.x*k, Y=y+S.dig.y*k; ctx.strokeStyle='#ff3030'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(X-4,Y-4); ctx.lineTo(X+4,Y+4); ctx.moveTo(X+4,Y-4); ctx.lineTo(X-4,Y+4); ctx.stroke(); }
@@ -1376,18 +1379,41 @@ function makeNPCs(){
     const n=npcs[npcs.length-1]; n.spot=sp; n.canWalk=!!sp.walk; if(!inLake(n.bx,n.by,.97)){ n.bx=sp.x+Math.cos(a)*55; n.by=sp.y+Math.sin(a)*55; }
   });
   // hikers who stroll around the lake trail
-  const hikeNames=['Hiker Hannah','Trail Tom','Jogger Jen','Walker Will'];
-  for(let k=0;k<3;k++){ const th=rnd()*6.283, q=shorePt(th,1,TRAIL_OFF);
-    npcs.push({x:q.x,y:q.y,fx:1,fy:0,name:hikeNames[(k+LAKES.indexOf(LK))%4], shirt:NPC_SHIRTS[Math.floor(rnd()*NPC_SHIRTS.length)], pants:'#3a4a6a', skin:NPC_SKINS[Math.floor(rnd()*NPC_SKINS.length)],
+  const hikeNames=['Hiker Hannah','Trail Tom','Jogger Jen','Walker Will','Runner Rosa','Strolling Stan','Hiker Hugo'];
+  for(let k=0;k<6;k++){ const th=rnd()*6.283, q=shorePt(th,1,TRAIL_OFF);
+    npcs.push({x:q.x,y:q.y,fx:1,fy:0,name:hikeNames[(k+LAKES.indexOf(LK))%hikeNames.length], shirt:NPC_SHIRTS[Math.floor(rnd()*NPC_SHIRTS.length)], pants:'#3a4a6a', skin:NPC_SKINS[Math.floor(rnd()*NPC_SKINS.length)],
       hair:['#3a2412','#1a1a1a','#c9a060','#8a3a1a'][Math.floor(rnd()*4)], hat:['cap','none','beanie'][k%3], hatCol:NPC_SHIRTS[k], beard:false, state:'stroll', t:0, tip:Math.floor(rnd()*99), anim:0,
       walker:true, th, dir:rnd()<.5?1:-1, lane:(rnd()-.5)*20, bx:0, by:0}); }
+  // explorers who wander all over the land
+  if(!LK.space) ROAMERS.forEach((R,k)=>{ for(let tries=0;tries<60;tries++){ const x=300+rnd()*(WW-600), y=300+rnd()*(WH-600); if(landOk(x,y) && !nearBldg(x,y,120)){
+    npcs.push({x,y,fx:1,fy:0,name:R.n, shirt:R.shirt||NPC_SHIRTS[Math.floor(rnd()*NPC_SHIRTS.length)], pants:R.pants||'#5a4a3a', skin:NPC_SKINS[Math.floor(rnd()*NPC_SKINS.length)], hair:['#3a2412','#1a1a1a','#c9a060','#8a3a1a','#e8c878'][Math.floor(rnd()*5)],
+      hat:R.hat, hatCol:R.hatCol||NPC_SHIRTS[k%NPC_SHIRTS.length], beard:!!R.beard, state:'stroll', t:rnd()*4, tip:Math.floor(rnd()*99), anim:rnd()*9, walker:true, roam:true, lines:R.lines, gift:R.gift, small:R.small, tx:x, ty:y, bx:0, by:0}); break; } } });
 }
+const ROAMERS=[
+  {n:'Camper Carl', hat:'bucket', shirt:'#2e9a54', lines:['I love camping out here!','Have you seen the campfire by the woods?','The stars are amazing at night. Watch for shooting stars! 🌠']},
+  {n:'Birdwatcher Bea', hat:'sun', lines:['Shh... I\'m watching birds! 🐦','I saw an owl last night!','Ducks fly south when the lake freezes.']},
+  {n:'Kid Kenny', hat:'cap', small:1, shirt:'#ff7a1a', lines:['Wanna race? Start one from the Missions menu! 🏁','I found a golden rubber duck once! 🦆','Bigfoot is REAL! I saw his footprints! 👣']},
+  {n:'Ranger Rita', hat:'cowboy', hatCol:'#6a5a3a', shirt:'#7a6a3a', pants:'#4a4a2a', gift:1, lines:['Here, take this! Stay safe out there!','Follow animal tracks with a Tracking Kit! 🐾','Hunt from a blind and animals come closer.']},
+  {n:'Explorer Ella', hat:'explorer', shirt:'#c8a060', lines:['There are SECRET SPOTS hidden in every world! ⭐','I found old ruins in the woods!','Pirate maps hide around the world. Look for scrolls! 🗺️']},
+  {n:'Old Fisherman Gus', hat:'bucket', beard:1, shirt:'#3a5a8a', lines:['Back in my day, the fish were THIS big!','Fish love sunken trees and weeds.','Try fishing during a storm. They go crazy!']},
+];
+var giftDay='';
+function roamUpdate(n,dt){ const near=Math.hypot(n.x-P.x,n.y-P.y)<80;
+  if(near){ n.walking=false; n.fx=P.x-n.x; n.fy=P.y-n.y; const l=Math.hypot(n.fx,n.fy)||1; n.fx/=l; n.fy/=l;
+    if(!n.near){ n.tip++; if(n.gift && S.rangerDay!==dayKey()){ S.rangerDay=dayKey(); const r=Math.random(); let msg; if(r<.4){ S.money+=150; msg='$150'; } else if(r<.7){ const f=FOODS[Math.floor(Math.random()*FOODS.length)]; S.items[f.id]=(S.items[f.id]||0)+2; msg=`2 ${f.e} ${f.n}`; } else { S.items.fireworks=(S.items.fireworks||0)+5; msg='5 🎆 fireworks'; }
+      banner('🎁','A GIFT FROM RANGER RITA!',`She gave you ${msg}. Come back tomorrow for another!`,'#c8e8a0'); save(); } }
+    n.near=true; return; }
+  n.near=false;
+  if(n.t>0){ n.t-=dt; n.walking=false; return; }
+  if(Math.hypot(n.tx-n.x,n.ty-n.y)<6){ n.t=3+Math.random()*5; for(let k=0;k<20;k++){ const a=Math.random()*6.283, d=150+Math.random()*450, x=n.x+Math.cos(a)*d, y=n.y+Math.sin(a)*d; if(landOk(x,y) && !nearBldg(x,y,100)){ n.tx=x; n.ty=y; break; } } return; }
+  n.walking=true; const ox=n.x, oy=n.y; npcStep(n,n.tx,n.ty,n.small?75:55,dt); if(blocked(n.x,n.y) || inLake(n.x,n.y,1.05)){ n.x=ox; n.y=oy; n.tx=n.x; n.ty=n.y; } }
 const npcAng=(x,y)=>Math.atan2((y-LAKE.y)/LAKE.ry,(x-LAKE.x)/LAKE.rx);
 function npcStep(n,tx,ty,sp,dt){ const dx=tx-n.x, dy=ty-n.y, l=Math.hypot(dx,dy); if(l<1) return true; const k=Math.min(l,sp*dt); n.x+=dx/l*k; n.y+=dy/l*k; n.fx=dx/l; n.fy=dy/l; return l<=sp*dt; }
 var npcSpots=[];
 function updateNPCs(dt){
   for(const n of npcs){
     n.t-=dt; n.anim+=dt;
+    if(n.roam){ roamUpdate(n,dt); continue; }
     // hikers walk around and around the trail (they stop if you're in their way)
     if(n.walker){ const blockedByYou=Math.hypot(n.x-P.x,n.y-P.y)<34; n.walking=!blockedByYou;
       if(!blockedByYou){ n.th+=n.dir*62*dt/((LAKE.rx+LAKE.ry)/2+TRAIL_OFF); const q=shorePt(n.th,1,TRAIL_OFF+n.lane); n.fx=q.x-n.x; n.fy=q.y-n.y; const l=Math.hypot(n.fx,n.fy)||1; n.fx/=l; n.fy/=l; n.x=q.x; n.y=q.y; }
@@ -1419,7 +1445,7 @@ function updateNPCs(dt){
     const near = Math.hypot(n.x-P.x,n.y-P.y)<80; if(near && !n.near) n.tip++; n.near=near;
   }
 }
-function npcTip(n){ const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
+function npcTip(n){ if(n.lines) return n.lines[n.tip%n.lines.length]; const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
   ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; bigfoot=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
@@ -4597,6 +4623,7 @@ function edgeArrow(wx,wy,icon,t){ const sx=(wx-cam.x)*Z, sy=(wy-cam.y)*Z, m=46; 
   ctx.rotate(-a); ctx.font=`16px ${FONT}`; ctx.textAlign='center'; ctx.fillText(icon,0,-30); ctx.restore(); }
 function eventsHTML(){ return `<h2>🎪 Events</h2><div class="list">
   <div class="mission"><div class="e">🏆</div><div><b>Fishing Derby</b><small>${derby?`On now! ${Math.ceil(derby.t)}s left · your best ${derby.best} lb`:'Catch the biggest fish in 3 minutes and beat 3 rivals. Wins: '+(S.st.derbyWins||0)}</small></div>${derby?'<span class="tag">Live!</span>':'<button data-derby>Start</button>'}</div>
+  <div class="mission"><div class="e">⭐</div><div><b>Secret Spots</b><small>${secretsGot().length}/3 found in ${LK.n} · ${secretsTotal()} found in all worlds. Explore far away from the trails!</small></div><span class="tag">${secretsGot().length}/3</span></div>
   ${albumHTML()}
   <div class="mission"><div class="e">🦆</div><div><b>Golden Rubber Ducks</b><small>${ducksGot().length}/6 found in ${LK.n} · ${ducksTotal()} found in all worlds. They're hidden all over!</small></div><span class="tag">${ducksGot().length}/6</span></div>
   <div class="mission"><div class="e">🏁</div><div><b>Flag Race</b><small>Run or drive through 6 flags before time runs out. Races won: ${S.st.races||0}</small></div>${race?'<span class="tag">Racing!</span>':'<button data-race>Start</button>'}</div></div>`; }
@@ -4766,8 +4793,40 @@ function openMystery(){ const r=Math.random(); let msg, big=false;
   if(!msg){ const m=300+Math.floor(Math.random()*5)*100; S.money+=m; msg=`$${m}`; }
   [392,523,659,784,1046].forEach((f,i)=>tone(f,.12,'triangle',.1,i*.07)); banner('🎁',big?'WOW! RARE PRIZE!':'MYSTERY BOX!',`You got ${msg}`,big?'#ff8af0':'#ffd54a'); }
 
+// ===================== Secret spots: 3 hidden places in every world =====================
+const SECRET_KINDS={ fairy:{n:'Fairy Ring', e:'🍄', d:'A magic ring of mushrooms! Your health is full'}, ruins:{n:'Ancient Ruins', e:'🏛️', d:'Old stones from long ago... with coins hidden inside!'},
+  hollow:{n:'Hollow Log Hideout', e:'🪵', d:'A secret hideout! Someone left a pirate map inside'}, crystal:{n:'Glowing Crystals', e:'💎', d:'Sparkly crystals! You found fireworks hidden here'},
+  camp:{n:'Abandoned Camp', e:'⛺', d:'An old camp... someone left their lures!'}, statue:{n:'Stone Fish Statue', e:'🗿', d:'A mysterious giant fish statue. You feel wiser! (+XP)'} };
+var secretSpots=[], secretLake=null;
+function secretsHere(){ if(secretLake===LK.id) return secretSpots; secretLake=LK.id; secretSpots=[]; let h=dayHash('secret'+LK.id); const rnd=()=>{ h=Math.imul(h^(h>>>15),2246822507)>>>0; h=(h^(h>>>13))>>>0; return h/4294967296; };
+  const kinds=Object.keys(SECRET_KINDS).sort(()=>rnd()-.5).slice(0,3);
+  for(let tries=0; tries<4000 && secretSpots.length<3; tries++){ const x=250+rnd()*(WW-500), y=260+rnd()*(WH-520); if(landOk(x,y) && Math.hypot(x-START.x,y-START.y)>800 && !nearBldg(x,y,250) && secretSpots.every(m=>Math.hypot(m.x-x,m.y-y)>1100)) secretSpots.push({x,y,k:secretSpots.length,kind:kinds[secretSpots.length]}); }
+  return secretSpots; }
+function secretsGot(){ S.secretSpots=S.secretSpots||{}; return S.secretSpots[LK.id]=S.secretSpots[LK.id]||[]; }
+function secretsTotal(){ return Object.values(S.secretSpots||{}).reduce((a,l)=>a+l.length,0); }
+function updateSecrets(){ if(P.room) return; const got=secretsGot();
+  for(const sp of secretsHere()){ if(got.includes(sp.k) || Math.hypot(sp.x-P.x,sp.y-P.y)>110) continue; got.push(sp.k); const K=SECRET_KINDS[sp.kind];
+    S.money+=300; S.st.earned+=300; addXP(sp.kind==='statue'?160:60);
+    if(sp.kind==='fairy') S.hp=MAX_HP; if(sp.kind==='ruins'){ S.money+=500; S.st.earned+=500; } if(sp.kind==='crystal') S.items.fireworks=(S.items.fireworks||0)+10;
+    if(sp.kind==='hollow') S.items.digmap=(S.items.digmap||0)+1;
+    if(sp.kind==='camp'){ const L=LURES.filter(l=>!l.nat && !lureForever(l.id) && l.p>=100); const l=L[Math.floor(Math.random()*L.length)]; if(l){ if(!S.lures.includes(l.id)) S.lures.push(l.id); S.lureN[l.id]=(S.lureN[l.id]||0)+LURE_PACK; } }
+    banner('⭐','SECRET SPOT FOUND!',`${K.e} ${K.n}! ${K.d} · +$${sp.kind==='ruins'?800:300}`,'#ffe14d'); burst(sp.x,sp.y-20,'#ffe14d',30,200); shake(4,.3);
+    [523,659,784,1046,1318,1568].forEach((f,i)=>tone(f,.14,'triangle',.1,i*.07)); save(); } }
+function drawSecretOne(c,sp,t){ const K=sp.kind; c.save(); c.translate(sp.x,sp.y);
+  if(K==='fairy'){ for(let i=0;i<10;i++){ const a=i/10*6.283, x=Math.cos(a)*34, y=Math.sin(a)*16; c.fillStyle='#f4ead0'; c.fillRect(x-1.5,y-7,3,7); c.fillStyle='#e8302a'; c.beginPath(); c.arc(x,y-7,5,Math.PI,0); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(x-1.5,y-9,1,0,7); c.fill(); }
+    for(let i=0;i<6;i++){ const a=t*1.4+i, k=(t*.6+i/6)%1; c.globalAlpha=1-k; c.fillStyle='#fff8a0'; c.beginPath(); c.arc(Math.cos(a)*22,-10-k*30,2,0,7); c.fill(); } c.globalAlpha=1; }
+  else if(K==='ruins'){ c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(0,4,46,12,0,0,7); c.fill(); for(const [x,h] of [[-30,46],[-6,28],[18,52],[38,18]]){ c.fillStyle='#b8b0a0'; c.fillRect(x-7,-h,14,h); c.fillStyle='#9a9284'; c.fillRect(x-9,-h-4,18,5); c.fillStyle='#7a9a5a'; c.fillRect(x-7,-h*.4,5,4); } c.fillStyle='#a8a090'; c.fillRect(-40,0,26,6); }
+  else if(K==='hollow'){ c.fillStyle='#6a4a2a'; c.beginPath(); c.roundRect(-44,-26,88,26,13); c.fill(); c.fillStyle='#2a1a0e'; c.beginPath(); c.ellipse(40,-13,9,12,0,0,7); c.fill(); c.strokeStyle='#4a3218'; c.lineWidth=2; for(let i=0;i<4;i++){ c.beginPath(); c.moveTo(-38+i*18,-24); c.lineTo(-30+i*18,-4); c.stroke(); } c.fillStyle='#3a8a3a'; c.beginPath(); c.arc(-30,-26,6,0,7); c.arc(-20,-28,5,0,7); c.fill(); }
+  else if(K==='crystal'){ const g=.6+.4*Math.sin(t*3); c.fillStyle=`rgba(190,120,255,${.25*g})`; c.beginPath(); c.ellipse(0,-10,50,26,0,0,7); c.fill(); for(const [x,h,a] of [[-14,30,-.3],[0,44,0],[14,32,.3],[24,20,.5],[-24,18,-.5]]){ c.save(); c.translate(x,0); c.rotate(a); c.fillStyle='#b07aff'; c.beginPath(); c.moveTo(-6,0); c.lineTo(-5,-h*.8); c.lineTo(0,-h); c.lineTo(5,-h*.8); c.lineTo(6,0); c.fill(); c.fillStyle='rgba(255,255,255,.5)'; c.fillRect(-2,-h*.8,2,h*.7); c.restore(); } }
+  else if(K==='camp'){ c.fillStyle='#8a6a3a'; c.beginPath(); c.moveTo(-34,0); c.lineTo(-10,-40); c.lineTo(14,0); c.closePath(); c.fill(); c.fillStyle='#5a4426'; c.beginPath(); c.moveTo(-14,0); c.lineTo(-10,-28); c.lineTo(-6,0); c.fill(); c.fillStyle='#7a7a72'; for(let i=0;i<7;i++){ const a=i/7*6.283; c.beginPath(); c.arc(32+Math.cos(a)*10,-2+Math.sin(a)*5,3,0,7); c.fill(); } c.strokeStyle='#3a2a1a'; c.lineWidth=3; c.beginPath(); c.moveTo(26,-2); c.lineTo(38,-2); c.stroke(); }
+  else { c.fillStyle='#8a8a80'; c.fillRect(-18,-14,36,14); c.fillStyle='#a0a096'; c.beginPath(); c.ellipse(0,-26,24,13,-.2,0,7); c.fill(); c.beginPath(); c.moveTo(20,-30); c.lineTo(36,-42); c.lineTo(34,-16); c.closePath(); c.fill(); c.fillStyle='#555'; c.beginPath(); c.arc(-12,-29,3,0,7); c.fill(); }
+  c.restore(); }
+function drawSecrets(t){ const got=secretsGot(); for(const sp of secretsHere()){ const found=got.includes(sp.k), d=Math.hypot(sp.x-P.x,sp.y-P.y); if(!found && d>300) continue; if(d>1600) continue;
+  if(!found){ ctx.globalAlpha=Math.max(.15,1-(d-110)/190); } drawSecretOne(ctx,sp,t); ctx.globalAlpha=1; } }
+
 // ---------- Update ----------
 function update(dt){
+  updateSecrets();
   updateBigfoot(dt); updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
@@ -5790,7 +5849,7 @@ function draw(t){
     ctx.globalAlpha=1; }
   drawCritters(t, vw, vh);
 
-  drawFrenzy(t); drawJumpers(t); drawRace(t); drawGoldDucks(t); drawHiddenMaps(t); drawDig(t);
+  drawSecrets(t); drawFrenzy(t); drawJumpers(t); drawRace(t); drawGoldDucks(t); drawHiddenMaps(t); drawDig(t);
   for(const b of bullets){
     if(b.sling){ ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(b.x,b.y,3.5,0,7); ctx.fill(); }
     else if(b.arrow){ const sp=Math.hypot(b.vx,b.vy), ux=b.vx/sp, uy=b.vy/sp; ctx.strokeStyle='#8a5a2a'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); ctx.strokeStyle='#e8402a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(b.x-ux*20,b.y-uy*20); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); }
@@ -6333,6 +6392,7 @@ function fpFrame(t){
     fpEnt(p,w,h,p.kind==='barn'?w*.38:w/2,h-16,0,()=>drawProp(p,t),lit(p.x,p.y)); }
   for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(Math.hypot(q.x-VX,q.y-VY)<1800){ f._sc=f._sc||{}; f._sc.x=q.x; f._sc.y=q.y; fpEnt(f._sc,60,70,30,62,0,()=>drawScarecrow(f,t),lit(q.x,q.y)); } }
   { const got=ducksGot(); for(const d of goldDucks()) if(!got.includes(d.k) && Math.hypot(d.x-VX,d.y-VY)<1400) fpEnt(d,40,36,20,30,0,()=>drawGoldDuck(ctx,d.x,d.y,t),1);
+    const sg=secretsGot(); for(const sp of secretsHere()){ const dd=Math.hypot(sp.x-VX,sp.y-VY); if((sg.includes(sp.k) && dd<1600) || dd<300) fpEnt(sp,120,90,60,80,0,()=>drawSecretOne(ctx,sp,t),lit(sp.x,sp.y)); }
     const mg=mapsGot(); for(const m of hiddenMaps()) if(!mg.includes(LK.id+':'+m.k) && Math.hypot(m.x-VX,m.y-VY)<1400) fpEnt(m,40,36,20,30,0,()=>drawMapScroll(ctx,m.x,m.y,t),1); }
   if(S.dig && S.dig.lake===LK.id && Math.hypot(S.dig.x-VX,S.dig.y-VY)<1600){ window.__digCard=window.__digCard||{}; __digCard.x=S.dig.x; __digCard.y=S.dig.y; fpEnt(__digCard,60,40,30,30,0,()=>drawDig(t),1); }
   for(const b of GEO.bottles) if(!iceOn() && !myBottles().includes(b.k) && Math.hypot(b.x-VX,b.y-VY)<1400) fpEnt(b,50,30,25,15,1.5,()=>drawBottleOne(b,t),lit(b.x,b.y));
