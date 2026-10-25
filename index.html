@@ -94,6 +94,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 #start h1{justify-content:center;font-size:52px;color:var(--wood);margin:6px 0}
 #start p{margin:6px 0;font-size:15px}
 #start button{font-size:22px;padding:10px 34px;margin-top:12px;font-family:var(--display);font-weight:400;letter-spacing:.5px}
+.mission small{display:block}
 #modePick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
 #start #modePick button{font-size:17px;padding:8px 16px;margin-top:4px;background:#efe4c6;border-color:#c8b48a}
 @media (max-width:420px){#start #modePick button{font-size:15px;padding:6px 9px}#modePick{gap:5px}}
@@ -124,7 +125,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 <button id="helpBtn" aria-label="Show or hide the instructions">‹</button>
 <div id="help">
 <b>WASD/Arrows</b> walk · <b>SPACE</b> cast, reel &amp; shoot · <b>1</b> rod · <b>2/G</b> gun (again to switch guns) · <b>Click</b> shoot<br>
-<b>Hold SPACE</b> longer to cast farther · <b>A/D</b> steer when a fish runs · <b>H</b> eat · <b>T</b> traps · <b>V</b> first person · <b>E</b> go inside / open chests · <b>B</b> boat · <b>R</b> ride 4-wheeler · <b>X</b> scope · <b>Y</b> drone · <b>F</b> fireworks · <b>M</b> missions · <b>N</b> map · <b>C</b> animal call · <b>Z</b> binoculars
+<b>Hold SPACE</b> longer to cast farther · <b>A/D</b> steer when a fish runs · <b>H</b> eat · <b>T</b> traps · <b>V</b> first person · <b>E</b> go inside / open chests · <b>B</b> boat · <b>R</b> ride 4-wheeler · <b>X</b> scope · <b>Y</b> drone · <b>F</b> fireworks · <b>M</b> missions · <b>P</b> photo · <b>N</b> map · <b>C</b> animal call · <b>Z</b> binoculars
 </div>
 <div id="toast"></div>
 <div id="panel" class="overlay" hidden><div id="box" class="box"></div></div>
@@ -143,6 +144,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
 <button id="viewBtn" aria-label="Switch to first person" hidden>👁️</button>
 <button id="toolsBtn" class="sideBtn" aria-label="Show your tools" hidden>🧰</button>
 <button id="fwBtn" class="sideBtn" aria-label="Launch a firework" hidden>🎆</button>
+<button id="camBtn" class="sideBtn" aria-label="Take a photo" hidden>📷</button>
 <button id="droneBtn" class="sideBtn" aria-label="Fly your drone" hidden>🛸</button>
 <button id="scopeBtn" class="sideBtn" aria-label="Aim with your scope" hidden>🎯</button>
 <button id="rideBtn" class="sideBtn" aria-label="Ride your 4-wheeler" hidden>🏍️</button>
@@ -720,6 +722,9 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'photo10', n:'Take photos of 10 animals', r:800,   e:'📷', p:()=>[Object.keys(S.album||{}).length,10]},
+  {id:'photo40', n:'Take photos of 40 animals', r:5000,  e:'📚', p:()=>[Object.keys(S.album||{}).length,40]},
+  {id:'star5',  n:'See 5 shooting stars',       r:600,   e:'🌠', p:()=>[S.st.stars||0,5]},
   {id:'duck1', n:'Find a Golden Rubber Duck',   r:200,   e:'🦆', p:()=>[ducksTotal(),1]},
   {id:'duck30', n:'Find 30 Golden Rubber Ducks', r:6000,  e:'🦆', p:()=>[ducksTotal(),30]},
   {id:'dig3',   n:'Find maps & dig up 3 treasures',   r:1500,  e:'🗺️', p:()=>[S.st.digs||0,3]},
@@ -1838,6 +1843,7 @@ addEventListener('keydown', e=>{
   if(k==='x') toggleScope();
   if(k==='y') toggleDrone();
   if(k==='f') launchFirework();
+  if(k==='p') takePhoto();
   if(k==='m') openPanel('missions');
   if(k==='h') eat();
   if(k==='t') trapKey();
@@ -1874,7 +1880,7 @@ let toolsOpen=false; const shortScreen=()=>matchMedia('(max-height:560px)').matc
 function layoutSideButtons(side){
   const tb=document.getElementById('toolsBtn'); if(!touchMode){ tb.hidden=true; return; }
   for(const id of ['missBtn','healBtn','trapBtn','viewBtn']) document.getElementById(id).hidden=!side;
-  const vis=['missBtn','healBtn','trapBtn','viewBtn','callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn'].map(id=>document.getElementById(id)).filter(b=>!b.hidden);
+  const vis=['missBtn','healBtn','trapBtn','viewBtn','callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn'].map(id=>document.getElementById(id)).filter(b=>!b.hidden);
   tb.hidden=!side; tb.textContent=toolsOpen?'✖':'☰'; tb.style.top='calc(10px + env(safe-area-inset-top,0px))'; tb.style.right='calc(10px + env(safe-area-inset-right,0px))';
   const tall=VH>560, perRow=Math.max(1,Math.floor((VW-240)/56));
   vis.forEach((b,i)=>{ if(!toolsOpen){ b.hidden=true; return; }
@@ -1882,7 +1888,8 @@ function layoutSideButtons(side){
     else { const r=Math.floor(i/perRow), c=i%perRow; b.style.top=`calc(${10+r*56}px + env(safe-area-inset-top,0px))`; b.style.right=`calc(${66+c*56}px + env(safe-area-inset-right,0px))`; } });
 }
 document.getElementById('toolsBtn').addEventListener('click', ()=>{ ac(); toolsOpen=!toolsOpen; });
-for(const id of ['callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn']) document.getElementById(id).addEventListener('click', ()=>{ if(touchMode) setTimeout(()=>toolsOpen=false,50); });
+document.getElementById('camBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) takePhoto(); });
+for(const id of ['callBtn','binoBtn','rideBtn','scopeBtn','droneBtn','fwBtn','camBtn']) document.getElementById(id).addEventListener('click', ()=>{ if(touchMode) setTimeout(()=>toolsOpen=false,50); });
 document.getElementById('fwBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) launchFirework(); });
 document.getElementById('droneBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) toggleDrone(); });
 document.getElementById('scopeBtn').addEventListener('click', ()=>{ ac(); if(started && !panel) toggleScope(); });
@@ -2349,6 +2356,7 @@ const OUTDOOR=[
   {id:'predcall',   n:'Predator Call',   e:'🐺', p:200, d:'Calls foxes & coyotes... careful!'},
   {id:'binos',      n:'Binoculars',      e:'🔭', p:150, d:'Press Z (or tap 🔭) to see much farther'},
   {id:'lantern',    n:'Bright Lantern',  e:'🏮', p:200, d:'A much bigger light at night'},
+  {id:'camera',     n:'Wildlife Camera', e:'📷', p:250, d:'Press P (or tap 📷) to take photos of animals for your album!'},
   {id:'camoscent',  n:'Cover Scent',     e:'🌲', p:180, d:'Animals don\'t smell you · get closer before they run'},
 ];
 // ===================== Clothes =====================
@@ -4540,6 +4548,7 @@ function edgeArrow(wx,wy,icon,t){ const sx=(wx-cam.x)*Z, sy=(wy-cam.y)*Z, m=46; 
   ctx.rotate(-a); ctx.font=`16px ${FONT}`; ctx.textAlign='center'; ctx.fillText(icon,0,-30); ctx.restore(); }
 function eventsHTML(){ return `<h2>🎪 Events</h2><div class="list">
   <div class="mission"><div class="e">🏆</div><div><b>Fishing Derby</b><small>${derby?`On now! ${Math.ceil(derby.t)}s left · your best ${derby.best} lb`:'Catch the biggest fish in 3 minutes and beat 3 rivals. Wins: '+(S.st.derbyWins||0)}</small></div>${derby?'<span class="tag">Live!</span>':'<button data-derby>Start</button>'}</div>
+  ${albumHTML()}
   <div class="mission"><div class="e">🦆</div><div><b>Golden Rubber Ducks</b><small>${ducksGot().length}/6 found in ${LK.n} · ${ducksTotal()} found in all worlds. They're hidden all over!</small></div><span class="tag">${ducksGot().length}/6</span></div>
   <div class="mission"><div class="e">🏁</div><div><b>Flag Race</b><small>Run or drive through 6 flags before time runs out. Races won: ${S.st.races||0}</small></div>${race?'<span class="tag">Racing!</span>':'<button data-race>Start</button>'}</div></div>`; }
 
@@ -4590,9 +4599,54 @@ function drawHiddenMaps(t){ const got=mapsGot(); for(const m of hiddenMaps()) if
 // what's falling from the sky right now (rain turns to snow when the lake freezes)
 function precipNow(){ return iceOn() && LK.precip==='rain' ? 'snow' : LK.precip; }
 
+// ===================== Wildlife photo album, shooting stars & pets that dig =====================
+const BEAST_E={bear:'🐻',wolf:'🐺',boar:'🐗',gator:'🐊',crab:'🦀',cat:'🐆'};
+function photoSubjects(){ const L=[];
+  for(const a of game) if(!a.hide && !a.dead) L.push({x:a.x,y:a.y,key:'game:'+a.kind,n:GAME[a.kind].n,e:GAME[a.kind].e||'🐾'});
+  for(const d of deer) if(!d.dead) L.push({x:d.x,y:d.y,key:'deer:'+LK.id+(d.trophy?':trophy':d.buck?':buck':''),n:d.trophy?'Trophy Buck':d.buck?LK.deer.bn:LK.deer.n,e:'🦌'});
+  for(const b of beasts) if(!b.dead) L.push({x:b.x,y:b.y,key:'beast:'+b.kind,n:BEAST[b.kind].n,e:BEAST_E[BEAST[b.kind].look]||'🐾'});
+  if(!isNight()) for(const d of ducks) if(!d.dead) L.push({x:d.x,y:d.y,key:'duck:'+LK.id,n:LK.duck.n,e:'🦆'});
+  for(const o of owls) if(!o.dead) L.push({x:o.x,y:o.y,key:'owl',n:'Owl',e:'🦉'});
+  for(const j of jumpers) if(FISH[j.i]) L.push({x:j.x,y:j.y,key:'fish:'+j.i,n:'Jumping '+FISH[j.i].n,e:'🐟',bonus:1});
+  return L; }
+function inShot(x,y){ if(FP.on){ const q=fpProj(x,30,y); if(!q || q[0]<0||q[0]>VW||q[1]<0||q[1]>VH) return false; const cx=FP.cam.position.x, cz=FP.cam.position.z; return Math.hypot(x-cx,y-cz)<1100; }
+  const sx=(x-cam.x)*Z, sy=(y-cam.y)*Z; return sx>-10 && sx<VW+10 && sy>-10 && sy<VH+10; }
+function takePhoto(){
+  if(!S.gear.camera){ toast('📷 Buy a Wildlife Camera at the shop\'s Outdoor Gear shelf!'); return; } if(P.room){ toast('Go outside to take photos'); return; }
+  flash=Math.max(flash,.55); noise(.06,.3,6000); tone(1800,.05,'square',.05,.05);
+  const shots=photoSubjects().filter(p=>inShot(p.x,p.y)); S.album=S.album||{};
+  if(!shots.length){ toast('📷 Click! Nothing in the picture... find some animals first'); return; }
+  const fresh=[]; for(const p of shots){ if(!S.album[p.key]){ fresh.push(p); S.album[p.key]={n:p.n,e:p.e,c:0}; } S.album[p.key].c++; }
+  const uniq=[...new Set(fresh.map(p=>p.key))].map(k=>fresh.find(p=>p.key===k));
+  if(uniq.length){ const cash=uniq.reduce((a,p)=>a+(p.bonus?120:60),0); S.money+=cash; S.st.earned+=cash; addXP(25*uniq.length); banner('📷','NEW PHOTO!',`${uniq.map(p=>p.e+' '+p.n).slice(0,3).join(', ')}${uniq.length>3?' + more':''} · +$${cash}`,'#9fe3ff');
+    const n=Object.keys(S.album).length; if(n%10===0){ const b=n*50; S.money+=b; S.st.earned+=b; setTimeout(()=>banner('📚',`${n} PHOTOS!`,`Your album is growing! +$${b}`,'#9fe3ff'),400); } }
+  else toast(`📸 Nice shot of ${shots.length>1?shots.length+' animals':'a '+shots[0].n.toLowerCase()}! (already in your album)`);
+  save(); }
+function albumHTML(){ const A=S.album||{}, keys=Object.keys(A);
+  return `<div class="mission"><div class="e">📷</div><div><b>Wildlife Photo Album · ${keys.length} photos</b><small>${keys.length?keys.slice(-24).map(k=>`${A[k].e} ${A[k].n}`).join(' · '):S.gear.camera?'Press P (or tap 📷) when animals are on screen!':'Buy a Wildlife Camera at the Outdoor Gear shelf'}</small></div><span class="tag">${keys.length}</span></div>`; }
+// shooting stars at night: make a wish!
+var starT=50+Math.random()*60, shootStar=null;
+function updateStars(dt){ if(shootStar){ shootStar.t+=dt; if(shootStar.t>1.4) shootStar=null; }
+  if(!isNight() || P.room || LK.cave || weather.type==='rain' || weather.type==='storm') return; starT-=dt; if(starT>0) return; starT=45+Math.random()*75;
+  shootStar={t:0, x:.15+Math.random()*.5, y:.05+Math.random()*.2, dx:.25+Math.random()*.2}; tone(1568,.3,'sine',.05,0,2400); tone(2093,.4,'sine',.04,.12,3000);
+  const r=Math.random(); let msg; if(r<.5){ const m=50+Math.floor(Math.random()*6)*25; S.money+=m; S.st.earned+=m; msg=`+$${m}`; } else if(r<.8){ S.items.fireworks=(S.items.fireworks||0)+2; msg='2 🎆 fireworks'; } else { S.hp=MAX_HP; msg='full health ❤️'; }
+  setTimeout(()=>banner('🌠','SHOOTING STAR!',`You made a wish... it came true: ${msg}`,'#c8d8ff'),900); S.st.stars=(S.st.stars||0)+1; save(); }
+function drawShootStar(){ const s2=shootStar; if(!s2) return; const k=Math.min(1,s2.t/1.1), x=(s2.x+s2.dx*k)*VW, y=(s2.y+s2.dx*.4*k)*VH;
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.globalAlpha=1-Math.max(0,(s2.t-1.1)/.3); const g=ctx.createLinearGradient(x-120,y-48,x,y); g.addColorStop(0,'rgba(255,255,255,0)'); g.addColorStop(1,'rgba(255,255,240,.95)');
+  ctx.strokeStyle=g; ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(x-120,y-48); ctx.lineTo(x,y); ctx.stroke(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,3,0,7); ctx.fill(); ctx.restore(); }
+// pets sometimes dig up a little surprise
+var petDigT=70+Math.random()*60;
+function updatePetDig(dt){ if(!S.pet || S.pet==='parrot' || P.room || P.inBoat || !pet.set) return; if(P.moving) petDigT-=dt; if(petDigT>0) return; petDigT=80+Math.random()*80;
+  if(blocked(pet.x,pet.y) || inLake(pet.x,pet.y,1.05)) return; const nm=PETS[S.pet].n, r=Math.random(); let msg;
+  if(r<.5){ const m=20+Math.floor(Math.random()*9)*10; S.money+=m; S.st.earned+=m; msg=`some coins (+$${m})`; }
+  else if(r<.8){ const am=gunAmmo(Math.max(0,S.gun)); if(AMMO[am]){ S.ammo[am]=(S.ammo[am]||0)+5; msg=`5 ${AMMO[am].n.toLowerCase()}`; } else { S.money+=30; msg='some coins'; } }
+  else { const f=FOODS[Math.floor(Math.random()*3)]; S.items[f.id]=(S.items[f.id]||0)+1; msg=`a ${f.e} ${f.n}`; }
+  for(let i=0;i<12;i++) parts.push({x:pet.x+(Math.random()-.5)*10,y:pet.y,vx:(Math.random()-.5)*80,vy:-40-Math.random()*50,t:.5,col:'rgba(140,100,60,.8)',sz:4});
+  tone(700,.08,'square',.06); tone(900,.1,'square',.06,.1); float(pet.x,pet.y-40,`${PETS[S.pet].e} Found ${msg}!`,'#ffe9a0'); toast(`${PETS[S.pet].e} Your ${nm} dug up ${msg}!`); save(); }
+
 // ---------- Update ----------
 function update(dt){
-  updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
+  updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -6267,7 +6321,7 @@ function updateHud(){
   if(swapBtn.textContent!==sw){ swapBtn.textContent = sw; swapBtn.setAttribute('aria-label', tool==='rod'?'Switch to gun':'Switch to fishing pole'); }
   swapBtn.style.opacity = S.gun<0 ? .45 : 1;
   const cb=document.getElementById('callBtn'), bb=document.getElementById('binoBtn'), side=touchMode && !panel && started;
-  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room && !S.ride); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room);
+  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room && !S.ride); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room); document.getElementById('camBtn').hidden = !(side && S.gear.camera && !P.room);
   bb.hidden = !(side && S.gear.binos);
   layoutSideButtons(side);
 }
@@ -6279,7 +6333,7 @@ function loop(now){
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
   if(started && !panel) update(dt);
   if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
-  draw(now/1000); drawGuide(now/1000); drawBanner(); updateHud();
+  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
