@@ -110,7 +110,9 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
   #start h1{font-size:42px}
 }
 [hidden]{display:none!important}
-@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+#actBtn.bitePulse{background:#ffd54a !important;animation:bitePulse .3s infinite alternate}
+@keyframes bitePulse{to{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}#actBtn.bitePulse{animation:none}}
 </style>
 
 <canvas id="c"></canvas>
@@ -147,7 +149,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
   <h1>Lake Life</h1>
   <p>Explore a huge map with lakes, rivers, creeks, islands and secret spots. Catch fish, sell them, and mount your best ones in your cabin.</p>
   <p>Walk into the shop for rods, reels, line, hooks, lures, boats and clothes. Hunt for treasure, legendary fish and boss fish!</p>
-  <p>5 lakes + the Ocean · <span id="fishTotal">87</span> kinds of fish · seasons &amp; ice fishing · fog, wind &amp; muddy water · bears, alligators &amp; crabs!</p>
+  <p>12 worlds (even a cave and the Moon!) · <span id="fishTotal">87</span> kinds of fish · hunting, 4-wheelers &amp; drones · seasons &amp; ice fishing · a story with Grandpa Joe!</p>
   <p id="phoneTip" hidden><b>On a phone:</b> left joystick walks, hold the yellow button to cast (longer = farther) and to shoot. When a fish runs, push the joystick the other way! Tap 🏠 to go inside or open treasure. Tap ❤️ to eat food. Tap 👁️ for first person. Turn your phone sideways to see more!</p>
   <button id="playBtn">Play</button>
 </div></div>
@@ -174,7 +176,7 @@ const cv = document.getElementById('c'); let ctx = cv.getContext('2d'); // ctx c
 // VW/VH = screen size in CSS pixels, DPR = sharpness on Retina screens, Z = zoom (zooms out on phones so you see more)
 let VW, VH, DPR = 1, Z = 1;
 function resize(){
-  VW = innerWidth; VH = innerHeight; DPR = Math.min(2, window.devicePixelRatio||1);
+  VW = innerWidth; VH = innerHeight; DPR = Math.min(window.dprCap||2, window.devicePixelRatio||1);
   cv.width = Math.round(VW*DPR); cv.height = Math.round(VH*DPR);
   cv.style.width = VW+'px'; cv.style.height = VH+'px';
   Z = Math.max(.62, Math.min(1, Math.min(VW,VH)/620)); if(window.binosOn||window.towerZoom) Z*=.55; if(window.droneZoom) Z*=.62; if(window.scopeZoom) Z*=1.35;
@@ -708,6 +710,7 @@ const MISSIONS = [
   {id:'f50',   n:'Catch 50 fish',             r:300,   e:'🥇', p:()=>[S.st.fish,50]},
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
+  {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
   {id:'owl',   n:'Hunt an owl at night',      r:150,   e:'🦉', p:()=>[S.st.owls,1]},
   {id:'wolf',  n:'Defeat a wolf',             r:200,   e:'🐺', p:()=>[S.st.wolves,1]},
   {id:'boar',  n:'Defeat a wild boar',        r:250,   e:'🐗', p:()=>[S.st.boars,1]},
@@ -1245,7 +1248,11 @@ function nextWeather(){
   if(weather.type==='rain'||weather.type==='storm'){ setWeather(Math.random()<.5?'rainbow':'clear'); return; }
   const r=Math.random(); setWeather(r<.42?'clear':r<.57?'fog':r<.82?'rain':'storm');
 }
-function biteMult(){ return curLure().m * (weather.type==='rain'?.6 : weather.type==='storm'?.45 : weather.type==='fog'?.85 : 1); }
+// about 1 in 7 bucks is a giant TROPHY BUCK with huge antlers (more points = more money)
+function newDeer(p,buck,graze){ const trophy=buck && Math.random()<(S.gear&&S.gear.deercall?.2:.14), pts=trophy?[10,10,12,12,14,16][Math.floor(Math.random()*6)]:0, hp=trophy?14:buck?8:4;
+  if(trophy) setTimeout(()=>{ if(started){ toast(`🦌 You hear a deep grunt... a TROPHY BUCK is somewhere nearby!`); tone(120,.5,'sawtooth',.06,0,80); } },0); // (can happen while the page is still loading)
+  return {x:p.x,y:p.y,vx:0,vy:0,t:0,hp,max:hp,buck,trophy,pts,scared:0,face:1,anim:0,graze}; }
+function biteMult(){ return (fishing && frenzyNear(fishing.bx,fishing.by)?.25:1) * curLure().m * (weather.type==='rain'?.6 : weather.type==='storm'?.45 : weather.type==='fog'?.85 : 1); }
 
 // ---------- Spawning ----------
 function spawnDuck(){
@@ -1265,7 +1272,7 @@ function spawnDeer(){
   if(GEO.fields.length && Math.random()<.55){ const f=GEO.fields[Math.floor(Math.random()*GEO.fields.length)]; const q=fieldPt(f,(Math.random()-.5)*f.w*.8,(Math.random()-.5)*f.h*.8); // deer love to graze in fields
     if(Math.hypot(q.x-P.x,q.y-P.y)>450 && !treeAt(q.x,q.y)){ p=q; graze=f; } }
   if(!p) p=landSpot(550); if(!p) return; const buck=Math.random()<.2;
-  deer.push({x:p.x,y:p.y,vx:0,vy:0,t:0,hp:buck?8:4,max:buck?8:4,buck,scared:0,face:1,anim:0,graze}); }
+  deer.push(newDeer(p,buck,graze)); }
 function spawnBeast(kind){ const p=landSpot(650); if(!p) return; const b=BEAST[kind];
   beasts.push({kind,x:p.x,y:p.y,vx:0,vy:0,t:0,hp:b.hp,max:b.hp,scared:0,cool:0,face:1,anim:0,chasing:false}); }
 function spawnOwl(){ const p=landSpot(400); if(!p) return; const a=Math.random()*6.28;
@@ -1372,7 +1379,7 @@ function updateNPCs(dt){
 function npcTip(n){ const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
-  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[];
+  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60;
   for(let i=0;i<14;i++) spawnDuck();
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
@@ -1390,11 +1397,11 @@ function travel(id){
 }
 
 // ---------- Helpers ----------
-const toastEl = document.getElementById('toast'); let toastT = 0;
+const toastEl = document.getElementById('toast'); let toastT = 0, toastDur = 2.6;
 const toastQ=[];
 // a new message waits its turn if the last one only just showed up
-function toast(msg){ if(toastT>1.5 && toastEl.textContent!==msg){ if(!toastQ.includes(msg)) toastQ.push(msg); if(toastQ.length>2) toastQ.shift(); return; }
-  toastEl.textContent = msg; toastEl.style.opacity = 1; toastT = 2.6; }
+function toast(msg){ if(toastT>0 && toastDur-toastT<1.2 && toastEl.textContent!==msg){ if(!toastQ.includes(msg)) toastQ.push(msg); if(toastQ.length>4) toastQ.shift(); return; }
+  toastEl.textContent = msg; toastEl.style.opacity = 1; toastT = toastDur = Math.max(2.6, Math.min(6, 1.4+msg.length*.05)); }
 function float(x,y,text,col='#ffe14d'){ floats.push({x,y,text,col,t:1.6}); }
 function burst(x,y,col,n=10,sp=120){ for(let i=0;i<n;i++){ const a=Math.random()*6.28, s=Math.random()*sp; parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,t:.6+Math.random()*.4,col,sz:2+Math.random()*3}); } }
 function nearShop(){ return Math.hypot(P.x-SHOP.x, P.y-(SHOP.y+SHOP.h/2+20)) < 90; }
@@ -1432,8 +1439,9 @@ function damage(n, reason){
   save();
 }
 function faint(){
+  if(S.ride){ veh.x=P.x; veh.y=P.y; veh.id=S.ride; S.ride=null; P.air=0; }
   if(P.blind) leaveBlind(); if(drone) landDrone(); scopeOff();
-  const n = Math.ceil(S.fish.length/2);
+  const n = Math.min(1, S.fish.length); // only drop one fish
   for(let i=0;i<n;i++) S.fish.splice(Math.floor(Math.random()*S.fish.length),1);
   P.inBoat=false; P.x=CABIN.x; P.y=CABIN.y+CABIN.h/2+40; P.hurt=3; S.hp=50; setAct('faint', 2.8);
   fishing={state:'none'}; for(const b of beasts){ b.chasing=false; b.cool=10; }
@@ -1674,7 +1682,9 @@ function landFish(i){
     S.mounts.unshift({i, lb:Math.round(lb*10)/10, lake:LK.id, v:vr||null, id:Date.now()+1}); if(S.mounts.length>30) S.mounts.pop();
     SFX.trophy(); burst(fishing.bx, fishing.by, f.boss?'#ff5a8a':'#ffd54a', 40, 190); flash=Math.max(flash,.2);
   }
-  popup = {i, t:trophy||vr||f.legend||f.boss?4.5:2.8, isNew, lb, inch, pb, trophy, bonus, vr, legend:!!f.legend, boss:!!f.boss}; setAct(trophy||vr||f.legend||f.boss?'cheer':'catch', 1.6, {i, vr});
+  popup = {i, t:trophy||vr||f.legend||f.boss?4.5:2.8, isNew, lb, inch, pb, trophy, bonus, vr, legend:!!f.legend, boss:!!f.boss};
+  streak++; if([3,5,10,15,20,30].includes(streak)){ const sb=streak*25; S.money+=sb; S.st.earned+=sb; banner('🔥',`${streak} IN A ROW!`,`Catch streak bonus +$${sb}`,'#ff9a3a'); }
+  if(f.boss||f.legend||trophy){ shake(9,.5); vib([60,40,90]); banner(f.boss?'👑':f.legend?'⭐':'🏆', f.boss?'BOSS FISH!':f.legend?'LEGENDARY FISH!':'TROPHY FISH!', `${f.n} · ${lb>=100?Math.round(lb).toLocaleString():Math.round(lb*10)/10} lb`); } else { shake(3,.25); vib(50); } setAct(trophy||vr||f.legend||f.boss?'cheer':'catch', 1.6, {i, vr});
   SFX.catch(); burst(fishing.bx, fishing.by, '#bfe6ff', 16);
   float(P.x, P.y-60, f.boss ? `👑 ${f.n}! +$${bonus.toLocaleString()}` : vr ? `✨ ${VNAME[vr]} ${f.n}! +$${bonus.toLocaleString()}` : trophy ? `🏆 TROPHY ${f.n}! +$${bonus}` : `${f.n}! $${f.v}`, trophy||vr||f.boss||f.legend?'#ffd54a':undefined);
   fishing = {state:'none'}; save();
@@ -1693,7 +1703,10 @@ function action(fromTouch){
     fishing = {state:'charge', p:0, dir:1, held:0};
   } else if(fishing.state==='wait'){
     if(fishing.fly>0) return;
-    fishing = {state:'none'}; toast('Too early! Wait for the bobber to dunk');
+    const C=fishing.cand;
+    if(C && C.phase==='nibble'){ strikeNow(); hookFish(); return; } // tapped while it nibbles? that counts!
+    if(C && (C.phase==='come'||C.phase==='look')){ toast('🤫 A fish is coming! Wait for the bobber to dunk...'); return; }
+    fishing = {state:'none'}; toast('🎣 You reeled in your line');
   } else if(fishing.state==='bite'){
     hookFish();
   }
@@ -1729,6 +1742,7 @@ function shoot(auto){
     bullets.push({x:P.x+Math.cos(a)*24, y:P.y-24+Math.sin(a)*24, vx:Math.cos(aa)*g.spd, vy:Math.sin(aa)*g.spd, life:(S.gun===0?g.range:gunRange())/g.spd, dmg:g.dmg*(scopeOn?1.25:1), sling:S.gun===0, arrow:!!g.bow, laser:!!g.laser});
   }
   if(S.gun===0) SFX.sling(); else if(g.bow){ tone(180,.12,'triangle',.12,0,90); noise(.06,.08,2500); } else if(g.laser){ tone(1400,.18,'square',.07,0,300); } else SFX.shot();
+  if(g.smoke) shake(5,.25);
   if(g.smoke) for(let k=0;k<14;k++) parts.push({x:P.x+Math.cos(a)*50, y:P.y-24+Math.sin(a)*50, vx:Math.cos(a)*60+(Math.random()-.5)*70, vy:Math.sin(a)*60-20-Math.random()*40, t:1+Math.random()*.6, col:'rgba(210,210,210,.6)', sz:9});
   setAct('shoot', .2); const qz=g.quiet?.45:1;
   for(const d of deer) if(Math.hypot(d.x-P.x,d.y-P.y)<500*qz) d.scared=3;
@@ -1746,7 +1760,9 @@ function hit(t, b){
   a.dead = true;
   let val, name;
   if(t.kind==='duck'){ val=20; name=LK.duck.n; S.st.ducks++; }
-  else if(t.kind==='deer'){ val=a.buck?200:75; name=a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++; }
+  else if(t.kind==='deer'){ val=a.trophy?500+a.pts*60:a.buck?200:75; name=a.trophy?`${a.pts}-Point Trophy Buck`:a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++;
+    if(a.trophy){ S.st.trophyBucks=(S.st.trophyBucks||0)+1; S.buckMounts=S.buckMounts||[]; S.buckMounts.push({pts:a.pts, lake:LK.id, col:LK.deer.buck}); S.buckMounts.sort((x,y)=>y.pts-x.pts); S.buckMounts.length=Math.min(S.buckMounts.length,3);
+      banner('🦌','TROPHY BUCK!',`A huge ${a.pts}-point buck! +$${val} · it's on your cabin wall`); shake(8,.5); vib([60,40,90]); SFX.trophy(); } }
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
   else if(t.kind==='game'){ const g=GAME[a.kind]; val=Math.round(g.val*(a.bull?1.6:1)); name=(a.bull&&g.bn)||g.n; S.st.game[a.kind]=(S.st.game[a.kind]||0)+1; }
   else { const s=BEAST[a.kind]; val=s.val; name=s.n; S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]=(S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]||0)+1; }
@@ -1762,7 +1778,7 @@ function checkMissions(){
   for(const m of MISSIONS){
     if(S.done.includes(m.id)) continue;
     const [h,n] = m.p();
-    if(h>=n){ S.done.push(m.id); S.money+=m.r; SFX.trophy(); setAct('cheer', 1.3); toast(`🏆 Mission done: ${m.n}! +$${m.r.toLocaleString()}`); save(); if(panel) renderPanel(); return; }
+    if(h>=n){ S.done.push(m.id); S.money+=m.r; SFX.trophy(); setAct('cheer', 1.3); toast(`🏆 Mission done: ${m.n}! +$${m.r.toLocaleString()}`); banner(m.e||'🏆','MISSION COMPLETE!',`${m.n} · +$${m.r.toLocaleString()}`); vib([40,30,60]); save(); if(panel) renderPanel(); return; }
   }
 }
 
@@ -1779,8 +1795,8 @@ addEventListener('keydown', e=>{
   if(k===' ') action(false);
   if(k==='1') setTool('rod');
   if(k==='2' || k==='g'){ if(tool==='gun') nextGun(); else setTool('gun'); }
-  if(k==='q') setTool(tool==='rod'?'gun':'rod');
-  if(k==='e') useKey();
+  if(k==='q' && !(drone&&FP.on)) setTool(tool==='rod'?'gun':'rod');
+  if(k==='e' && !(drone&&FP.on)) useKey();
   if(k==='b') toggleBoat();
   if(k==='r') toggleRide();
   if(k==='x') toggleScope();
@@ -1826,7 +1842,7 @@ function layoutSideButtons(side){
   tb.hidden=!side; tb.textContent=toolsOpen?'✖':'☰'; tb.style.top='calc(10px + env(safe-area-inset-top,0px))'; tb.style.right='calc(10px + env(safe-area-inset-right,0px))';
   const tall=VH>560, perRow=Math.max(1,Math.floor((VW-240)/56));
   vis.forEach((b,i)=>{ if(!toolsOpen){ b.hidden=true; return; }
-    if(tall){ b.style.top=`calc(${68+i*58}px + env(safe-area-inset-top,0px))`; b.style.right='calc(10px + env(safe-area-inset-right,0px))'; }
+    if(tall){ const per=Math.max(1,Math.floor((VH-240)/58)), col=Math.floor(i/per), row=i%per; b.style.top=`calc(${68+row*58}px + env(safe-area-inset-top,0px))`; b.style.right=`calc(${10+col*58}px + env(safe-area-inset-right,0px))`; }
     else { const r=Math.floor(i/perRow), c=i%perRow; b.style.top=`calc(${10+r*56}px + env(safe-area-inset-top,0px))`; b.style.right=`calc(${66+c*56}px + env(safe-area-inset-right,0px))`; } });
 }
 document.getElementById('toolsBtn').addEventListener('click', ()=>{ ac(); toolsOpen=!toolsOpen; });
@@ -1867,6 +1883,7 @@ document.getElementById('btns').addEventListener('pointerdown', e=>{
 const panelEl = document.getElementById('panel'), box = document.getElementById('box');
 function openPanel(kind){ panel=kind; fishing={state:'none'}; mouseDown=false; actHeld=false; joy.x=joy.y=0; knob.style.transform='';
   for(const k in keys) keys[k]=false; renderPanel(); panelEl.hidden=false; touchEl.hidden=true; missBtn.hidden=true; healBtn.hidden=true; trapBtn.hidden=true; viewBtn.hidden=true; box.scrollTop=0; try{ document.pointerLockElement && document.exitPointerLock(); }catch(e){} }
+function sayAloud(html){ try{ const t=String(html).replace(/<[^>]*>/g,' ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/\s+/g,' ').trim(); speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.rate=.95; u.pitch=1.05; speechSynthesis.speak(u); }catch(e){} }
 function closePanel(){ panel=null; panelEl.hidden=true; if(touchMode){ touchEl.hidden=false; missBtn.hidden=false; healBtn.hidden=false; trapBtn.hidden=false; viewBtn.hidden=false; } save(); }
 function tierRows(list, cur, key, desc){
   return list.map((it,i)=>`<div class="item ${i<=cur?'own':''}"><div><b>${it.n}</b><small>${desc(it,i)}</small></div>${
@@ -1917,7 +1934,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button></span></div><h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -1957,6 +1974,8 @@ box.addEventListener('click', e=>{
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
+  if(b.hasAttribute('data-music')){ S.music = S.music===false; save(); renderPanel(); return; }
+  if(b.hasAttribute('data-say')){ const ch=STORY[S.story]; if(ch) sayAloud(ch.say+' Your goal: '+ch.goal); return; }
   if(b.hasAttribute('data-story')){ panel='story'; renderPanel(); box.scrollTop=0; return; }
   if(b.hasAttribute('data-drink')){ if(S.money<15) return; S.money-=15; P.boost=45; SFX.cash(); tone(700,.08,'triangle',.1); tone(1000,.12,'triangle',.1,.08); toast('🥤 Gulp! You feel SUPER fast for 45 seconds!'); save(); renderPanel(); return; }
   if(b.hasAttribute('data-wire')){ S.wireOn=!S.wireOn; save(); renderPanel(); return; }
@@ -1986,7 +2005,8 @@ box.addEventListener('click', e=>{
   }
   if(b.hasAttribute('data-sell')){
     let total=0; for(const i of S.fish) total+=FISH[i].v;
-    S.money+=total; S.st.earned+=total; S.fish=[]; SFX.cash(); toast(`Sold fish for $${total.toLocaleString()}! 💰`);
+    const nf=S.fish.length; S.money+=total; S.st.earned+=total; S.fish=[]; SFX.cash(); toast(`Sold fish for $${total.toLocaleString()}! 💰`);
+    for(let k=0;k<Math.min(nf,12);k++) tone(1100+k*70,.06,'square',.045,.12+k*.07); if(nf) banner('💰','PAYDAY!',`You sold ${nf} fish for $${total.toLocaleString()}`,'#7CFC00');
   } else if(b.dataset.k){
     const key=b.dataset.k, i=+b.dataset.i;
     const list={rod:RODS,reel:REELS,bait:BAITS,bag:BAGS,gun:GUNS,shoes:SHOES,boat:BOATS}[key];
@@ -2459,7 +2479,7 @@ function decideBite(){
       toast(`👀 A ${S.book[C.i]?f.n:'fish'} looked at your ${curLure().n} and swam away.${L.length?` Try: ${L.join(', ')}`:''}`); }
   }
 }
-function strikeNow(){ const F=fishing; F.state='bite'; F.t=.85+S.rod*.12; setAct('bite',.6); SFX.bite(); SFX.splash(); burst(F.bx,F.by,'#dff3ff',8,70); }
+function strikeNow(){ const F=fishing; F.state='bite'; F.t=1.5+S.rod*.12; setAct('bite',.6); SFX.bite(); SFX.splash(); burst(F.bx,F.by,'#dff3ff',8,70); shake(3,.2); vib(35); }
 // the fish shadow swimming up to your lure
 function drawCand(t){
   const F=fishing, C=F.cand; if(!C || C.chest!=null || F.ice || F.state!=='wait') return;
@@ -2476,6 +2496,7 @@ function drawCand(t){
 
 // ===================== Hooking & the fight =====================
 function hookFish(){
+  shake(5,.3); vib(40);
   const F=fishing, C=F.cand||{i:pickFish(depthAt(F.bx,F.by))};
   const base={state:'fight', ox:F.bx, oy:F.by, bx:F.bx, by:F.by, ice:F.ice, sp:fishSpot(F.bx,F.by), tension:0, sta:1, phase:'swim', phT:1.2, runDir:1, clickT:0, wob:Math.random()*6, jumpK:0, dive:0, chk:0};
   base.d=F.ice?140:Math.max(70,Math.hypot(F.bx-P.x,F.by-(P.y-10))); base.d0=base.d; base.ang=Math.atan2(F.by-(P.y-10),F.bx-P.x);
@@ -2517,13 +2538,13 @@ function needScreen(n){ if(FP.on){ const k=n[0]*-Math.sin(FP.yaw)+n[1]*Math.cos(
 function dirName(n){ const v=needScreen(n), hz=Math.abs(v[0])>=Math.abs(v[1]);
   const nm = hz ? (v[0]>0?'RIGHT ➡️':'⬅️ LEFT') : (v[1]>0?'DOWN ⬇️':'UP ⬆️');
   return touchMode ? nm+' (joystick)' : nm+` (${hz?(v[0]>0?'D':'A'):(v[1]>0?'S':'W')})`; }
-const LURE_PACK=3, lureForever=id=>id==='worm'||id==='goldfrog'||id==='grandpa'; // worms are free, legendary lures never break off
+const LURE_PACK=3, lureForever=id=>id==='worm'||id==='goldfrog'||id==='grandpa'||id==='kingbait'; // worms are free, legendary lures never break off
 function lureCount(id){ return lureForever(id) ? (S.lures.includes(id)?Infinity:0) : (S.lureN[id]||0); }
 function loseLure(){ const id=S.lure; if(lureForever(id)) return '';
   S.lureN[id]=Math.max(0,(S.lureN[id]||0)-1); const l=lureById(id), left=S.lureN[id];
   if(left<=0){ S.lure='worm'; setTimeout(()=>toast(`😢 That was your last ${l.n}! You're using worms now. Buy more at the shop`),2700); }
   save(); return ` You lost your ${l.e} ${l.n}${left>0?` (${left} left)`:''}.`; }
-function loseFish(msg, lure){ setAct('lost',1.4); SFX.miss(); toast(msg+(lure?loseLure():'')); fishing={state:'none'}; }
+function loseFish(msg, lure){ if(streak>=3) float(P.x,P.y-80,`🔥 Streak of ${streak} ended`,'#ffb070'); streak=0; shake(6,.3); vib(90); setAct('lost',1.4); SFX.miss(); toast(msg+(lure?loseLure():'')); fishing={state:'none'}; }
 // fish fight: hold to reel, steer the opposite way when it runs sideways, let go when it jumps!
 function updateFight(dt){
   const F=fishing, f=FISH[F.fish], holding=keys[' ']||actHeld, rod=1+S.rod*.15, reel=REELS[S.reel], line=LINES[S.line], capPx=reel.cap*5;
@@ -2580,14 +2601,17 @@ function updateFight(dt){
       else toast('😅 Phew! Your line came loose from the brush'); } }
   else F.dive=Math.max(0,F.dive-dt);
   if(F.chest==null){
-    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ loseFish(`🦷 The ${nm} bit through your line! A Wire Leader stops that.`, true); return; }
+    if(f.teeth && !(S.gear.wire && S.wireOn) && Math.random()<dt*.045*(1+F.str)){ if(!F.toothWarn){ F.toothWarn=1; toast(`🦷 The ${nm} has sharp teeth! A Wire Leader keeps it from chewing your line`); } }
     const hs=HOOKS[S.hook].sz, need=hookNeed(f);
-    if(hs<need && holding && Math.random()<dt*.1*(need-hs)){ loseFish(`🪝 The hook bent straight! A ${nm} needs a ${HOOKS[Math.min(3,need-1)].n} or bigger`); return; }
+    if(hs<need && holding && Math.random()<dt*.035*(need-hs)){ loseFish(`🪝 The hook bent straight! A ${nm} needs a ${HOOKS[Math.min(3,need-1)].n} or bigger`); return; }
     if((f.needLb && line.lb<f.needLb) || (f.needHook && hs<f.needHook)){ F.chk+=dt;
       if(F.chk>3.5){ loseFish(`💥 The ${nm} is too strong! You need ${f.needLb&&line.lb<f.needLb?f.needLb+' lb line':''}${f.needLb&&line.lb<f.needLb&&f.needHook&&hs<f.needHook?' and ':''}${f.needHook&&hs<f.needHook?'a '+HOOKS[f.needHook-1].n:''}`, true); return; } }
   }
   if(F.d>capPx){ loseFish(`🧵 The ${nm} took ALL your line! A bigger reel holds more.`, true); return; }
-  if(F.tension>=1){ loseFish(`💥 SNAP! Too much pull for ${line.n} line!`, true); return; }
+  if(F.tension>=1){ F.snapT=(F.snapT||0)+dt; // a short warning first: let go and it won't snap
+    if(F.snapT>.7){ loseFish(`💥 SNAP! Too much pull for ${line.n} line!`, true); return; }
+    if(!F.snapWarn){ F.snapWarn=1; tone(160,.25,'square',.09); vib(60); float(F.bx,F.by-40,'⚠️ LET GO!','#ff5a4a'); } }
+  else { F.snapT=0; F.snapWarn=0; }
   if(F.d<=(F.ice?14:S.gear.net?85:40)){ if(F.chest!=null){ const k=F.chest; fishing={state:'none'}; openTreasure(k, true); } else landFish(F.fish); }
 }
 // the fish leaping out of the water during the fight
@@ -2938,6 +2962,12 @@ function drawShopRoom(c,t){
   for(let i=0;i<3;i++){ const f=FISH[[3,0,7][i]]; drawSpecies(f, 480+((t*20+i*25)%56), 275+i*10, 16, t); }
   c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(500,520,90,24,0,0,7); c.fill(); // rug
 }
+function drawBuckMount(c,x,y,m,sc){ c.save(); c.translate(x,y);
+  c.fillStyle='#6a3e1e'; c.beginPath(); c.moveTo(-22*sc,-18*sc); c.lineTo(22*sc,-18*sc); c.lineTo(18*sc,16*sc); c.lineTo(0,26*sc); c.lineTo(-18*sc,16*sc); c.closePath(); c.fill(); c.strokeStyle='#c99a1a'; c.lineWidth=2; c.stroke();
+  const col=m.col||'#8f5a2c'; c.fillStyle=col; c.beginPath(); c.ellipse(0,4*sc,9*sc,15*sc,0,0,7); c.fill(); c.fillStyle=shade(col,.8); c.beginPath(); c.ellipse(0,16*sc,6*sc,6*sc,0,0,7); c.fill();
+  c.fillStyle='#1a1410'; c.beginPath(); c.arc(0,20*sc,2.4*sc,0,7); c.fill(); for(const sd of [-1,1]){ c.fillStyle='#111'; c.beginPath(); c.arc(sd*5*sc,0,1.8*sc,0,7); c.fill(); c.fillStyle=col; c.beginPath(); c.ellipse(sd*12*sc,-6*sc,6*sc,2.6*sc,sd*.4,0,7); c.fill(); }
+  drawRack(c,0,-10*sc,m.pts,sc*.85,true);
+  c.fillStyle='#ffe680'; c.font=`800 ${Math.round(9*sc)}px ${FONT}`; c.textAlign='center'; c.fillText(`${m.pts} pt`,0,36*sc); c.restore(); }
 function drawCabinRoom(c,t){
   drawCabinDecor(c,t);
   // trophy wall plaques
@@ -2962,6 +2992,7 @@ function drawCabinRoom(c,t){
   // mission board
   c.fillStyle='#b88a5a'; c.fillRect(20,250,70,150); c.strokeStyle='#5a3418'; c.lineWidth=4; c.strokeRect(20,250,70,150);
   for(let i=0;i<5;i++){ c.fillStyle=i<Math.min(5,S.done.length)?'#fff6c8':'#f4ead0'; c.fillRect(30+(i%2)*26,262+Math.floor(i/2)*44,22,30); c.fillStyle='#d33a2c'; c.beginPath(); c.arc(41+(i%2)*26,264+Math.floor(i/2)*44,2.5,0,7); c.fill(); }
+  const BM=S.buckMounts||[]; if(BM[0]) drawBuckMount(c,550,58,BM[0],1.25); if(BM[1]) drawBuckMount(c,50,200,BM[1],1); if(BM[2]) drawBuckMount(c,1040,200,BM[2],1);
 }
 
 // ===================== Character drawing helpers =====================
@@ -3003,7 +3034,9 @@ function drawOutfit(c, L, fx, fy){
   if(o==='hoodie'){ c.fillStyle=shade(L.shirt,.8); c.beginPath(); c.arc(0,-33,6,0,Math.PI); c.fill(); c.strokeStyle='#eee'; c.lineWidth=1; c.beginPath(); c.moveTo(-2,-30); c.lineTo(-2,-24); c.moveTo(2,-30); c.lineTo(2,-24); c.stroke(); }
   if(o==='ghillie'){ c.strokeStyle='#4a5a24'; c.lineWidth=2; for(let i=0;i<14;i++){ const x=-10+(i*3)%20, y=-32+(i*5)%18; c.strokeStyle=['#4a5a24','#6a6a34','#2e3a18'][i%3]; c.beginPath(); c.moveTo(x,y); c.lineTo(x+(i%2?2:-2),y+6); c.stroke(); } }
   if(o==='hawaiian'){ for(let i=0;i<6;i++){ c.fillStyle=i%2?'#ffe14d':'#ff5a8a'; c.beginPath(); c.arc(-6+(i*5)%13,-28+(i*6)%14,2.2,0,7); c.fill(); } }
-  if(o==='cape'){ c.fillStyle='#d8202a'; c.beginPath(); c.moveTo(-9,-32); c.lineTo(9,-32); c.lineTo(12,-14); c.lineTo(-12,-14); c.closePath(); c.globalAlpha=fy<-.5?1:.55; c.fill(); c.globalAlpha=1; c.fillStyle='#ffd23f'; c.font=`800 8px ${FONT}`; c.textAlign='center'; if(fy>-.5) c.fillText('★',0,-20); }
+  if(o==='cape'){ c.fillStyle='#d8202a'; if(fy<-.5){ c.beginPath(); c.moveTo(-9,-32); c.lineTo(9,-32); c.lineTo(12,-14); c.lineTo(-12,-14); c.closePath(); c.fill(); }
+    else { c.beginPath(); c.moveTo(-10,-32); c.lineTo(-7,-32); c.lineTo(-11,-15); c.lineTo(-13,-15); c.closePath(); c.moveTo(10,-32); c.lineTo(7,-32); c.lineTo(11,-15); c.lineTo(13,-15); c.closePath(); c.fill();
+      c.fillStyle='#ffd23f'; c.beginPath(); c.arc(0,-24,4,0,7); c.fill(); c.fillStyle='#d8202a'; c.font=`800 7px ${FONT}`; c.textAlign='center'; c.fillText('★',0,-21.5); } }
   if(o==='space'){ c.fillStyle='#c8ccd8'; c.fillRect(-6,-28,12,7); c.fillStyle='#3a7bd5'; c.fillRect(-4,-27,3,3); c.fillStyle='#e8302a'; c.fillRect(1,-27,3,3); }
   if(o==='waders'){ c.strokeStyle='#3a5a3a'; c.lineWidth=2.5; c.beginPath(); c.moveTo(-6,-32); c.lineTo(-5,-18); c.moveTo(6,-32); c.lineTo(5,-18); c.stroke(); c.fillStyle='#3a5a3a'; c.fillRect(-10,-20,20,8); }
 }
@@ -3284,7 +3317,7 @@ function updateBlinds(dt){
       float(b.x,b.y-80,`${g.e} ${g.herd?'A herd of '+g.n.toLowerCase()+' is':'A '+g.n.toLowerCase()+' is'} coming into the field!`,'#ffe9a0'); return; }
     const sd=Math.cos(Math.atan2(b.y-f.y,b.x-f.x)-f.ang)>0?-1:1, p=fieldPt(f, sd*(f.w/2-30), (Math.random()-.5)*f.h*.7);
     if(treeAt(p.x,p.y)) return; const buck=Math.random()<.3;
-    deer.push({x:p.x,y:p.y,vx:0,vy:0,t:0,hp:buck?8:4,max:buck?8:4,buck,scared:0,face:1,anim:0,graze:f});
+    deer.push(newDeer(p,buck,f));
     float(b.x,b.y-80,buck?'🦌 A big buck walked into the field!':'🦌 A deer walked into the field...','#ffe9a0');
   }
 }
@@ -3386,7 +3419,7 @@ function updateGame(dt, walk, steerTo){
         if(g.burrow) a.goalHome=true; }
       const goal = a.goalTree || (a.goalHome && a.home);
       if(goal){ const ang=Math.atan2(goal.y+4-a.y,goal.x-a.x); a.vx=Math.cos(ang)*g.spd; a.vy=Math.sin(ang)*g.spd;
-        a.x+=a.vx*dt; a.y+=a.vy*dt; if(Math.abs(a.vx)>10) a.face=a.vx>0?1:-1; a.anim+=dt*g.spd/10;
+        a.x+=a.vx*dt; a.y+=a.vy*dt; if(Math.abs(a.vx)>10) a.face=a.vx>0?1:-1; a.anim+=dt*g.spd/5;
         if(Math.hypot(goal.x-a.x,goal.y+4-a.y)<10){ if(a.goalTree){ a.x=goal.x; a.y=goal.y+4; a.climbT=5+Math.random()*4; } else { a.x=goal.x; a.y=goal.y; a.hide=4+Math.random()*4; }
           a.goalTree=null; a.goalHome=false; a.fleeing=false; a.vx=a.vy=0; }
         continue; }
@@ -3418,8 +3451,8 @@ function drawGameRaw(a, t){
   hpBar(a,-(g.h+14));
   if(a.trapped>0){ c.rotate(Math.sin(t*30)*.06); }
   c.scale(a.face||1,1);
-  const leg=(x,top,len,ph,w,colr)=>{ const sw=moving?Math.sin(a.anim+ph)*len*.3:0; c.strokeStyle=colr; c.lineCap='round'; c.lineWidth=w;
-    c.beginPath(); c.moveTo(x,top); c.lineTo(x+sw*.5,top+len*.5); c.lineTo(x+sw,-1); c.stroke(); c.fillStyle='#1a1410'; c.beginPath(); c.ellipse(x+sw+.5,-1,w*.45,w*.3,0,0,7); c.fill(); };
+  const leg=(x,top,len,ph,w,colr)=>{ const p=a.anim+ph, sw=moving?Math.sin(p)*len*.42:0, lift=moving?Math.max(0,Math.cos(p))*len*.24:0; c.strokeStyle=colr; c.lineCap='round'; c.lineWidth=w;
+    c.beginPath(); c.moveTo(x,top); c.lineTo(x+sw*.3+lift*.5,top+len*.5-lift*.4); c.lineTo(x+sw,-1-lift); c.stroke(); c.fillStyle='#1a1410'; c.beginPath(); c.ellipse(x+sw+.5,-1-lift,w*.45,w*.3,0,0,7); c.fill(); };
   const hop = g.hop && moving ? Math.abs(Math.sin(a.anim*.9))*8 : 0;
   const L=g.look;
   if(L==='squirrel'){ c.translate(0,-(moving?Math.abs(Math.sin(a.anim*.9))*4:0)); drawSquirrelBody(c,g,moving,t,false); }
@@ -3874,6 +3907,7 @@ function blitAnimal(a, sp, t, moving, shW, hpY){
   c.fillStyle=`rgba(0,0,0,${SUN.a})`; c.beginPath(); c.ellipse(SUN.dx*shW*.4,0,shW*1.1*SUN.len,Math.max(3,shW*.24),0,0,7); c.fill();
   hpBar(a,hpY);
   if(a.trapped>0) c.rotate(Math.sin(t*30)*.06);
+  if(moving){ const sp=Math.hypot(a.vx||0,a.vy||0); c.translate(0,-Math.abs(Math.sin(a.anim))*Math.min(3.5,sp/28)); } // a little bounce in its step
   c.scale(a.face||1, moving?1:1+Math.sin(t*2.2+a.x*.01)*.012); // breathing when it stands still
   c.drawImage(sp.cv,-sp.ax,-sp.ay,sp.w,sp.h); c.restore();
 }
@@ -3887,8 +3921,9 @@ function drawGame(a, t){
 }
 function drawDeer(d){
   const moving=!!(d.vx||d.vy), fr=walkFrame(d,moving);
-  const sp=animalSprite(`deer|${LK.id}|${d.buck?1:0}|${fr}`, 120, 112, ()=>drawDeerRaw({x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,buck:d.buck}));
-  blitAnimal(d, sp, performance.now()/1000, moving, 26, -74);
+  const sp=animalSprite(`deer|${LK.id}|${d.buck?1:0}|${d.pts||0}|${fr}`, d.trophy?150:120, d.trophy?140:112, ()=>drawDeerRaw({x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,buck:d.buck,trophy:d.trophy,pts:d.pts}));
+  blitAnimal(d, sp, performance.now()/1000, moving, 26, d.trophy?-96:-74);
+  if(d.trophy){ const t=performance.now()/1000; ctx.fillStyle='#ffe680'; for(let i=0;i<3;i++){ const a=t*2+i*2.1, k=(t*.8+i/3)%1; ctx.globalAlpha=1-k; ctx.beginPath(); ctx.arc(d.x+(d.face||1)*30+Math.cos(a)*16, d.y-92-k*14+Math.sin(a)*5, 2.2, 0, 7); ctx.fill(); } ctx.globalAlpha=1; }
 }
 function drawBeast(a){
   const s=BEAST[a.kind], moving=!!(a.vx||a.vy), fr=walkFrame(a,moving), w=Math.round(s.bw*4+90), h=Math.round(s.leg+s.bh*2+s.head*2+70);
@@ -3913,7 +3948,7 @@ function nearVehicle(){ return S.vehSel && !S.ride && veh.x>0 && Math.hypot(veh.
 function toggleRide(){
   if(P.room || P.blind){ toast(`Get out of the ${P.room?'building':blindName(P.blind)} first`); return; }
   if(S.ride){ // hop off and leave it parked here
-    const id=S.ride; S.ride=null; veh.x=P.x; veh.y=P.y; veh.face=P.fx<0?-1:1; P.air=0;
+    const id=S.ride; S.ride=null; veh.x=P.x; veh.y=P.y; veh.id=id; veh.face=P.fx<0?-1:1; P.air=0;
     for(let k=0;k<12;k++){ const a=Math.PI/2+k*.5, x=P.x+Math.cos(a)*40, y=P.y+Math.sin(a)*30; if(!blocked(x,y)){ P.x=x; P.y=y; break; } }
     tone(220,.15,'sawtooth',.06,0,90); toast(`You parked your ${VEH[id].n}. ${touchMode?'Tap 🏍️':'Press R'} to ride again`); save(); return; }
   if(!vehOwned().length){ toast('🏍️ Buy a 4-wheeler, dirt bike or Ranger at the shop\'s Boat Dealer!'); return; }
@@ -3923,7 +3958,8 @@ function toggleRide(){
   if(id==='sled' && !hasSnow()){ const alt=VEH_ORDER.find(v=>v!=='sled' && vehOwned().includes(v));
     if(!alt){ toast('🛷 No snow here! The snowmobile only runs on snow. Come back in winter or go to the Frozen Lake'); tone(200,.15,'square',.05); return; }
     toast(`🛷 No snow for the snowmobile, so you took your ${VEH[alt].n}`); id=alt; }
-  S.vehSel=id;
+  else S.vehSel=id;
+  scopeOff();
   const far = !(veh.x>0 && Math.hypot(veh.x-P.x,veh.y-P.y)<100);
   S.ride=id; veh.x=P.x; veh.y=P.y;
   tone(90,.25,'sawtooth',.1); tone(140,.35,'sawtooth',.08,.15); tone(200,.3,'sawtooth',.06,.35);
@@ -3985,7 +4021,7 @@ function drawRider(t){
 function drawParkedVehicle(t){
   if(S.ride || !S.vehSel || veh.x<0) return; const c=ctx; c.save(); c.translate(veh.x,veh.y);
   c.fillStyle=`rgba(0,0,0,${SUN.a+.06})`; c.beginPath(); c.ellipse(0,1,30,7,0,0,7); c.fill(); c.scale(veh.face||1,1);
-  drawVehicleBody(c,S.vehSel,0,false,'back'); drawVehicleBody(c,S.vehSel,0,false,'front'); c.restore();
+  const pid=(veh.id && VEH[veh.id] && vehOwned().includes(veh.id))?veh.id:S.vehSel; drawVehicleBody(c,pid,0,false,'back'); drawVehicleBody(c,pid,0,false,'front'); c.restore();
 }
 // riding: sounds, dust, jumps off the dirt ramps
 function updateRide(dt){
@@ -3993,7 +4029,7 @@ function updateRide(dt){
   if(P.room || P.inBoat){ S.ride=null; return; }
   if(S.ride==='sled' && !hasSnow()){ toggleRide(); toast('🛷 The snow melted! Your snowmobile can\'t run without snow'); return; }
   veh.x=P.x; veh.y=P.y;
-  if(P.air>0){ P.air-=dt; if(P.air<=0){ P.air=0; SFX.splash&&noise(.12,.25,500); burst(P.x,P.y,'rgba(160,130,90,.8)',10,80); S.st.jumps=(S.st.jumps||0)+1; float(P.x,P.y-70,['Nice jump!','Big air!','WOW!','Awesome!'][S.st.jumps%4],'#ffe14d'); } }
+  if(P.air>0){ P.air-=dt; if(P.air<=0){ P.air=0; shake(4,.25); vib(40); SFX.splash&&noise(.12,.25,500); burst(P.x,P.y,'rgba(160,130,90,.8)',10,80); S.st.jumps=(S.st.jumps||0)+1; float(P.x,P.y-70,['Nice jump!','Big air!','WOW!','Awesome!'][S.st.jumps%4],'#ffe14d'); } }
   if(P.moving){ engineT-=dt; if(engineT<=0){ engineT=.09; tone(S.ride==='bike'?120+Math.random()*30:85+Math.random()*20,.1,'sawtooth',.035); }
     if(Math.random()<dt*25) parts.push({x:P.x-P.fx*24+(Math.random()-.5)*12, y:P.y-3, vx:-P.fx*60+(Math.random()-.5)*40, vy:-30-Math.random()*30, t:.5, col: onIce(P.x,P.y)?'rgba(240,248,255,.8)':'rgba(160,130,90,.6)', sz:6});
     if(!P.air) for(const r of GEO.props) if(r.kind==='ramp' && Math.hypot(r.x-P.x,r.y-P.y)<26){ P.airMax=P.air=(S.ride==='bike'?.9:S.ride==='atv'||S.ride==='sled'?.7:.5)*(LK.space?2.2:1); tone(300,.2,'square',.05,0,600); break; } }
@@ -4020,6 +4056,7 @@ const gunRange=()=>GUNS[S.gun].range*SCOPES[S.scope||0].range*(S.gun===0?1:1);
 let scopeOn=false;
 function scopeOff(){ if(scopeOn||window.scopeZoom){ scopeOn=false; window.scopeZoom=false; resize(); } }
 function toggleScope(){ if(scopeOn){ scopeOff(); tone(600,.05,'square',.05); return; }
+  if(S.ride){ toast(`Hop off your ${VEH[S.ride].n} to aim`); return; }
   if(tool!=='gun' || S.gun<0 || S.gun===0){ toast(S.gun===0?'A slingshot can\'t use a scope':'Take out a gun first (2 or G)'); return; }
   if(!S.scope){ toast('🎯 Buy a scope at the shop\'s Guns & Traps counter'); return; }
   scopeOn=true; tone(900,.05,'square',.05); window.scopeZoom=true; resize(); }
@@ -4054,15 +4091,17 @@ function toggleDrone(){
   if(P.room){ toast('Go outside to fly your drone'); return; }
   if(fishing.state!=='none') fishing={state:'none'};
   const D=DRONES[S.drone]; drone={x:P.x, y:P.y-10, h:0, bat:D.bat, back:false, a:0};
-  if(FP.on){ drone.fpBack=true; fpToggle(); }
   window.droneZoom=true; resize(); tone(600,.3,'sawtooth',.04,0,1200);
-  toast(`🛸 Drone launched! ${touchMode?'Steer with the joystick · tap 🛸 to bring it back':'Fly with WASD · press Y to bring it back'}. Watch your battery!`);
+  if(FP.on){ drone.a=FP.yaw; FP.pitch=-.5; toast(`🛸 Drone camera! ${touchMode?'Joystick flies & turns, drag to look':'W/S fly, A/D turn, mouse looks · Q/E go up & down'} · ${touchMode?'tap 🛸':'Y'} brings it back`); }
+  else toast(`🛸 Drone launched! ${touchMode?'Steer with the joystick · tap 👁️ to see through its camera · tap 🛸 to bring it back':'Fly with WASD · press V to see through its camera · Y brings it back'}. Watch your battery!`);
 }
 function updateDrone(dt){
   if(!drone) return; const D=DRONES[S.drone];
   drone.h=Math.min(1,drone.h+dt*1.5); drone.bat-=dt;
   if(drone.bat<=0 && !drone.back){ drone.back=true; toast('🔋 Battery low! Your drone is flying home'); }
   let dx=joy.x, dy=joy.y; if(keys['w']||keys['arrowup']) dy--; if(keys['s']||keys['arrowdown']) dy++; if(keys['a']||keys['arrowleft']) dx--; if(keys['d']||keys['arrowright']) dx++;
+  if(FP.on && !drone.back){ const fwd=((keys['w']||keys['arrowup'])?1:0)-((keys['s']||keys['arrowdown'])?1:0)-joy.y; dx=Math.cos(FP.yaw)*fwd; dy=Math.sin(FP.yaw)*fwd; // drone camera: fly where you look
+    drone.alt=Math.max(0,Math.min(1,(drone.alt??.5)+((keys['e']?1:0)-(keys['q']?1:0))*dt*.8)); }
   if(drone.back){ const ex=P.x-drone.x, ey=P.y-10-drone.y, l=Math.hypot(ex,ey); if(l<20){ landDrone(); return; } dx=ex/l; dy=ey/l; }
   const l=Math.hypot(dx,dy); if(l>.15){ const k=Math.min(1,l); drone.x=Math.max(20,Math.min(WW-20,drone.x+dx/l*D.spd*k*dt*(drone.back?1.4:1))); drone.y=Math.max(20,Math.min(WH-20,drone.y+dy/l*D.spd*k*dt*(drone.back?1.4:1))); drone.a=Math.atan2(dy,dx); }
   droneBuzz-=dt; if(droneBuzz<=0){ droneBuzz=.12; tone(380+Math.random()*40,.1,'sawtooth',.018); }
@@ -4070,7 +4109,7 @@ function updateDrone(dt){
   const seen=(S.dseen[LK.id]=S.dseen[LK.id]||[]);
   GEO.treasures.forEach((tr,k)=>{ if(!treasureFound(k) && !seen.includes(k) && Math.hypot(tr.x-drone.x,tr.y-drone.y)<380){ seen.push(k); float(tr.x,tr.y-40,'💰 Treasure spotted!','#ffd54a'); tone(1200,.1,'triangle',.08); toast('🛸 Your drone spotted a treasure chest! It\'s marked on your map'); save(); } });
 }
-function landDrone(){ if(!drone) return; const fb=drone.fpBack; drone=null; window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb && !FP.on) fpToggle(); }
+function landDrone(){ if(!drone) return; const fb=drone.fpBack; drone=null; if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; } window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb && !FP.on) fpToggle(); }
 function drawDrone(t){
   if(!drone) return; const c=ctx, h=drone.h*70, D=DRONES[S.drone];
   c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(drone.x+h*.3,drone.y+4,16,6,0,0,7); c.fill();
@@ -4102,7 +4141,7 @@ function updatePet(dt){
   if(!pet.set || Math.hypot(pet.x-P.x,pet.y-P.y)>900){ pet.x=P.x-30; pet.y=P.y+10; pet.set=true; }
   const tx=P.x-P.fx*38+(fl?Math.cos(performance.now()/500)*30:0), ty=P.y-P.fy*24+8+(fl?Math.sin(performance.now()/400)*14:0), d=Math.hypot(tx-pet.x,ty-pet.y);
   pet.moving=d>14; if(pet.moving && !P.inBoat){ const sp=Math.min(d*4, fl?420:S.ride?520:330); let nx=pet.x+(tx-pet.x)/d*sp*dt, ny=pet.y+(ty-pet.y)/d*sp*dt; if(fl || !blocked(nx,ny)){ pet.x=nx; pet.y=ny; } else if(d>200){ pet.x=nx; pet.y=ny; } pet.face=tx>pet.x?1:-1; pet.anim=(pet.anim||0)+dt*10; }
-  pet.bark-=dt; if((S.pet==='dog'||S.pet==='goldie') && pet.bark<=0){ const b=beasts.find(b=>Math.hypot(b.x-P.x,b.y-P.y)<420); if(b){ pet.bark=10; tone(380,.08,'square',.1); tone(300,.1,'square',.1,.12); toast(`🐕 Woof woof! Your dog smells a ${BEAST[b.kind].n.toLowerCase()} nearby!`); } }
+  pet.bark-=dt; if((S.pet==='dog'||S.pet==='goldie') && pet.bark<=0 && !P.room){ const b=beasts.find(b=>Math.hypot(b.x-P.x,b.y-P.y)<420); if(b){ pet.bark=10; tone(380,.08,'square',.1); tone(300,.1,'square',.1,.12); toast(`🐕 Woof woof! Your dog smells a ${BEAST[b.kind].n.toLowerCase()} nearby!`); } }
   if(S.pet==='parrot' && Math.random()<dt*.04){ tone(1400,.06,'square',.05); tone(1700,.08,'square',.05,.07); float(pet.x,pet.y-40,['Squawk!','Pretty bird!','Fish! Fish!'][Math.floor(Math.random()*3)],'#9fe3ff'); }
 }
 function drawPet(t){
@@ -4247,8 +4286,8 @@ function checkStory(){
   let done=0, cash=0, last=null; // (players who already did a lot finish several chapters at once)
   while(S.story<STORY.length && STORY[S.story].ok()){ const ch=STORY[S.story]; cash+=ch.cash; S.story++; done++; last=ch;
     if(ch.end){ if(!S.lures.includes('grandpa')) S.lures.push('grandpa'); S.lure='grandpa'; if(!S.owned.hats.includes('crown')) S.owned.hats.push('crown'); } }
-  if(done){ S.money+=cash; S.st.earned+=cash; SFX.trophy(); flash=.2; toast(done>1?`📖 ${done} story chapters done! +$${cash.toLocaleString()}`:`📖 Chapter done: ${last.t}! +$${cash.toLocaleString()}`); storyQueue=true; save(); }
-  if(storyQueue && !panel && fishing.state!=='fight' && !P.room){ storyQueue=false; openPanel('story'); }
+  if(done){ S.money+=cash; S.st.earned+=cash; SFX.trophy(); flash=.2; banner('📖','CHAPTER DONE!',`${last.t} · +$${cash.toLocaleString()}`,'#ffb0e0'); toast(done>1?`📖 ${done} story chapters done! +$${cash.toLocaleString()}`:`📖 Chapter done: ${last.t}! +$${cash.toLocaleString()}`); storyQueue=true; save(); }
+  if(storyQueue && !panel && fishing.state==='none' && !P.room){ storyQueue=false; openPanel('story'); }
 }
 function storyHTML(){
   if(S.story>=STORY.length) return `<h1>📖 The End... for now!</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px">👴 <b>Grandpa Joe:</b> You did it! The Lake Spirit gave back my <b>Golden Lure</b>, and now it's YOURS. It works on every fish there is. You're the greatest angler these lakes have ever seen. I'm so proud of you, kiddo!<br><br>🏆 You got <b>Grandpa's Golden Lure</b> and the <b>Golden Crown</b>! Keep exploring: there are still secret missions, bosses and treasure out there...</div>
@@ -4257,11 +4296,124 @@ function storyHTML(){
   return `<h1>📖 Chapter ${S.story+1}: ${ch.t}</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px;background:#f4ead0;color:#4a3418;font-family:Georgia,serif">${ch.say}</div>
     <div class="mission"><div class="e">🎯</div><div><b>Goal: ${ch.goal}</b><small>Reward: $${ch.cash.toLocaleString()}${ch.end?' + a special surprise!':''}</small></div></div>
     <h2>Story so far</h2><div class="list">${STORY.slice(0,S.story).map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b></div></div>`).join('')||'<p>This is the very beginning!</p>'}</div>
-    <p style="text-align:right;margin:16px 0 0"><button class="close" data-close>Let's go!</button></p>`;
+    <p style="text-align:right;margin:16px 0 0">${'speechSynthesis' in window?'<button data-say class="alt">🔊 Read it to me</button> ':''}<button class="close" data-close>Let's go!</button></p>`;
+}
+
+// ===================== Game feel: screen shake, buzz, big banners =====================
+var shakeT=0, shakeA=0, REDUCED_MOTION=matchMedia('(prefers-reduced-motion:reduce)').matches;
+function shake(a,t=.3){ shakeA=shakeT>0?Math.max(shakeA,a):a; shakeT=Math.max(shakeT,t); }
+function vib(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} } // Android tablets buzz (iPhones and iPads don't)
+var bannerQ=[], bannerCur=null;
+function banner(e,title,sub,col='#ffd54a'){ bannerQ.push({e,title,sub,col}); if(bannerQ.length>3) bannerQ.shift(); }
+function drawBanner(){
+  if(!bannerCur && bannerQ.length && !panel){ bannerCur=bannerQ.shift(); bannerCur.t0=performance.now();
+    bannerCur.cf=Array.from({length:36},()=>({x:.25+Math.random()*.5, vx:(Math.random()-.5)*5, vy:-2-Math.random()*4, col:['#ff3a5a','#ffd23f','#5ad0ff','#8aff5a','#ff8af0'][Math.floor(Math.random()*5)], r:Math.random()*6})); }
+  const B=bannerCur; if(!B) return; const age=(performance.now()-B.t0)/1000; if(age>3.4){ bannerCur=null; return; }
+  const k=Math.min(1,age*4), out=Math.max(0,(age-3)/.4), w=Math.min(440,VW-24), h=80, x=(VW-w)/2, y=Math.max(110,VH*.3)-(1-k)*50;
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0);
+  for(const c of B.cf){ const cx=c.x*VW+c.vx*age*60, cy=y+h/2+c.vy*age*60+age*age*170; ctx.globalAlpha=Math.max(0,1-age/3.4); ctx.fillStyle=c.col; ctx.save(); ctx.translate(cx,cy); ctx.rotate(c.r+age*6); ctx.fillRect(-3,-5,6,10); ctx.restore(); }
+  ctx.globalAlpha=k*(1-out); ctx.fillStyle='rgba(18,28,48,.86)'; ctx.beginPath(); ctx.roundRect(x,y,w,h,20); ctx.fill(); ctx.strokeStyle=B.col; ctx.lineWidth=3; ctx.stroke();
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillStyle=B.col; ctx.font=`900 ${Math.round(Math.min(28,w/13))}px ${FONT}`; ctx.fillText(`${B.e} ${B.title} ${B.e}`, VW/2, y+36, w-16);
+  ctx.fillStyle='#fff'; ctx.font=`700 16px ${FONT}`; ctx.fillText(B.sub, VW/2, y+62, w-20); ctx.restore();
+}
+// the money in the corner counts up when you earn it
+var moneyShown=null;
+function hudMoney(){ return Math.round(moneyShown==null?S.money:moneyShown); }
+function tickMoney(dt){ if(moneyShown==null || S.money<moneyShown) moneyShown=S.money; else if(S.money>moneyShown){ moneyShown+=Math.max(1,(S.money-moneyShown)*Math.min(1,dt*4)); if(moneyShown>S.money) moneyShown=S.money; } }
+
+// ===================== Music box & nature sounds =====================
+var MUS={g:null, t:1, step:0, deg:2};
+function musicOut(){ const a=AC; if(!a) return null; if(!MUS.g){ MUS.g=a.createGain(); MUS.g.gain.value=1; MUS.g.connect(a.destination); } return MUS.g; }
+function mnote(f,d,v,when=0,type='triangle'){ const a=AC, out=musicOut(); if(!a||!out) return; const t=a.currentTime+when, o=a.createOscillator(), g=a.createGain(); o.type=type; o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(v,t+.03); g.gain.exponentialRampToValueAtTime(.0004,t+d); o.connect(g).connect(out); o.start(t); o.stop(t+d+.05); }
+const PENTA=[0,2,4,7,9];
+function updateMusic(dt){
+  if(!AC || AC.state!=='running' || document.hidden || !started) return;
+  MUS.t-=dt; if(MUS.t>0) return;
+  const night=isNight(), spooky=LK.dark||LK.space, beat=night||spooky?.62:.46; MUS.t=beat;
+  if(S.music!==false && !(fishing.state==='fight')){
+    const root=spooky?196:night?220:262;
+    if(Math.random()<(night?.45:.7)){ MUS.deg=Math.max(-2,Math.min(9,MUS.deg+[-2,-1,-1,1,1,2][Math.floor(Math.random()*6)])); const d=((MUS.deg%5)+5)%5, oct=Math.floor(MUS.deg/5); mnote(root*Math.pow(2,(PENTA[d]+12*oct)/12)*2, beat*2.4, .03); }
+    if(MUS.step%8===0) mnote(root/2*(MUS.step%16===0?1:1.5), beat*7, .028, 0, 'sine');
+    MUS.step++; }
+  // birds by day, crickets at night (not in caves or space)
+  if(!P.room && !LK.dark && !LK.space && Math.random()<.06){
+    if(night){ for(let i=0;i<4;i++) tone(4300,.025,'sine',.01,i*.06); }
+    else if(weather.type!=='rain' && weather.type!=='storm'){ const b=2200+Math.random()*1500; tone(b,.08,'sine',.018,0,b*1.3); tone(b*1.12,.07,'sine',.016,.13,b*.85); if(Math.random()<.5) tone(b*1.2,.06,'sine',.014,.26,b*1.4); } }
+}
+
+// ===================== Guide arrow: points you to the shop when your bag is full =====================
+function drawGuide(t){
+  if(!started || panel || P.room || FP.on || drone) return;
+  const full=S.fish.length>=bagCap(), ch1=S.story===0 && S.fish.length>=3, fz=!full && frenzy && !frenzyNear(P.x,P.y) && fishing.state==='none';
+  if(!full && !ch1 && !fz) return;
+  const wx=fz?frenzy.x:SHOP.x, wy=fz?frenzy.y:SHOP.y+SHOP.h/2, sx=(wx-cam.x)*Z, sy=(wy-cam.y)*Z, m=46;
+  if(fz && sx>m && sx<VW-m && sy>m && sy<VH-m) return; // you can already see the bubbles
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.font=`800 14px ${FONT}`; ctx.textAlign='center';
+  const bob=Math.sin(t*6)*6;
+  if(sx>m && sx<VW-m && sy>m && sy<VH-m){ const ay=sy-SHOP.h/2*Z-26+bob; ctx.fillStyle='#ffd54a'; ctx.strokeStyle='#5a3a00'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(sx,ay+18); ctx.lineTo(sx-14,ay); ctx.lineTo(sx-6,ay); ctx.lineTo(sx-6,ay-16); ctx.lineTo(sx+6,ay-16); ctx.lineTo(sx+6,ay); ctx.lineTo(sx+14,ay); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.lineWidth=4; ctx.strokeText(full?'Sell your fish!':'Sell here!',sx,ay-24); ctx.fillStyle='#fff'; ctx.fillText(full?'Sell your fish!':'Sell here!',sx,ay-24); }
+  else { const cx=VW/2, cy=VH/2, a=Math.atan2(sy-cy,sx-cx), r=Math.min((VW/2-m)/Math.abs(Math.cos(a)||1e-6),(VH/2-m)/Math.abs(Math.sin(a)||1e-6)), px=cx+Math.cos(a)*(r+bob*.5), py=cy+Math.sin(a)*(r+bob*.5);
+    ctx.translate(px,py); ctx.fillStyle='rgba(18,28,48,.75)'; ctx.beginPath(); ctx.arc(0,0,26,0,7); ctx.fill(); ctx.rotate(a); ctx.fillStyle='#ffd54a'; ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-8,-12); ctx.lineTo(-3,0); ctx.lineTo(-8,12); ctx.closePath(); ctx.fill();
+    ctx.rotate(-a); ctx.font=`16px ${FONT}`; ctx.fillText(fz?'🫧':'🏪',0,-30); }
+  ctx.restore();
+}
+
+// ===================== Speed saver: slow tablets lower the picture quality to stay smooth =====================
+var perfS={t:0,n:0,lvl:0,wait:6};
+function perfTick(dt){
+  if(!started || panel || document.hidden || perfS.lvl>=2) return;
+  perfS.wait-=dt; if(perfS.wait>0) return;
+  perfS.t+=dt; perfS.n++; if(perfS.t<4) return;
+  const fps=perfS.n/perfS.t; perfS.t=0; perfS.n=0;
+  if(fps<36){ perfS.lvl++; perfS.wait=3; window.dprCap=perfS.lvl===1?1.5:1; FP.lite=true; if(perfS.lvl>=2) FP.cubeT=1e9; resize(); }
+}
+
+// ===================== Fish Frenzy, catch streaks & jumping fish =====================
+var frenzy=null, frenzyT=90+Math.random()*90, jumpers=[], jumpT=4, streak=0;
+function frenzyNear(x,y){ return frenzy && Math.hypot(x-frenzy.x,y-frenzy.y)<150; }
+function waterSpot(m=.8){ for(let k=0;k<80;k++){ const x=LAKE.x+(Math.random()-.5)*WW*.5, y=LAKE.y+(Math.random()-.5)*WH*.45; if(inLake(x,y,m) && !onDock(x,y)) return {x,y}; } return null; }
+function updateFrenzy(dt){
+  if(P.room) return;
+  if(frenzy){ frenzy.t-=dt; if(Math.random()<dt*8) ripples.push({x:frenzy.x+(Math.random()-.5)*160,y:frenzy.y+(Math.random()-.5)*90,t:.5});
+    if(frenzy.t<=0 || iceOn()){ frenzy=null; toast('🫧 The fish frenzy is over... watch for the next one!'); } return; }
+  frenzyT-=dt; if(frenzyT>0) return; frenzyT=150+Math.random()*120;
+  if(iceOn()) return; const w=waterSpot(.75); if(!w) return;
+  frenzy={x:w.x,y:w.y,t:60}; SFX.splash(); tone(880,.1,'triangle',.08); tone(1175,.14,'triangle',.08,.1);
+  banner('🫧','FISH FRENZY!','Bubbles on the lake! Cast there for super-fast bites','#5ad0ff');
+}
+function drawFrenzy(t){
+  if(!frenzy) return; const c=ctx;
+  for(let i=0;i<22;i++){ const a=i*2.4+t*.7, r=30+((i*37)%110), x=frenzy.x+Math.cos(a)*r*1.2, y=frenzy.y+Math.sin(a)*r*.55, k=(t*1.3+i*.37)%1;
+    c.strokeStyle=`rgba(255,255,255,${.75*(1-k)})`; c.lineWidth=1.5; c.beginPath(); c.arc(x,y-k*6,2+k*5,0,7); c.stroke(); }
+  c.fillStyle='rgba(120,220,255,.12)'; c.beginPath(); c.ellipse(frenzy.x,frenzy.y,150,80,0,0,7); c.fill();
+}
+function updateJumpers(dt){
+  for(const j of jumpers) j.t+=dt; jumpers=jumpers.filter(j=>{ if(j.t>=j.dur){ SFX.splash&&noise(.15,.12,1200); burst(j.x+j.dx,j.y,'#dff3ff',8,70); ripples.push({x:j.x+j.dx,y:j.y,t:.6}); return false; } return true; });
+  if(P.room || iceOn()) return; jumpT-=dt; if(jumpT>0) return; jumpT=3+Math.random()*6;
+  for(let k=0;k<20;k++){ const x=cam.x+Math.random()*VW/Z, y=cam.y+Math.random()*VH/Z; if(inLake(x,y,.85) && !onDock(x,y)){
+    const r=pickFishAt(x,y), i=r&&r.i; if(i==null || !FISH[i] || FISH[i].boss) return;
+    jumpers.push({x,y,i,t:0,dur:.8+Math.random()*.3,dx:(Math.random()<.5?-1:1)*(30+Math.random()*30),h:22+Math.random()*20}); ripples.push({x,y,t:.5}); return; } }
+}
+function drawJumpers(t){ for(const j of jumpers){ const k=j.t/j.dur, f=FISH[j.i]; if(!f) continue; const x=j.x+j.dx*k, y=j.y-Math.sin(k*Math.PI)*j.h;
+  ctx.save(); ctx.translate(x,y); ctx.scale(j.dx<0?-1:1,1); ctx.rotate((k-.5)*1.6); drawSpecies(f,0,0,Math.min(34,18*Math.max(.8,f.s)),t); ctx.restore(); } }
+
+// ===================== Daily gift: come back each day for a surprise (bigger when you play days in a row) =====================
+function dailyGift(){
+  const today=new Date().toDateString(), yest=new Date(Date.now()-864e5).toDateString(); if(S.giftDay===today) return;
+  S.giftStreak = S.giftDay===yest ? (S.giftStreak||1)+1 : 1; S.giftDay=today; const k=Math.min(7,S.giftStreak);
+  const lures=LURES.filter(l=>!l.nat && !lureForever(l.id) && l.p>0 && l.p<=400*k), roll=Math.random(); let msg;
+  if(roll<.4 || !lures.length){ const m=100*k+Math.floor(Math.random()*50)*5; S.money+=m; msg=`+$${m}`; }
+  else if(roll<.7){ const l=lures[Math.floor(Math.random()*lures.length)]; if(!S.lures.includes(l.id)) S.lures.push(l.id); S.lureN[l.id]=(S.lureN[l.id]||0)+LURE_PACK; msg=`${LURE_PACK} ${l.e} ${l.n}`; }
+  else if(roll<.85){ const f=FOODS[Math.min(FOODS.length-1,Math.floor(Math.random()*FOODS.length))]; S.items[f.id]=(S.items[f.id]||0)+2; msg=`2 ${f.e} ${f.n}`; }
+  else { S.items.fireworks=(S.items.fireworks||0)+5; msg='5 🎆 fireworks'; }
+  banner('🎁','DAILY GIFT!',`${msg}${S.giftStreak>1?` · ${S.giftStreak} days in a row!`:''}`,'#ff8af0'); [523,659,784,988].forEach((f,i)=>tone(f,.16,'triangle',.12,i*.09)); save();
 }
 
 // ---------- Update ----------
 function update(dt){
+  updateFrenzy(dt); updateJumpers(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -4293,7 +4445,7 @@ function update(dt){
   if(P.blind && len>.15 && !FP.on){ P.fx=dx/len; P.fy=dy/len; }
   // while charging a cast, the arrows / joystick aim instead of walking
   if(fishing.state==='charge' && len>.15){ P.fx=dx/len; P.fy=dy/len; }
-  P.moving = len > .15 && fishing.state!=='charge' && fishing.state!=='fight' && !P.room && !P.blind;
+  P.moving = len > (fishing.state==='wait'||fishing.state==='bite'?.55:.15) && fishing.state!=='charge' && fishing.state!=='fight' && !P.room && !P.blind;
   if(P.moving){
     const k = Math.min(1,len); dx/=len; dy/=len; P.fx=dx; P.fy=dy;
     if(P.inBoat){
@@ -4391,7 +4543,7 @@ function update(dt){
     if(d.stuckT>1.5){ if(Math.hypot(d.x-d.lastX,d.y-d.lastY)<12){ const r=Math.random()*6.28; d.vx=Math.cos(r)*sp; d.vy=Math.sin(r)*sp; d.t=1; } d.stuckT=0; d.lastX=d.x; d.lastY=d.y; }
     // only turn around when really moving the other way (no flicker)
     if(d.vx>25) d.face=1; else if(d.vx<-25) d.face=-1;
-    d.anim += dt*sp/12;
+    d.anim += dt*sp/5;
   }
   // ease toward a wanted speed so animals don't twitch
   const steerTo=(d,vx,vy,k=7)=>{ const m=Math.min(1,dt*k); d.vx+=(vx-d.vx)*m; d.vy+=(vy-d.vy)*m; };
@@ -4812,14 +4964,14 @@ function hpBar(a, y){ if(a.hp<a.max){ ctx.fillStyle='#000'; ctx.fillRect(-20,y,4
 function drawDeerRaw(d){
   const c=ctx; c.save(); c.translate(d.x,d.y);
   c.fillStyle=`rgba(0,0,0,${SUN.a})`; c.beginPath(); c.ellipse(SUN.dx*14,0,26*SUN.len,7,0,0,7); c.fill();
-  hpBar(d,-74);
-  c.scale(d.face,1);
+  hpBar(d,d.trophy?-96:-74);
+  c.scale(d.face,1); if(d.trophy) c.scale(1.22,1.22); // trophy bucks are BIG
   const moving = d.vx||d.vy, col = d.buck?LK.deer.buck:LK.deer.col, dk=shade(col,.62), light='#f1e6d4';
-  const leg=(x,ph,far)=>{ const sw=moving?Math.sin(d.anim+ph)*5:0;
+  const leg=(x,ph,far)=>{ const p=d.anim+ph, sw=moving?Math.sin(p)*7:0, lift=moving?Math.max(0,Math.cos(p))*4.5:0, kx=x+sw*.3+(lift?2:0), ky=-10.5-lift*.5;
     c.strokeStyle= far?shade(col,.5):dk; c.lineCap='round';
-    c.lineWidth=4.2; c.beginPath(); c.moveTo(x,-20); c.lineTo(x+sw*.5,-10); c.stroke();
-    c.lineWidth=2.6; c.beginPath(); c.moveTo(x+sw*.5,-10); c.lineTo(x+sw,-1.5); c.stroke();
-    c.fillStyle='#1a1410'; c.beginPath(); c.ellipse(x+sw+.5,-1,2,1.3,0,0,7); c.fill(); };
+    c.lineWidth=4.2; c.beginPath(); c.moveTo(x,-20); c.lineTo(kx,ky); c.stroke();
+    c.lineWidth=2.6; c.beginPath(); c.moveTo(kx,ky); c.lineTo(x+sw,-1.5-lift); c.stroke();
+    c.fillStyle='#1a1410'; c.beginPath(); c.ellipse(x+sw+.5,-1-lift,2,1.3,0,0,7); c.fill(); };
   leg(-11,Math.PI,true); leg(12,0,true);
   // body
   const g=c.createLinearGradient(0,-34,0,-13); g.addColorStop(0,shade(col,.82)); g.addColorStop(.6,col); g.addColorStop(1,light);
@@ -4841,13 +4993,25 @@ function drawDeerRaw(d){
   for(const [ex,ey,ra] of [[21,-53,-.75],[24.5,-54.5,-.45]]){ c.fillStyle=col; c.beginPath(); c.ellipse(ex,ey,2.8,6,ra,0,7); c.fill(); c.fillStyle='rgba(255,210,200,.6)'; c.beginPath(); c.ellipse(ex,ey,1.4,4,ra,0,7); c.fill(); }
   // eye
   c.fillStyle='#111'; c.beginPath(); c.arc(28.5,-48.5,1.9,0,7); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(28,-49.2,.6,0,7); c.fill();
-  if(d.buck){
+  if(d.trophy){ drawRack(c, 25.5, -51, d.pts||10, 1); }
+  else if(d.buck){
     c.strokeStyle='#e8dcc0'; c.lineWidth=2.5; c.lineCap='round';
     c.beginPath(); c.moveTo(24,-51); c.quadraticCurveTo(18,-62,22,-72); c.moveTo(21,-60); c.lineTo(14,-65); c.moveTo(20,-66); c.lineTo(26,-74);
     c.moveTo(27,-51); c.quadraticCurveTo(33,-62,30,-71); c.moveTo(31,-59); c.lineTo(38,-63); c.moveTo(31,-65); c.lineTo(35,-72); c.stroke();
   }
   c.restore();
 }
+// big antlers: two main beams that curve up and forward, with points (tines) sticking up
+function drawRack(c, x, y, pts, sc, front){ const per=Math.max(4,Math.round(pts/2)); c.lineCap='round'; c.lineJoin='round';
+  const bz=(p0,p1,p2,p3,k)=>{ const u=1-k; return [u*u*u*p0[0]+3*u*u*k*p1[0]+3*u*k*k*p2[0]+k*k*k*p3[0], u*u*u*p0[1]+3*u*u*k*p1[1]+3*u*k*k*p2[1]+k*k*k*p3[1]]; };
+  const sides = front ? [[-1,'#efe4c6'],[1,'#efe4c6']] : [[0,'#c9bb98'],[1,'#efe4c6']];
+  for(const [sd,col] of sides){ c.strokeStyle=col; c.lineWidth=3.2*sc;
+    // side view: the beam sweeps back, up and then forward over the face; front view: it spreads out wide like a U
+    const o=front?sd:0, back=front?0:sd*3*sc, p0=[x+o*3*sc+back, y], p1=front?[x+sd*18*sc,y-6*sc]:[x-10*sc+back,y-14*sc], p2=front?[x+sd*26*sc,y-24*sc]:[x+2*sc+back,y-28*sc], p3=front?[x+sd*14*sc,y-34*sc]:[x+20*sc+back,y-24*sc];
+    c.beginPath(); c.moveTo(...p0); c.bezierCurveTo(...p1,...p2,...p3); c.stroke();
+    c.lineWidth=2.3*sc; for(let k=1;k<per;k++){ const kk=.18+k/per*.8, [px,py]=bz(p0,p1,p2,p3,kk), L=(8+Math.sin(kk*Math.PI)*6)*sc, lean=front?-sd*.15:-.25+kk*.3;
+      c.beginPath(); c.moveTo(px,py); c.quadraticCurveTo(px+lean*L*.3,py-L*.6,px+lean*L,py-L); c.stroke(); }
+    c.lineWidth=2*sc; const [bx,by]=bz(p0,p1,p2,p3,.12); c.beginPath(); c.moveTo(bx,by); c.lineTo(bx+(front?sd*-3:4)*sc,by-6*sc); c.stroke(); } } // brow tine
 function hexA(hex, a){ let h=hex.slice(1); if(h.length===3) h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
 function shade(hex, f){ if(hex.length===4) hex='#'+hex.slice(1).split('').map(x=>x+x).join(''); const n=parseInt(hex.slice(1),16); const r=Math.min(255,(n>>16)*f|0), g=Math.min(255,((n>>8)&255)*f|0), b=Math.min(255,(n&255)*f|0); return `rgb(${r},${g},${b})`; }
 function drawBeastRaw(a){
@@ -4894,7 +5058,8 @@ function drawBeastRaw(a){
   c.strokeStyle=dark; c.lineWidth=s.lw; c.lineCap='round';
   const lx=s.bw*.65;
   for(const [x,ph] of [[-lx,0],[-lx+s.lw+1,Math.PI],[lx-s.lw-1,Math.PI],[lx,0]]){
-    c.beginPath(); c.moveTo(x,by+s.bh*.5); c.lineTo(x+(moving?Math.sin(a.anim+ph)*5:0),-1); c.stroke(); }
+    const p=a.anim+ph, sw=moving?Math.sin(p)*7:0, lift=moving?Math.max(0,Math.cos(p))*5:0, top=by+s.bh*.5;
+    c.beginPath(); c.moveTo(x,top); c.lineTo(x+sw*.3+lift*.5,(top-1)/2-lift*.3); c.lineTo(x+sw,-1-lift); c.stroke(); }
   // tail
   c.fillStyle=s.col;
   if(look==='wolf'){ c.save(); c.translate(-s.bw,by-2); c.rotate(.5); c.beginPath(); c.ellipse(-8,0,12,5,0,0,7); c.fill(); c.fillStyle=light; c.beginPath(); c.ellipse(-16,0,4,3,0,0,7); c.fill(); c.restore(); }
@@ -5053,7 +5218,7 @@ function drawPlayer(t){
   if(type==='faint'||type==='lost'){ hand=[fx*9,-16]; hand2=[-fx*6,-16]; rodV=[fx*26,-6]; }
   const gunOut = tool==='gun' && S.gun>=0 && !S.ride;
   if(gunOut){ const r=type==='shoot'?(1-k)*5:0; hand=[Math.cos(P.aim)*(15-r), -26+Math.sin(P.aim)*(15-r)]; hand2=[Math.cos(P.aim)*(9-r), -25+Math.sin(P.aim)*(9-r)]; }
-  if(P.inBoat && P.moving && S.boat===1){ const row=Math.sin(t*9)*5; hand=[fx*8+row*.6,-22+row*.4]; hand2=[-fx*4-row*.6,-21-row*.4]; } // rowing
+  if(P.inBoat && P.moving && S.boat===1 && !S.ride){ const row=Math.sin(t*9)*5; hand=[fx*8+row*.6,-22+row*.4]; hand2=[-fx*4-row*.6,-21-row*.4]; } // rowing
 
   c.save(); c.translate(x,y0);
   if(!P.inBoat){ const sh=1-jump/30; c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(SUN.dx*9,0,14*sh*SUN.len,5*sh,0,0,7); c.fill(); }
@@ -5213,7 +5378,8 @@ function draw(t){
   const fx=drone?drone.x:P.x+look[0], fy=drone?drone.y:P.y+look[1];
   cam.x = vw>=WW ? (WW-vw)/2 : Math.max(0, Math.min(WW-vw, fx-vw/2));
   cam.y = vh>=WH ? (WH-vh)/2 : Math.max(0, Math.min(WH-vh, fy-vh/2));
-  const ox=Math.round(cam.x), oy=Math.round(cam.y);
+  const sk=shakeT>0 && !REDUCED_MOTION ? shakeA*Math.min(1,shakeT/.2) : 0;
+  const ox=Math.round(cam.x+(Math.random()-.5)*sk), oy=Math.round(cam.y+(Math.random()-.5)*sk);
   const night = isNight();
   ctx.save(); ctx.scale(Z,Z); ctx.translate(-ox,-oy);
   { const sx=Math.max(0,ox), sy=Math.max(0,oy), sw=Math.min(WW-sx,vw+2), sh=Math.min(WH-sy,vh+2);
@@ -5267,6 +5433,7 @@ function draw(t){
     ctx.globalAlpha=1; }
   drawCritters(t, vw, vh);
 
+  drawFrenzy(t); drawJumpers(t);
   for(const b of bullets){
     if(b.sling){ ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(b.x,b.y,3.5,0,7); ctx.fill(); }
     else if(b.arrow){ const sp=Math.hypot(b.vx,b.vy), ux=b.vx/sp, uy=b.vy/sp; ctx.strokeStyle='#8a5a2a'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); ctx.strokeStyle='#e8402a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(b.x-ux*20,b.y-uy*20); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); }
@@ -5472,7 +5639,9 @@ function fpToggle(){
   }
   FP.on = !FP.on;
   FP.r.domElement.style.display = FP.on ? 'block' : 'none';
-  if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; fishing.state==='charge' && (fishing={state:'none'});
+  if(FP.on && drone){ FP.yaw=drone.a||0; FP.pitch=-.5; toast('🛸 Drone camera! Fly around and look down at the world'); }
+  else if(!FP.on && drone){ toast('Back to the top-down view'); }
+  else if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; fishing.state==='charge' && (fishing={state:'none'});
     toast(touchMode ? '👁️ First person! Joystick walks & turns, drag the screen to look. Tap 🗺️ to go back'
                     : '👁️ First person! W/S walk, A/D turn, click to look with the mouse. Press V to go back');
   } else { try{ document.pointerLockElement && document.exitPointerLock(); }catch(e){} toast('Back to the top-down view'); }
@@ -5781,15 +5950,16 @@ function fpFrame(t){
   // camera = your eyes
   const gyP=hillAt(P.x,P.y), eye=(S.ride?(S.ride==='ranger'?50:48)+(P.air>0?Math.sin((1-P.air/P.airMax)*Math.PI)*30:0):P.inBoat?30:P.blind?(P.blind.kind==='tower'?170:P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
   { const want = scopeOn && tool==='gun' ? 70/SCOPES[S.scope].zoom : window.binosOn ? 26 : 70; if(Math.abs(FP.cam.fov-want)>.1){ FP.cam.fov += (want-FP.cam.fov)*.35; FP.cam.updateProjectionMatrix(); } }
-  FP.cam.position.set(P.x+shake, eye+bob, P.y); FP.lamp.position.set(P.x, eye+20, P.y);
-  FP.cam.lookAt(P.x+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, eye+bob+Math.sin(FP.pitch)*100, P.y+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
+  const cx=drone?drone.x:P.x+shake, cz=drone?drone.y:P.y, cy=drone?hillAt(drone.x,drone.y)+30+drone.h*(90+(drone.alt??.5)*260)+Math.sin(t*2)*2:eye+bob;
+  FP.cam.position.set(cx, cy, cz); FP.lamp.position.set(cx, cy+20, cz);
+  FP.cam.lookAt(cx+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, cy+Math.sin(FP.pitch)*100, cz+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
   FP.cam.updateMatrixWorld();
   // painted cards get darker at night but stay lit near your lantern
   const lit=(x,y)=>Math.max(1-dark*.8, n>.3?Math.max(0,1-Math.hypot(x-P.x,y-P.y)/320)*.9:0);
   for(const s3 of FP.sprites) s3.mat.color.setScalar(lit(s3.x,s3.z));
   for(const e of FP.ents.values()) e.used=false;
   if(!isNight()) for(const d of ducks) fpEnt(d, 60,44,30,30, 0, ()=>drawDuck(d), lit(d.x,d.y));
-  for(const d of deer) fpEnt(d,120,100,58,92, 0, ()=>drawDeer(d), lit(d.x,d.y));
+  for(const d of deer) d.trophy ? fpEnt(d,150,130,73,120, 0, ()=>drawDeer(d), lit(d.x,d.y)) : fpEnt(d,120,100,58,92, 0, ()=>drawDeer(d), lit(d.x,d.y));
   for(const a of game) if(!a.hide && Math.hypot(a.x-P.x,a.y-P.y)<2600){ const g=GAME[a.kind], w=Math.round(g.w*3.4+50), h=Math.round(g.h*1.6+50); fpEnt(a,w,h,w/2,h-14, a.climb?a.climb+8:0, ()=>drawGame(a,t), lit(a.x,a.y)); }
   for(const b of beasts) fpEnt(b,140,120,70,108, 0, ()=>drawBeast(b), lit(b.x,b.y));
   for(const nn of npcs) fpEnt(nn,100,110,50,96, 0, ()=>drawPerson(nn,t,true), lit(nn.x,nn.y));
@@ -5797,6 +5967,7 @@ function fpFrame(t){
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-P.x,tr.y-P.y)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
   for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-P.x,bl.y-P.y)<2200){ const tw=bl.kind==='tower'; fpEnt(bl,tw?120:90,tw?220:110,tw?60:45,tw?210:100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y)); }
+  if(drone && !P.inBoat && !S.ride){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,80,100,40,92,0,()=>drawPlayer(t),lit(P.x,P.y)); }
   if(S.pet && !P.inBoat && S.pet!=='parrot') fpEnt(pet,60,50,30,40,0,()=>drawPet(t),lit(pet.x,pet.y));
   if(!S.ride && S.vehSel && veh.x>0 && Math.hypot(veh.x-P.x,veh.y-P.y)<2000) fpEnt(veh,110,100,55,86,0,()=>drawParkedVehicle(t),lit(veh.x,veh.y));
   for(const p of GEO.props) if(Math.hypot(p.x-P.x,p.y-P.y)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
@@ -5813,6 +5984,7 @@ function fpFrame(t){
   const F=fishing, A=P.act, k=A?Math.min(1,A.t/A.dur):0, sway=P.moving?Math.sin(P.anim*14):Math.sin(t*1.6)*.3;
   FP.arm.position.set(15+sway*.8, -15+Math.abs(sway)*.6, -34); FP.arm.rotation.set(0,0,0);
   const gunOut = tool==='gun' && S.gun>=0 && !S.ride;
+  if(FP.vm) FP.vm.visible=!drone; // no hands in the drone camera
   FP.rod.visible=!gunOut; FP.guns.forEach((g,i)=>{ g.visible = gunOut && i===S.gun; if(g.userData.flash) g.userData.flash.visible = gunOut && i===S.gun && A && A.type==='shoot' && k<.4; });
   if(!gunOut){
     let tilt=-.55; // rod leans forward
@@ -5870,7 +6042,9 @@ function fpFrame(t){
   if(S.hp<30){ ctx.fillStyle=`rgba(200,0,0,${.12+.08*Math.sin(t*5)})`; ctx.fillRect(0,0,W,H); }
   if(P.hurt>1.2){ ctx.fillStyle='rgba(255,0,0,.18)'; ctx.fillRect(0,0,W,H); }
   drawScreenFx(t, n);
-  drawMinimap();
+  drawMinimap(); if(drone){ drawDroneHud(); const m=24, L=34; ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=3; for(const [x,y,sx,sy] of [[m,m,1,1],[VW-m,m,-1,1],[m,VH-m,1,-1],[VW-m,VH-m,-1,-1]]){ ctx.beginPath(); ctx.moveTo(x,y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L,y); ctx.stroke(); }
+    if(Math.floor(t*2)%2){ ctx.fillStyle='#ff3030'; ctx.beginPath(); ctx.arc(m+22,VH-m-56,7,0,7); ctx.fill(); } ctx.fillStyle='#fff'; ctx.font=`800 15px ${FONT}`; ctx.textAlign='left'; ctx.fillText('REC',m+34,VH-m-51);
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(VW/2-14,VH/2); ctx.lineTo(VW/2+14,VH/2); ctx.moveTo(VW/2,VH/2-14); ctx.lineTo(VW/2,VH/2+14); ctx.stroke(); }
 }
 // look around with the mouse (after clicking) or by dragging on a phone
 document.addEventListener('mousemove', e=>{ if(FP.on && document.pointerLockElement===cv){ const zs=scopeOn?1/SCOPES[S.scope].zoom:1; FP.yaw+=e.movementX*.0025*zs; FP.pitch=Math.max(-1.1,Math.min(.6,FP.pitch-e.movementY*.002*zs)); } });
@@ -5884,18 +6058,19 @@ function updateHud(){
   const holding = tool==='rod' ? `🎣 ${RODS[S.rod].n}` : `🔫 ${GUNS[S.gun].n} · ${AMMO[gunAmmo(S.gun)].e}${S.ammo[gunAmmo(S.gun)]||0}${(S.ammo[gunAmmo(S.gun)]||0)<=0?' <span class="warn">NO AMMO</span>':''}`;
   const chased = beasts.some(b=>b.chasing);
   const hpk=S.hp/MAX_HP, hpc=hpk>.6?'#4caf50':hpk>.3?'#ffb300':'#ff3b30';
-  let s = `<span class="cash">$${S.money.toLocaleString()}</span><br>`+
-    `<span class="hp"><span style="width:${Math.round(hpk*100)}%;background:${hpc}"></span></span>❤️ ${Math.ceil(S.hp)}/${MAX_HP}${S.hp<30?' <span class="warn">LOW!</span>':''} · ${['🍎','🥪','🩹'].map((e,i)=>S.items[FOODS[i].id]?e+S.items[FOODS[i].id]:'').join(' ')}<br>`+
+  let s = `<span class="cash">$${hudMoney().toLocaleString()}</span><br>`+
+    `<span class="hp"><span style="width:${Math.round(hpk*100)}%;background:${hpc}"></span></span>❤️ ${Math.ceil(S.hp)}/${MAX_HP}${S.hp<30?' <span class="warn">LOW!</span>':''} · 🍽️ ${foodCount()}<br>`+
     `${holding} · ${curLure().e} ${curLure().n}${lureForever(S.lure)?'':' ×'+lureCount(S.lure)}<br>`+
-    `🎒 Fish: ${S.fish.length}/${bagCap()}${S.fish.length>=bagCap()?' <span class="warn">FULL</span>':''}<br>`+
-    `${S.story<STORY.length?`📖 ${STORY[S.story].goal}<br>`:''}📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
+    `🎒 Fish: ${S.fish.length}/${bagCap()}${S.fish.length>=bagCap()?' <span class="warn">FULL</span>':''}${streak>=2?` · 🔥${streak} in a row`:''}${frenzy?' · 🫧 FRENZY!':''}<br>`+
+    `${S.story<STORY.length?`📖 ${STORY[S.story].goal}<br>`:''}📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}${touchMode&&VW<900?` · ${clockText()}`:`<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}`}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
   if(P.inBoat) s += S.boatUp.sonar ? `<br>📡 ${Math.round(3+depthAt(P.x,P.y)*57)} ft deep${depthAt(P.x,P.y)>.7?' · big fish!':''}` : `<br>🌊 ${depthAt(P.x,P.y)>.7?'Deep water! Big fish here':'Shallow water'}`;
   if(S.ride) s += `<br>${VEH[S.ride].e} Riding your ${VEH[S.ride].n}`;
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
-  if(P.room) s = `<span class="cash">$${S.money.toLocaleString()}</span><br>${P.room==='shop'?'🏪 '+LK.n+' Shop':'🏡 Your Cabin'} · 🎒 ${S.fish.length}/${bagCap()}`;
+  if(P.room) s = `<span class="cash">$${hudMoney().toLocaleString()}</span><br>${P.room==='shop'?'🏪 '+LK.n+' Shop':'🏡 Your Cabin'} · 🎒 ${S.fish.length}/${bagCap()}`;
   if(s!==hudStr){ hud.innerHTML = s; hudStr = s; }
   const lbl = P.room ? '👆 Use' : fishing.state==='drill' ? '🌀 Drilling...' : (tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y) && !P.inBoat) ? (iceHoleAhead()?'🕳️ Drop line':'🌀 Drill hole') : tool==='gun' ? '🔫 Shoot' : fishing.state==='none' ? '🎣 Hold to cast' : fishing.state==='charge' ? '🎣 Let go!' : fishing.state==='wait' ? '🎣 Reel in' : fishing.state==='bite' ? '🎣 HOOK IT!' : '🎣 Hold to reel';
   if(actBtn.textContent!==lbl) actBtn.textContent = lbl;
+  const bp=fishing.state==='bite'; if(actBtn.classList.contains('bitePulse')!==bp) actBtn.classList.toggle('bitePulse',bp);
   const fc=String(foodCount()); if(foodCount.last!==fc){ document.getElementById('foodCount').textContent=fc; foodCount.last=fc; }
   const tc=String(TRAPS.reduce((a,tp)=>a+(S.traps[tp.id]||0),0)); if(trapKey.last!==tc){ document.getElementById('trapCount').textContent=tc; trapKey.last=tc; }
   // switch button shows the tool you'll switch TO (faded until you own a gun)
@@ -5903,7 +6078,7 @@ function updateHud(){
   if(swapBtn.textContent!==sw){ swapBtn.textContent = sw; swapBtn.setAttribute('aria-label', tool==='rod'?'Switch to gun':'Switch to fishing pole'); }
   swapBtn.style.opacity = S.gun<0 ? .45 : 1;
   const cb=document.getElementById('callBtn'), bb=document.getElementById('binoBtn'), side=touchMode && !panel && started;
-  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room);
+  cb.hidden = !(side && OUTDOOR.some(o=>o.id.endsWith('call') && S.gear[o.id])); document.getElementById('rideBtn').hidden = !(side && S.vehicles.length && !P.room); document.getElementById('scopeBtn').hidden = !(side && S.scope && tool==='gun' && S.gun>0 && !P.room && !S.ride); document.getElementById('scopeBtn').style.background = scopeOn?'#ffd54a':''; document.getElementById('droneBtn').hidden = !(side && S.drone && !P.room); document.getElementById('fwBtn').hidden = !(side && S.items.fireworks>0 && !P.room);
   bb.hidden = !(side && S.gear.binos);
   layoutSideButtons(side);
 }
@@ -5914,7 +6089,8 @@ function loop(now){
   const dt = Math.min(.05, (now-last)/1000); last = now;
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
   if(started && !panel) update(dt);
-  draw(now/1000); updateHud();
+  if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
+  draw(now/1000); drawGuide(now/1000); drawBanner(); updateHud();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
@@ -5942,7 +6118,7 @@ function playIntro(done){
   // a happy little tune
   const notes=[523,659,784,659,587,698,880,698,523,659,784,1046, 784,659,587,523]; notes.forEach((f,i)=>tone(f,.28,'triangle',.07,i*.36)); [262,330,392,349,262,392].forEach((f,i)=>tone(f,1.3,'sine',.05,i*1.2));
   const say=(text,y,size,alpha,col='#fff')=>{ g.globalAlpha=Math.max(0,Math.min(1,alpha)); g.font=`800 ${size}px ${FONT}`; g.textAlign='center'; g.lineJoin='round'; g.lineWidth=size*.22; g.strokeStyle='rgba(0,0,0,.75)';
-    const W=cv2.width/devicePixelRatio; const words=text.split(' '); let line='', yy=y; const lines=[]; for(const w of words){ if(g.measureText(line+w).width>W*.86){ lines.push(line); line=''; } line+=w+' '; } lines.push(line);
+    const W=innerWidth; const words=text.split(' '); let line='', yy=y; const lines=[]; for(const w of words){ if(g.measureText(line+w).width>W*.86){ lines.push(line); line=''; } line+=w+' '; } lines.push(line);
     lines.forEach((l,i)=>{ g.strokeText(l.trim(),W/2,yy+i*size*1.25); g.fillStyle=col; g.fillText(l.trim(),W/2,yy+i*size*1.25); }); g.globalAlpha=1; };
   const fade=(t,a,b)=>Math.min(1,(t-a)*1.5,(b-t)*1.5);
   function frame(now){
@@ -5994,7 +6170,7 @@ function playIntro(done){
 }
 document.getElementById('playBtn').addEventListener('click', ()=>{
   ac(); document.getElementById('start').hidden=true;
-  const go=()=>{ started=true; toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
+  const go=()=>{ started=true; setTimeout(dailyGift,2500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
   if(!S.introSeen) playIntro(go); else go();
 });
 </script>
