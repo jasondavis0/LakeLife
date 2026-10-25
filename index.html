@@ -726,6 +726,7 @@ const MISSIONS = [
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
   {id:'temple', n:'Find the Lost Jungle Temple', r:3000, e:'🛕', p:()=>[S.templeFound?1:0,1]},
+  {id:'song1', n:'Listen to Singing Sam\'s whole song', r:300, e:'🎸', p:()=>[S.st.songs||0,1]},
   {id:'secret1', n:'Find a secret spot',        r:300,   e:'⭐', p:()=>[secretsTotal(),1]},
   {id:'secret10', n:'Find 10 secret spots',     r:4000,  e:'🌟', p:()=>[secretsTotal(),10]},
   {id:'bigfoot', n:'Get a photo of Bigfoot',    r:2000,  e:'👣', p:()=>[S.st.bigfoot||0,1]},
@@ -1387,11 +1388,15 @@ function makeNPCs(){
     npcs.push({x:q.x,y:q.y,fx:1,fy:0,name:hikeNames[(k+LAKES.indexOf(LK))%hikeNames.length], shirt:NPC_SHIRTS[Math.floor(rnd()*NPC_SHIRTS.length)], pants:'#3a4a6a', skin:NPC_SKINS[Math.floor(rnd()*NPC_SKINS.length)],
       hair:['#3a2412','#1a1a1a','#c9a060','#8a3a1a'][Math.floor(rnd()*4)], hat:['cap','none','beanie'][k%3], hatCol:NPC_SHIRTS[k], beard:false, state:'stroll', t:0, tip:Math.floor(rnd()*99), anim:0,
       walker:true, th, dir:rnd()<.5?1:-1, lane:(rnd()-.5)*20, bx:0, by:0}); }
+  addSinger(rnd);
   // explorers who wander all over the land
   if(!LK.space) ROAMERS.forEach((R,k)=>{ for(let tries=0;tries<60;tries++){ const x=300+rnd()*(WW-600), y=300+rnd()*(WH-600); if(landOk(x,y) && !nearBldg(x,y,120)){
     npcs.push({x,y,fx:1,fy:0,name:R.n, shirt:R.shirt||NPC_SHIRTS[Math.floor(rnd()*NPC_SHIRTS.length)], pants:R.pants||'#5a4a3a', skin:NPC_SKINS[Math.floor(rnd()*NPC_SKINS.length)], hair:['#3a2412','#1a1a1a','#c9a060','#8a3a1a','#e8c878'][Math.floor(rnd()*5)],
       hat:R.hat, hatCol:R.hatCol||NPC_SHIRTS[k%NPC_SHIRTS.length], beard:!!R.beard, state:'stroll', t:rnd()*4, tip:Math.floor(rnd()*99), anim:rnd()*9, walker:true, roam:true, lines:R.lines, gift:R.gift, small:R.small, tx:x, ty:y, bx:0, by:0}); break; } } });
 }
+function addSinger(rnd){ if(LK.space || LK.cave) return; for(let k=0;k<200;k++){ const a=rnd()*6.283, d=250+rnd()*350, x=START.x+Math.cos(a)*d, y=START.y+160+Math.abs(Math.sin(a))*d*.6;
+  if(landOk(x,y) && !nearBldg(x,y,140) && !GEO.rivers.some(R=>riverDist(R,x,y)<R.w/2+60)){ npcs.push({x,y,fx:1,fy:.3,name:'Singing Sam', shirt:'#c04a3a', pants:'#3a4a6a', skin:'#d9a47a', hair:'#5a3a1a', hat:'cowboy', hatCol:'#6a4a2a', beard:true,
+    state:'sit', t:0, tip:0, anim:0, walker:true, singer:true, bx:0, by:0}); return; } } }
 const ROAMERS=[
   {n:'Camper Carl', hat:'bucket', shirt:'#2e9a54', lines:['I love camping out here!','Have you seen the campfire by the woods?','The stars are amazing at night. Watch for shooting stars! 🌠']},
   {n:'Birdwatcher Bea', hat:'sun', lines:['Shh... I\'m watching birds! 🐦','I saw an owl last night!','Ducks fly south when the lake freezes.']},
@@ -1417,6 +1422,7 @@ function updateNPCs(dt){
   for(const n of npcs){
     n.t-=dt; n.anim+=dt;
     if(n.roam){ roamUpdate(n,dt); continue; }
+    if(n.singer){ n.walking=false; const d=Math.hypot(n.x-P.x,n.y-P.y); n.near=d<(MUS.sing?320:150); if(d<300){ n.fx=P.x-n.x; n.fy=P.y-n.y; const l=Math.hypot(n.fx,n.fy)||1; n.fx/=l; n.fy/=l; } continue; }
     // hikers walk around and around the trail (they stop if you're in their way)
     if(n.walker){ const blockedByYou=Math.hypot(n.x-P.x,n.y-P.y)<34; n.walking=!blockedByYou;
       if(!blockedByYou){ n.th+=n.dir*62*dt/((LAKE.rx+LAKE.ry)/2+TRAIL_OFF); const q=shorePt(n.th,1,TRAIL_OFF+n.lane); n.fx=q.x-n.x; n.fy=q.y-n.y; const l=Math.hypot(n.fx,n.fy)||1; n.fx/=l; n.fy/=l; n.x=q.x; n.y=q.y; }
@@ -1448,7 +1454,7 @@ function updateNPCs(dt){
     const near = Math.hypot(n.x-P.x,n.y-P.y)<80; if(near && !n.near) n.tip++; n.near=near;
   }
 }
-function npcTip(n){ if(n.lines) return n.lines[n.tip%n.lines.length]; const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
+function npcTip(n){ if(n.singer) return MUS.sing ? '🎵 '+(LYRICS[MUS.verse%LYRICS.length][Math.min(3,Math.floor(MUS.lineBar/4))])+' 🎵' : (MUS.singCd>0 ? 'Thanks for listening, friend! Come back later for another song 🎸' : 'Come sit a while and I\'ll sing you a song! 🎸'); if(n.lines) return n.lines[n.tip%n.lines.length]; const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
   ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; bigfoot=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
@@ -1965,7 +1971,15 @@ document.getElementById('btns').addEventListener('pointerdown', e=>{
 const panelEl = document.getElementById('panel'), box = document.getElementById('box');
 function openPanel(kind){ panel=kind; fishing={state:'none'}; mouseDown=false; actHeld=false; joy.x=joy.y=0; knob.style.transform='';
   for(const k in keys) keys[k]=false; renderPanel(); panelEl.hidden=false; touchEl.hidden=true; missBtn.hidden=true; healBtn.hidden=true; trapBtn.hidden=true; viewBtn.hidden=true; box.scrollTop=0; try{ document.pointerLockElement && document.exitPointerLock(); }catch(e){} }
-function sayAloud(html){ try{ const t=String(html).replace(/<[^>]*>/g,' ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/\s+/g,' ').trim(); speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.rate=.95; u.pitch=1.05; speechSynthesis.speak(u); }catch(e){} }
+// picks the most natural-sounding voice on this device (Siri "Enhanced/Premium" voices, Google & Microsoft natural voices) and skips the silly robot ones
+const BAD_VOICE=/Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Grandma|Grandpa|Rocko|Shelley|Sandy|Reed|Eddy|Flo\b/i;
+function voiceList(){ if(!('speechSynthesis' in window)) return []; const score=v=>(/premium/i.test(v.name)?8:0)+(/enhanced|natural|neural|siri/i.test(v.name)?6:0)+(/google/i.test(v.name)?5:0)+(/online/i.test(v.name)?4:0)+(/en[-_]US/i.test(v.lang)?1:0)+(/Samantha|Ava|Allison|Susan|Karen|Daniel|Serena|Moira|Tessa|Alex|Aaron|Nicky|Evan|Zoe|Joelle|Nathan/i.test(v.name)?2:0)-(BAD_VOICE.test(v.name)?30:0);
+  return speechSynthesis.getVoices().filter(v=>/^en([-_]|$)/i.test(v.lang)).map(v=>({v,s:score(v)})).filter(o=>o.s>-10).sort((a,b)=>b.s-a.s).map(o=>o.v); }
+function pickVoice(){ const L=voiceList(); return L.find(v=>v.name===S.voiceName)||L[0]||null; }
+try{ if('speechSynthesis' in window){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>{}; } }catch(e){}
+function sayAloud(html){ try{ const t=String(html).replace(/<[^>]*>/g,' ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/[“”]/g,'"').replace(/\s+/g,' ').trim(); speechSynthesis.cancel(); const v=pickVoice();
+  // one sentence at a time, so it pauses like a person does
+  for(const part of (t.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g)||[t])){ const p=part.trim(); if(!p) continue; const u=new SpeechSynthesisUtterance(p); if(v){ u.voice=v; u.lang=v.lang; } u.rate=.92; u.pitch=1; speechSynthesis.speak(u); } }catch(e){} }
 function closePanel(){ try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){} panel=null; panelEl.hidden=true; if(touchMode){ touchEl.hidden=false; missBtn.hidden=false; healBtn.hidden=false; trapBtn.hidden=false; viewBtn.hidden=false; } save(); }
 function tierRows(list, cur, key, desc){
   return list.map((it,i)=>`<div class="item ${i<=cur?'own':''}"><div><b>${it.n}</b><small>${desc(it,i)}</small></div>${
@@ -2061,6 +2075,7 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-race')){ closePanel(); startRace(); return; }
   if(b.hasAttribute('data-modecycle')){ if(S.fish.length){ toast('🎒 Sell the fish in your bag first, then you can change the mode'); return; } const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
   if(b.hasAttribute('data-music')){ S.music = S.music===false; save(); renderPanel(); return; }
+  if(b.hasAttribute('data-voice')){ const L=voiceList(); if(L.length){ const cur=pickVoice(), nx=L[(L.indexOf(cur)+1)%L.length]; S.voiceName=nx.name; save(); sayAloud('Hi kiddo! This is how I sound.'); renderPanel(); } return; }
   if(b.hasAttribute('data-say')){ const ch=STORY[S.story]; if(ch) sayAloud(ch.say+' Your goal: '+ch.goal); return; }
   if(b.hasAttribute('data-story')){ panel='story'; renderPanel(); box.scrollTop=0; return; }
   if(b.hasAttribute('data-drink')){ if(S.money<15) return; S.money-=15; P.boost=45; SFX.cash(); tone(700,.08,'triangle',.1); tone(1000,.12,'triangle',.1,.08); toast('🥤 Gulp! You feel SUPER fast for 45 seconds!'); save(); renderPanel(); return; }
@@ -4441,7 +4456,7 @@ function storyHTML(){
   return `<h1>📖 Chapter ${S.story+1}: ${ch.t}</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px;background:#f4ead0;color:#4a3418;font-family:Georgia,serif">${ch.say}</div>
     <div class="mission"><div class="e">🎯</div><div><b>Goal: ${ch.goal}</b><small>Reward: $${ch.cash.toLocaleString()}${ch.end?' + a special surprise!':''}</small></div></div>
     <h2>Story so far</h2><div class="list">${STORY.slice(0,S.story).map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b></div></div>`).join('')||'<p>This is the very beginning!</p>'}</div>
-    <p style="text-align:right;margin:16px 0 0">${'speechSynthesis' in window?'<button data-say class="alt">🔊 Read it to me</button> ':''}<button class="close" data-close>Let's go!</button></p>`;
+    <p style="text-align:right;margin:16px 0 0">${'speechSynthesis' in window?'<button data-say class="alt">🔊 Read it to me</button> '+(voiceList().length>1?`<button data-voice class="alt">🗣️ Voice: ${(pickVoice()||{name:'?'}).name.replace(/\s*\(.*\)/,'').slice(0,14)}</button> `:''):''}<button class="close" data-close>Let's go!</button></p>`;
 }
 
 // ===================== Game feel: screen shake, buzz, big banners =====================
@@ -4467,20 +4482,56 @@ function hudMoney(){ return Math.round(moneyShown==null?S.money:moneyShown); }
 function tickMoney(dt){ if(moneyShown==null || S.money<moneyShown) moneyShown=S.money; else if(S.money>moneyShown){ moneyShown+=Math.max(1,(S.money-moneyShown)*Math.min(1,dt*4)); if(moneyShown>S.money) moneyShown=S.money; } }
 
 // ===================== Music box & nature sounds =====================
-var MUS={g:null, t:1, step:0, deg:2};
-function musicOut(){ const a=AC; if(!a) return null; if(!MUS.g){ MUS.g=a.createGain(); MUS.g.gain.value=1; MUS.g.connect(a.destination); } return MUS.g; }
-function mnote(f,d,v,when=0,type='triangle'){ const a=AC, out=musicOut(); if(!a||!out) return; const t=a.currentTime+when, o=a.createOscillator(), g=a.createGain(); o.type=type; o.frequency.setValueAtTime(f,t);
-  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(v,t+.03); g.gain.exponentialRampToValueAtTime(.0004,t+d); o.connect(g).connect(out); o.start(t); o.stop(t+d+.05); }
-const PENTA=[0,2,4,7,9];
+var MUS={g:null, t:0, bar:0, playing:false, rest:3, nt:0, plays:0, sing:false, verse:0, lineBar:0, singCd:0};
+function musicOut(){ const a=AC; if(!a) return null; if(!MUS.g){ const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=2200; MUS.g=a.createGain(); MUS.g.gain.value=.9; f.connect(MUS.g).connect(a.destination); MUS.in=f; } return MUS.in; }
+// a soft plucked note (like a quiet guitar / music box): a sine with a gentle overtone that fades out
+function mnote(f,d,v,when=0,att=.012){ const a=AC, out=musicOut(); if(!a||!out) return; const t=a.currentTime+when;
+  for(const [mul,vol] of [[1,v],[2,v*.22],[3,v*.06]]){ const o=a.createOscillator(), g=a.createGain(); o.type='sine'; o.frequency.setValueAtTime(f*mul,t);
+    g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+att); g.gain.exponentialRampToValueAtTime(.0002,t+d/(mul*.8+.2)); o.connect(g).connect(out); o.start(t); o.stop(t+d+.05); } }
+// "Lake Life" theme: 16 bars in 4/4. Each bar = [chord, melody as [semitones above the key (null = rest), beats]]
+const THEME=[
+ ['C',[[4,1],[7,1],[12,2]]], ['G',[[11,1],[9,1],[7,2]]], ['Am',[[9,1],[12,1],[16,1],[14,1]]], ['F',[[12,3],[null,1]]],
+ ['C',[[4,1],[7,1],[9,1],[7,1]]], ['F',[[5,1],[9,1],[12,2]]], ['G',[[14,1.5],[12,.5],[11,1],[7,1]]], ['C',[[12,3],[null,1]]],
+ ['Am',[[16,2],[14,1],[12,1]]], ['F',[[9,2],[12,1],[9,1]]], ['C',[[7,1],[4,1],[7,1],[12,1]]], ['G',[[14,3],[null,1]]],
+ ['F',[[12,1],[9,1],[5,1],[9,1]]], ['G',[[11,1],[14,1],[7,1],[11,1]]], ['C',[[12,1],[4,1],[7,1],[4,1]]], ['C',[[12,4]]] ];
+const THEME_CH={C:{b:-12,n:[0,4,7]}, G:{b:-17,n:[-1,2,7]}, Am:{b:-15,n:[0,4,9]}, F:{b:-19,n:[0,5,9]}};
+function playBar(k, key, beat){ const [cn,mel]=THEME[k], C=THEME_CH[cn], hz=n=>key*Math.pow(2,n/12);
+  // gentle finger-picking: low note on beat 1, then the chord notes one by one
+  mnote(hz(C.b),beat*3.5,.020,0); mnote(hz(C.n[0]),beat*2,.008,beat); mnote(hz(C.n[1]),beat*2,.008,beat*2); mnote(hz(C.n[2]),beat*2,.008,beat*3);
+  if(k===15){ for(const n of C.n) mnote(hz(n),beat*5,.008,0); }
+  let at=0; for(const [n,len] of mel){ if(n!=null){ vnote(hz(n)/2,Math.max(beat*.8,beat*len*.95),MUS.sing?.055:.03,at); mnote(hz(n),Math.max(beat*1.2,beat*len*1.1),MUS.sing?.004:.007,at); } at+=len*beat; } }
+
+// ===================== Singing Sam: a soft-voiced fisher who sings about fishing & hunting =====================
+const LYRICS=[
+ ['Down by the lake where the tall pines grow,','I cast my line where the cool waters flow.','Deer in the meadow and ducks on the bay,','Fishing and hunting, the Lake Life way!'],
+ ['Sun on the water, a tug on my line,','Big bass a-jumpin\', oh the weather is fine.','Tracks in the snow lead me home through the trees,','Lake Life forever, just the woods and me.'] ];
+// a soft "ooh" singing voice: a buzzy tone shaped by vowel filters, with a little vibrato
+function vnote(f,d,v,when=0){ const a=AC, out=musicOut(); if(!a||!out) return; const t=a.currentTime+when, o=a.createOscillator(), lfo=a.createOscillator(), lg=a.createGain(), g=a.createGain();
+  o.type='sawtooth'; o.frequency.setValueAtTime(f,t); lfo.frequency.value=5.2; lg.gain.value=f*.006; lfo.connect(lg).connect(o.frequency);
+  const mix=a.createGain(); mix.gain.value=1; for(const [fq,q,gv] of [[420,6,1],[900,8,.45],[2400,10,.12]]){ const bp=a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=fq; bp.Q.value=q; const bg=a.createGain(); bg.gain.value=gv; o.connect(bp).connect(bg).connect(mix); }
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(v,t+.09); g.gain.setValueAtTime(v,t+Math.max(.1,d-.18)); g.gain.exponentialRampToValueAtTime(.0002,t+d); mix.connect(g).connect(out);
+  o.start(t); lfo.start(t); o.stop(t+d+.05); lfo.stop(t+d+.05); }
+function drawLyrics(){ if(!MUS.playing || !started || panel || P.room || (S.music===false && !MUS.sing)) return; const line=LYRICS[MUS.verse%LYRICS.length][Math.min(3,Math.floor(MUS.lineBar/4))]; if(!line) return;
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.font=`italic 700 ${touchMode?13:15}px ${FONT}`; ctx.textAlign='center'; const txt='🎵 '+line+' 🎵', w=Math.min(VW-20, ctx.measureText(txt).width+24), y=touchMode?VH-150:VH-88;
+  ctx.fillStyle='rgba(10,18,30,.45)'; ctx.beginPath(); ctx.roundRect(VW/2-w/2,y-18,w,26,13); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillText(txt,VW/2,y,VW-30); ctx.restore(); }
+function singerNear(){ return npcs.find(n=>n.singer && Math.hypot(n.x-P.x,n.y-P.y)<150); }
+function drawGuitar(n,t){ const c=ctx; c.save(); c.translate(n.x+3,n.y-18); c.rotate(-.5); c.fillStyle='#a8642a'; c.beginPath(); c.ellipse(0,0,7,5.5,0,0,7); c.fill(); c.fillStyle='#3a2210'; c.beginPath(); c.arc(1,0,1.8,0,7); c.fill(); c.fillStyle='#6a4022'; c.fillRect(5,-1.2,14,2.4); c.restore();
+  if(MUS.sing && !P.room){ c.fillStyle='#fff'; c.font=`14px ${FONT}`; c.textAlign='center'; for(let i=0;i<2;i++){ const k=(t*.5+i*.5)%1; c.globalAlpha=1-k; c.fillText(i?'♫':'♪',n.x+10+Math.sin(t*2+i*3)*10,n.y-50-k*40); } c.globalAlpha=1; } }
 function updateMusic(dt){
   if(!AC || AC.state!=='running' || document.hidden || !started) return;
-  MUS.t-=dt; if(MUS.t>0) return;
-  const night=isNight(), spooky=LK.dark||LK.space, beat=night||spooky?.62:.46; MUS.t=beat;
-  if(S.music!==false && !(fishing.state==='fight')){
-    const root=spooky?196:night?220:262;
-    if(Math.random()<(night?.45:.7)){ MUS.deg=Math.max(-2,Math.min(9,MUS.deg+[-2,-1,-1,1,1,2][Math.floor(Math.random()*6)])); const d=((MUS.deg%5)+5)%5, oct=Math.floor(MUS.deg/5); mnote(root*Math.pow(2,(PENTA[d]+12*oct)/12)*2, beat*2.4, .03); }
-    if(MUS.step%8===0) mnote(root/2*(MUS.step%16===0?1:1.5), beat*7, .028, 0, 'sine');
-    MUS.step++; }
+  MUS.nt-=dt; const nature=MUS.nt<=0; if(nature) MUS.nt=.5;
+  if(MUS.singCd>0) MUS.singCd-=dt;
+  if(!MUS.sing && MUS.singCd<=0 && !P.room && singerNear()){ MUS.sing=true; MUS.playing=true; MUS.bar=0; MUS.t=.4; MUS.plays=0; MUS.verse=0; MUS.lineBar=0; toast('🎸 Singing Sam starts playing a song for you...'); }
+  if(MUS.sing && (P.room || !npcs.some(n=>n.singer && Math.hypot(n.x-P.x,n.y-P.y)<520))){ MUS.sing=false; MUS.singCd=40; MUS.playing=false; MUS.rest=20; }
+  const quiet = (S.music===false && !MUS.sing) || fishing.state==='fight';
+  if(quiet){ MUS.playing=false; if(MUS.sing){ MUS.sing=false; MUS.singCd=40; } }
+  else if(!MUS.playing){ MUS.rest-=dt; if(MUS.rest<=0){ MUS.playing=true; MUS.bar=0; MUS.t=0; MUS.plays=0; MUS.verse=0; } }
+  if(MUS.playing){ MUS.t-=dt;
+    if(MUS.t<=0){ const night=isNight(), spooky=LK.dark||LK.space, key=spooky?196:night?220:262, beat=60/(spooky?60:night?64:72);
+      const bt=MUS.sing?60/66:beat, ky=MUS.sing?262:key; MUS.lineBar=MUS.bar; playBar(MUS.bar, ky, bt); MUS.t=bt*4; MUS.bar++;
+      if(MUS.bar>=THEME.length){ MUS.bar=0; MUS.plays++; MUS.verse++;
+        if(MUS.plays>=2){ MUS.playing=false; MUS.rest=25+Math.random()*25; if(MUS.sing){ MUS.sing=false; MUS.singCd=90; S.st.songs=(S.st.songs||0)+1; addXP(40); toast('🎸 Singing Sam: "Thanks for listening, friend!"'); save(); } } } } }
+  if(!nature) return; const night=isNight();
   // birds by day, crickets at night (not in caves or space)
   if(!P.room && !LK.dark && !LK.space && Math.random()<.06){
     if(night){ for(let i=0;i<4;i++) tone(4300,.025,'sine',.01,i*.06); }
@@ -5885,7 +5936,7 @@ function draw(t){
   if(bigfoot) list.push([bigfoot.y, ()=>drawBigfoot(ctx,bigfoot,t)]);
   for(const a of game) if(a.x>cam.x-80 && a.x<cam.x+vw+80 && a.y>cam.y-40 && a.y<cam.y+vh+140) list.push([a.climb?a.y+1:a.y, ()=>drawGame(a,t)]);
   for(const b of beasts) list.push([b.y, ()=>drawBeast(b)]);
-  for(const n of npcs) list.push([n.y, ()=>drawPerson(n,t)]);
+  for(const n of npcs) list.push([n.y, ()=>{ drawPerson(n,t); if(n.singer) drawGuitar(n,t); }]);
   list.push([SHOP.y+SHOP.h/2, drawShop]);
   list.push([CABIN.y+CABIN.h/2, drawCabin]);
   if(S.boat>0) list.push([boat.y, ()=>{ drawBoatHull(); if(P.inBoat) drawPlayer(t); }]);
@@ -5980,7 +6031,7 @@ function draw(t){
   else if(nearBoat()) label(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat', boat.x, boat.y-40);
   else if(tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y)) label(`${touchMode?'Tap Cast':'Press SPACE'} to ${iceTip()}`, P.x, P.y-62);
   else if(tool==='rod' && fishing.state==='none' && waterNear(P.x,P.y,150) && !P.inBoat && !(iceOn() && !findWater(.5))) label(touchMode?'Hold Cast, let go to throw':'Hold SPACE, let go to cast', P.x, P.y-62);
-  if(started) for(const n of npcs) if(n.near){ speechBubble(ctx, n.x, n.y-64, n.name, npcTip(n), 1/Z); break; }
+  if(started){ const nb=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near); if(nb) speechBubble(ctx, nb.x, nb.y-64, nb.name, npcTip(nb), 1/Z); }
   if(started && S.hp<MAX_HP && fishing.state!=='charge'){
     const w=44, x=P.x-w/2, y=(P.inBoat?P.y+8:P.y)-78, k=S.hp/MAX_HP;
     ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(x-2,y-2,w+4,9);
@@ -6520,7 +6571,7 @@ function fpFrame(t){
   const lab = drone ? '' : propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
-  for(const nn of npcs) if(nn.near){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); break; }
+  { const nn=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
   if(gunOut && scopeOn && S.scope) drawScopeOverlay(W,H);
   else if(gunOut){ ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(W/2,H/2,9,0,7); ctx.moveTo(W/2-16,H/2); ctx.lineTo(W/2-6,H/2); ctx.moveTo(W/2+6,H/2); ctx.lineTo(W/2+16,H/2); ctx.moveTo(W/2,H/2-16); ctx.lineTo(W/2,H/2-6); ctx.moveTo(W/2,H/2+6); ctx.lineTo(W/2,H/2+16); ctx.stroke(); }
   if(S.hp<30){ ctx.fillStyle=`rgba(200,0,0,${.12+.08*Math.sin(t*5)})`; ctx.fillRect(0,0,W,H); }
@@ -6578,7 +6629,7 @@ function loop(now){
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
   if(started && !panel) update(dt);
   if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
-  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud();
+  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawLyrics(); drawBanner(); updateHud();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

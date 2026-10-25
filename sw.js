@@ -2,7 +2,7 @@
 // The first time you open the game with internet, this saves a copy on the device.
 // After that the game opens even with no Wi-Fi. When there IS internet, it quietly
 // downloads any newer version so the next launch is up to date.
-const CACHE = 'lake-life-v22'; // change this number whenever the icon or files change, so devices grab fresh copies
+const CACHE = 'lake-life-v23'; // change this number whenever the icon or files change, so devices grab fresh copies
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
