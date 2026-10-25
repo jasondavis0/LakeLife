@@ -1454,7 +1454,7 @@ function updateNPCs(dt){
     const near = Math.hypot(n.x-P.x,n.y-P.y)<80; if(near && !n.near) n.tip++; n.near=near;
   }
 }
-function npcTip(n){ if(n.singer) return MUS.sing ? '🎵 '+(LYRICS[MUS.verse%LYRICS.length][Math.min(3,Math.floor(MUS.lineBar/4))])+' 🎵' : (MUS.singCd>0 ? 'Thanks for listening, friend! Come back later for another song 🎸' : 'Come sit a while and I\'ll sing you a song! 🎸'); if(n.lines) return n.lines[n.tip%n.lines.length]; const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
+function npcTip(n){ if(n.singer) return (MUS.sing || (MUS.playing && S.music!==false)) ? '🎵 '+(LYRICS[MUS.verse%LYRICS.length][Math.min(3,Math.floor(MUS.lineBar/4))])+' 🎵' : (MUS.singCd>0 ? 'Thanks for listening, friend! Come back later for another song 🎸' : 'Come sit a while and I\'ll sing you a song! 🎸'); if(n.lines) return n.lines[n.tip%n.lines.length]; const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
   ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; bigfoot=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
@@ -4527,6 +4527,7 @@ function vnote(f,d,v,when=0){ const a=AC, out=musicOut(); if(!a||!out) return; c
 function drawLyrics(){ if(!MUS.playing || !started || panel || P.room || (S.music===false && !MUS.sing)) return; const line=LYRICS[MUS.verse%LYRICS.length][Math.min(3,Math.floor(MUS.lineBar/4))]; if(!line) return;
   ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.font=`italic 700 ${touchMode?13:15}px ${FONT}`; ctx.textAlign='center'; const txt='🎵 '+line+' 🎵', w=Math.min(VW-20, ctx.measureText(txt).width+24), y=touchMode?VH-150:VH-88;
   ctx.fillStyle='rgba(10,18,30,.45)'; ctx.beginPath(); ctx.roundRect(VW/2-w/2,y-18,w,26,13); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillText(txt,VW/2,y,VW-30); ctx.restore(); }
+function samSinging(n){ return (MUS.sing || (MUS.playing && S.music!==false)) && Math.hypot(n.x-P.x,n.y-P.y)<900; }
 function singerNear(){ return npcs.find(n=>n.singer && Math.hypot(n.x-P.x,n.y-P.y)<150); }
 function drawGuitar(n,t){ const c=ctx; c.save(); c.translate(n.x+3,n.y-18); c.rotate(-.5); c.fillStyle='#a8642a'; c.beginPath(); c.ellipse(0,0,7,5.5,0,0,7); c.fill(); c.fillStyle='#3a2210'; c.beginPath(); c.arc(1,0,1.8,0,7); c.fill(); c.fillStyle='#6a4022'; c.fillRect(5,-1.2,14,2.4); c.restore();
   if(MUS.sing && !P.room){ c.fillStyle='#fff'; c.font=`14px ${FONT}`; c.textAlign='center'; for(let i=0;i<2;i++){ const k=(t*.5+i*.5)%1; c.globalAlpha=1-k; c.fillText(i?'♫':'♪',n.x+10+Math.sin(t*2+i*3)*10,n.y-50-k*40); } c.globalAlpha=1; } }
@@ -6044,7 +6045,7 @@ function draw(t){
   else if(nearBoat()) label(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat', boat.x, boat.y-40);
   else if(tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y)) label(`${touchMode?'Tap Cast':'Press SPACE'} to ${iceTip()}`, P.x, P.y-62);
   else if(tool==='rod' && fishing.state==='none' && waterNear(P.x,P.y,150) && !P.inBoat && !(iceOn() && !findWater(.5))) label(touchMode?'Hold Cast, let go to throw':'Hold SPACE, let go to cast', P.x, P.y-62);
-  if(started){ const nb=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near); if(nb) speechBubble(ctx, nb.x, nb.y-64, nb.name, npcTip(nb), 1/Z); }
+  if(started){ const nb=npcs.find(n=>n.singer&&(n.near||samSinging(n)))||npcs.find(n=>n.near); if(nb) speechBubble(ctx, nb.x, nb.y-64, nb.name, npcTip(nb), 1/Z); }
   if(started && S.hp<MAX_HP && fishing.state!=='charge'){
     const w=44, x=P.x-w/2, y=(P.inBoat?P.y+8:P.y)-78, k=S.hp/MAX_HP;
     ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(x-2,y-2,w+4,9);
@@ -6584,7 +6585,7 @@ function fpFrame(t){
   const lab = drone ? '' : propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
-  { const nn=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
+  { const nn=npcs.find(n=>n.singer&&(n.near||samSinging(n)))||npcs.find(n=>n.near); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
   if(gunOut && scopeOn && S.scope) drawScopeOverlay(W,H);
   else if(gunOut){ ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(W/2,H/2,9,0,7); ctx.moveTo(W/2-16,H/2); ctx.lineTo(W/2-6,H/2); ctx.moveTo(W/2+6,H/2); ctx.lineTo(W/2+16,H/2); ctx.moveTo(W/2,H/2-16); ctx.lineTo(W/2,H/2-6); ctx.moveTo(W/2,H/2+6); ctx.lineTo(W/2,H/2+16); ctx.stroke(); }
   if(S.hp<30){ ctx.fillStyle=`rgba(200,0,0,${.12+.08*Math.sin(t*5)})`; ctx.fillRect(0,0,W,H); }
@@ -6642,7 +6643,7 @@ function loop(now){
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
   if(started && !panel) update(dt);
   if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
-  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawLyrics(); drawBanner(); updateHud();
+  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
