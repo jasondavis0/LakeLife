@@ -1975,6 +1975,9 @@ function openPanel(kind){ panel=kind; fishing={state:'none'}; mouseDown=false; a
 const BAD_VOICE=/Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Grandma|Grandpa|Rocko|Shelley|Sandy|Reed|Eddy|Flo\b/i;
 function voiceList(){ if(!('speechSynthesis' in window)) return []; const score=v=>(/premium/i.test(v.name)?8:0)+(/enhanced|natural|neural|siri/i.test(v.name)?6:0)+(/google/i.test(v.name)?5:0)+(/online/i.test(v.name)?4:0)+(/en[-_]US/i.test(v.lang)?1:0)+(/Samantha|Ava|Allison|Susan|Karen|Daniel|Serena|Moira|Tessa|Alex|Aaron|Nicky|Evan|Zoe|Joelle|Nathan/i.test(v.name)?2:0)-(BAD_VOICE.test(v.name)?30:0);
   return speechSynthesis.getVoices().filter(v=>/^en([-_]|$)/i.test(v.lang)).map(v=>({v,s:score(v)})).filter(o=>o.s>-10).sort((a,b)=>b.s-a.s).map(o=>o.v); }
+// Sam's singing voice: the most natural MAN's voice on this device
+const MALE_VOICE=/Daniel|Aaron|Arthur|Alex\b|Evan|Nathan|Tom\b|Oliver|Gordon|Rishi|Lee\b|Male|Guy|Davis|Andrew|Brian|Christopher|Eric|Roger|Ryan|Steffan|Jamie|Malcolm|Thomas|Fiona__/i;
+function pickSingVoice(){ const L=voiceList(); return L.find(v=>v.name===S.singVoice) || L.find(v=>MALE_VOICE.test(v.name)) || L[0] || null; }
 function pickVoice(){ const L=voiceList(); return L.find(v=>v.name===S.voiceName)||L[0]||null; }
 try{ if('speechSynthesis' in window){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>{}; } }catch(e){}
 function sayAloud(html){ try{ const t=String(html).replace(/<[^>]*>/g,' ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/[“”]/g,'"').replace(/\s+/g,' ').trim(); speechSynthesis.cancel(); const v=pickVoice();
@@ -2030,7 +2033,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -2074,6 +2077,8 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-derby')){ closePanel(); startDerby(); return; }
   if(b.hasAttribute('data-race')){ closePanel(); startRace(); return; }
   if(b.hasAttribute('data-modecycle')){ if(S.fish.length){ toast('🎒 Sell the fish in your bag first, then you can change the mode'); return; } const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
+  if(b.hasAttribute('data-singvoice')){ const L=voiceList(); if(L.length){ const cur=pickSingVoice(), nx=L[(L.indexOf(cur)+1)%L.length]; S.singVoice=nx.name; save(); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance('Down by the lake where the tall pines grow'); u.voice=nx; u.lang=nx.lang; u.rate=.9; u.pitch=.85; u.volume=.6; speechSynthesis.speak(u); }catch(e){} renderPanel(); } return; }
+  if(b.hasAttribute('data-singwords')){ S.singWords = S.singWords!==true; save(); renderPanel(); return; }
   if(b.hasAttribute('data-music')){ S.music = S.music===false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-voice')){ const L=voiceList(); if(L.length){ const cur=pickVoice(), nx=L[(L.indexOf(cur)+1)%L.length]; S.voiceName=nx.name; save(); sayAloud('Hi kiddo! This is how I sound.'); renderPanel(); } return; }
   if(b.hasAttribute('data-say')){ const ch=STORY[S.story]; if(ch) sayAloud(ch.say+' Your goal: '+ch.goal); return; }
@@ -4495,11 +4500,19 @@ const THEME=[
  ['Am',[[16,2],[14,1],[12,1]]], ['F',[[9,2],[12,1],[9,1]]], ['C',[[7,1],[4,1],[7,1],[12,1]]], ['G',[[14,3],[null,1]]],
  ['F',[[12,1],[9,1],[5,1],[9,1]]], ['G',[[11,1],[14,1],[7,1],[11,1]]], ['C',[[12,1],[4,1],[7,1],[4,1]]], ['C',[[12,4]]] ];
 const THEME_CH={C:{b:-12,n:[0,4,7]}, G:{b:-17,n:[-1,2,7]}, Am:{b:-15,n:[0,4,9]}, F:{b:-19,n:[0,5,9]}};
+// the words of the song, sung on the melody notes (each word follows the tune's pitch)
+function lineNotes(L){ const out=[]; for(let b=4*L;b<4*L+4;b++){ let at=0; for(const [n,len] of THEME[b][1]){ if(n!=null) out.push({b,at,n}); at+=len; } } return out; }
+function lineWords(L,verse){ const words=LYRICS[verse%LYRICS.length][L].replace(/[,.!]/g,'').split(' '), notes=lineNotes(L), map=new Array(notes.length).fill(null);
+  words.forEach((w,i)=>{ const idx=words.length>1?Math.round(i*(notes.length-1)/(words.length-1)):0; map[idx]=(map[idx]?map[idx]+' ':'')+w; }); return {notes,map}; }
+function singWord(word, semis, delay){ setTimeout(()=>{ if(!MUS.playing || panel || !('speechSynthesis' in window)) return; try{ if(speechSynthesis.speaking) speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(word), v=pickSingVoice(); if(v){ u.voice=v; u.lang=v.lang; }
+  // a soft, low, gentle voice: small pitch changes, unhurried, and quiet
+  u.pitch=Math.max(.6,Math.min(1.15,.8+(semis-4)/12*.3)); u.rate=.9; u.volume=MUS.sing?.45:.25; speechSynthesis.speak(u); }catch(e){} }, delay*1000); }
 function playBar(k, key, beat){ const [cn,mel]=THEME[k], C=THEME_CH[cn], hz=n=>key*Math.pow(2,n/12);
+  if(S.singWords===true){ const W=lineWords(Math.floor(k/4),MUS.verse); W.notes.forEach((nt,i)=>{ if(nt.b===k && W.map[i]) singWord(W.map[i],nt.n,nt.at*beat); }); }
   // gentle finger-picking: low note on beat 1, then the chord notes one by one
   mnote(hz(C.b),beat*3.5,.020,0); mnote(hz(C.n[0]),beat*2,.008,beat); mnote(hz(C.n[1]),beat*2,.008,beat*2); mnote(hz(C.n[2]),beat*2,.008,beat*3);
   if(k===15){ for(const n of C.n) mnote(hz(n),beat*5,.008,0); }
-  let at=0; for(const [n,len] of mel){ if(n!=null){ vnote(hz(n)/2,Math.max(beat*.8,beat*len*.95),MUS.sing?.055:.03,at); mnote(hz(n),Math.max(beat*1.2,beat*len*1.1),MUS.sing?.004:.007,at); } at+=len*beat; } }
+  let at=0; for(const [n,len] of mel){ if(n!=null) mnote(hz(n),Math.max(beat*1.4,beat*len*1.3),MUS.sing?.022:.016,at); at+=len*beat; } }
 
 // ===================== Singing Sam: a soft-voiced fisher who sings about fishing & hunting =====================
 const LYRICS=[
@@ -6711,7 +6724,7 @@ function showModePick(){ const m=S.mode||'medium'; document.querySelectorAll('#m
   document.getElementById('modeInfo').innerHTML=`<b>${MODES[m].e} ${MODES[m].n}:</b> ${MODES[m].d}`; }
 document.querySelectorAll('#modePick button').forEach(b=>b.addEventListener('click',()=>{ ac(); setMode(b.dataset.mode); tone(660,.08,'triangle',.08); showModePick(); }));
 showModePick();
-document.getElementById('playBtn').addEventListener('click', ()=>{
+document.getElementById('playBtn').addEventListener('click', ()=>{ try{ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); } }catch(e){}
   ac(); document.getElementById('start').hidden=true;
   const go=()=>{ started=true; setTimeout(dailyGift,2500); setTimeout(()=>{ const Q=ensureQuests(); if(!Q.bonus) toast(`📅 Today's quests: ${Q.list.map(questName).join(' · ')} (${touchMode?'tap 🏆':'press M'})`); },6500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
   if(!S.introSeen) playIntro(go); else go();
