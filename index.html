@@ -503,9 +503,12 @@ const RODS = [
   {n:'Carbon Rod',     p:700,  d:'Sharks & Ghost Fish · long casts'},
   {n:'Pro Rod',        p:1800, d:'The LAKE MONSTER! · very long casts'},
   {n:'Legendary Rod',  p:5000, d:'Dragon Fish & Cosmic Whale · huge casts'},
-  {n:'Mythic Rod',     p:15000, d:'The strongest rod in the world · gigantic casts'},
+  {n:'Mythic Rod',     p:15000, d:'Super strong · gigantic casts'},
+  {n:'Lightning Rod',  p:25000, d:'⚡ Zaps fish tired super fast · more trophy fish'},
+  {n:'Galaxy Rod',     p:50000, d:'🌌 Made of star metal · legendary fish come to you'},
+  {n:'Rainbow Rod',    p:100000, d:'🌈 The best rod ever made · trophies everywhere'},
 ];
-const castReach = () => 120 + S.rod*55;   // how far a full-power cast goes
+const castReach = () => 120 + Math.min(S.rod,6)*55 + Math.max(0,S.rod-6)*25;   // how far a full-power cast goes
 const FOODS = [
   {id:'apple',    n:'Apple',         e:'🍎', p:10, h:15},
   {id:'sandwich', n:'Sandwich',      e:'🥪', p:30, h:40},
@@ -717,6 +720,10 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'derby1', n:'Win a Fishing Derby',         r:1000,  e:'🥇', p:()=>[S.st.derbyWins||0,1]},
+  {id:'derby5', n:'Win 5 Fishing Derbies',       r:5000,  e:'🏆', p:()=>[S.st.derbyWins||0,5]},
+  {id:'race1',  n:'Win a Flag Race',             r:500,   e:'🏁', p:()=>[S.st.races||0,1]},
+  {id:'race10', n:'Win 10 Flag Races',           r:3000,  e:'🏎️', p:()=>[S.st.races||0,10]},
   {id:'owl',   n:'Hunt an owl at night',      r:150,   e:'🦉', p:()=>[S.st.owls,1]},
   {id:'wolf',  n:'Defeat a wolf',             r:200,   e:'🐺', p:()=>[S.st.wolves,1]},
   {id:'boar',  n:'Defeat a wild boar',        r:250,   e:'🐗', p:()=>[S.st.boars,1]},
@@ -1395,7 +1402,7 @@ function updateNPCs(dt){
 function npcTip(n){ const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
-  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60;
+  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
   for(let i=0;i<14;i++) spawnDuck();
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
@@ -1701,6 +1708,7 @@ function landFish(i){
   popup = {i, t:trophy||vr||f.legend||f.boss?4.5:2.8, isNew, lb, inch, pb, trophy, bonus, vr, legend:!!f.legend, boss:!!f.boss};
   addXP((4+Math.sqrt(f.v))*(trophy?3:1)+(f.boss||f.legend?100:0), P.x, P.y-96); questProg('fish',1); questProg('species',1,i); questProg('big',lb);
   if(i===fishOfDay()){ const fb=fishPay(i)*2; S.money+=fb; S.st.earned+=fb; float(P.x,P.y-120,`🌟 Fish of the Day! +$${fb}`,'#ffe14d'); }
+  derbyCatch(i,lb);
   streak++; if([3,5,10,15,20,30].includes(streak)){ const sb=streak*25; S.money+=sb; S.st.earned+=sb; banner('🔥',`${streak} IN A ROW!`,`Catch streak bonus +$${sb}`,'#ff9a3a'); }
   if(f.boss||f.legend||trophy){ shake(9,.5); vib([60,40,90]); banner(f.boss?'👑':f.legend?'⭐':'🏆', f.boss?'BOSS FISH!':f.legend?'LEGENDARY FISH!':'TROPHY FISH!', `${f.n} · ${lb>=100?Math.round(lb).toLocaleString():Math.round(lb*10)/10} lb`); } else { shake(3,.25); vib(50); } setAct(trophy||vr||f.legend||f.boss?'cheer':'catch', 1.6, {i, vr});
   SFX.catch(); burst(fishing.bx, fishing.by, '#bfe6ff', 16);
@@ -1953,7 +1961,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -1993,6 +2001,8 @@ box.addEventListener('click', e=>{
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
+  if(b.hasAttribute('data-derby')){ closePanel(); startDerby(); return; }
+  if(b.hasAttribute('data-race')){ closePanel(); startRace(); return; }
   if(b.hasAttribute('data-modecycle')){ const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
   if(b.hasAttribute('data-music')){ S.music = S.music===false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-say')){ const ch=STORY[S.story]; if(ch) sayAloud(ch.say+' Your goal: '+ch.goal); return; }
@@ -2254,7 +2264,9 @@ const REELS=[
   {n:'Baitcaster',       p:600,  spd:1.5,  cap:250, d:'Fast and strong · 250 yards'},
   {n:'Big Game Reel',    p:2500, spd:1.85, cap:450, d:'For sharks & monsters · 450 yards'},
   {n:'Legend Reel',      p:9000, spd:2.3,  cap:800, d:'Super fast · 800 yards'},
-  {n:'Mythic Reel',      p:20000, spd:2.8, cap:1200, d:'The fastest reel ever · 1,200 yards'},
+  {n:'Mythic Reel',      p:20000, spd:2.8, cap:1200, d:'Very fast · 1,200 yards'},
+  {n:'Lightning Reel',   p:30000, spd:3.2, cap:1600, d:'⚡ Reels like lightning · 1,600 yards'},
+  {n:'Galaxy Reel',      p:60000, spd:3.7, cap:2200, d:'🌌 The fastest reel in the universe · 2,200 yards'},
 ];
 const LINES=[
   {n:'6 lb Mono',          p:0,    lb:6,   d:'Thin and weak'},
@@ -4365,6 +4377,7 @@ function updateMusic(dt){
 // ===================== Guide arrow: points you to the shop when your bag is full =====================
 function drawGuide(t){
   if(!started || panel || P.room || FP.on || drone) return;
+  if(race && race.pts[race.k]){ edgeArrow(race.pts[race.k].x, race.pts[race.k].y, '🏁', t); return; }
   const full=S.fish.length>=bagCap(), ch1=S.story===0 && S.fish.length>=3, fz=!full && frenzy && !frenzyNear(P.x,P.y) && fishing.state==='none';
   if(!full && !ch1 && !fz) return;
   const wx=fz?frenzy.x:SHOP.x, wy=fz?frenzy.y:SHOP.y+SHOP.h/2, sx=(wx-cam.x)*Z, sy=(wy-cam.y)*Z, m=46;
@@ -4466,9 +4479,57 @@ function questHTML(){ const Q=ensureQuests(), L=levelInfo(), fd=fishOfDay();
   ${Q.bonus?'<p>🎉 You finished all of today\'s quests! Come back tomorrow for new ones.</p>':'<p style="font-size:13px">Finish all 3 for a $1,000 bonus!</p>'}
   ${fd>=0?`<div class="sellrow"><span>🌟 <b>Fish of the Day at ${LK.n}:</b> ${FISH[fd].n} · worth 3× today!</span></div>`:''}`; }
 
+// ===================== Fishing Derby & flag races =====================
+var derby=null, derbyT=240+Math.random()*180, race=null;
+const RIVALS=['Old Pete','Sally','Gus','Big Mo','Rosie','Hank','Lulu','Captain Ray'];
+function startDerby(){
+  if(derby) return; if(iceOn() && !S.gear.auger){ toast('❄️ The lake is frozen! You need an Ice Auger for the derby'); return; }
+  const base=1.2*(1+S.rod*.45)*(LK.id==='ocean'?3:1), names=RIVALS.slice().sort(()=>Math.random()-.5).slice(0,3);
+  derby={t:180, best:0, bestName:'', rivals:names.map((n,k)=>({n, lb:Math.round(base*(1.5-k*.35)*(.75+Math.random()*.5)*10)/10}))};
+  banner('🏆','FISHING DERBY!',`Catch the BIGGEST fish in 3 minutes! Beat ${derby.rivals.map(r=>r.n).join(', ')}`,'#ffd54a'); tone(523,.15,'square',.07); tone(784,.25,'square',.07,.15); save();
+}
+function derbyCatch(i,lb){ if(!derby) return; if(lb>derby.best){ const first=!derby.best; derby.best=Math.round(lb*10)/10; derby.bestName=FISH[i].n; float(P.x,P.y-140,`🏆 New derby best: ${derby.best} lb!`,'#ffd54a');
+  const top=derby.rivals.slice().sort((a,b)=>b.lb-a.lb)[0]; if(!first && derby.best>top.lb) toast(`🏆 You're in 1st place! ${derby.best} lb beats ${top.n}'s ${top.lb} lb`); } }
+function endDerby(){ const all=[...derby.rivals.map(r=>({n:r.n,lb:r.lb})), {n:'You',lb:derby.best,me:true}].sort((a,b)=>b.lb-a.lb), place=all.findIndex(x=>x.me)+1;
+  const prize=[0,2000,800,300,50][place]+S.rod*[0,300,100,40,0][place]; S.money+=prize; S.st.earned+=prize; S.st.derbies=(S.st.derbies||0)+1; if(place===1) S.st.derbyWins=(S.st.derbyWins||0)+1;
+  banner(place===1?'🥇':place===2?'🥈':place===3?'🥉':'🎣', place===1?'YOU WON THE DERBY!':`${['','1st','2nd','3rd','4th'][place]} PLACE`, `${derby.best?`Your ${derby.bestName}: ${derby.best} lb`:'No fish this time'} · +$${prize.toLocaleString()}`, place===1?'#ffd54a':'#9fe3ff');
+  toast(`🏆 Derby results: ${all.map((x,k)=>`${k+1}. ${x.n} ${x.lb} lb`).join(' · ')}`); if(place===1){ for(let k=0;k<3;k++) setTimeout(()=>{ S.items.fireworks=(S.items.fireworks||0)+1; launchFirework(); },k*500); }
+  derby=null; derbyT=480+Math.random()*300; addXP(place===1?120:40); save(); }
+function landOk(x,y){ return x>120 && y>140 && x<WW-120 && y<WH-120 && !blocked(x,y) && !inLake(x,y,1.12) && !treeAt(x,y) && !(typeof caveWall==='function' && caveWall(x,y)); }
+function startRace(){
+  if(race){ toast('🏁 You are already racing! Follow the flags'); return; } if(P.room||P.inBoat){ toast('Go outside (and out of the boat) to race'); return; }
+  const pts=[]; let x=P.x, y=P.y, a=Math.random()*6.283;
+  for(let k=0;k<7 && pts.length<6;k++){ let ok=false; for(let tries=0;tries<40 && !ok;tries++){ const aa=a+(Math.random()-.5)*2.4, d=320+Math.random()*260, nx=x+Math.cos(aa)*d, ny=y+Math.sin(aa)*d; if(landOk(nx,ny)){ pts.push({x:nx,y:ny}); x=nx; y=ny; a=aa; ok=true; } } if(!ok) a+=1.6; }
+  if(pts.length<4){ toast('🏁 No room to race here! Try a more open spot'); return; }
+  const ride=!!S.ride; race={pts, k:0, t:pts.length*(ride?8:14), t0:pts.length*(ride?8:14), ride};
+  banner('🏁','RACE!',`Go through all ${pts.length} flags before time runs out!${ride?'':' (faster on a 4-wheeler!)'}`,'#ff6a5a'); tone(440,.15,'square',.08); tone(440,.15,'square',.08,.4); tone(880,.3,'square',.09,.8);
+}
+function updateEvents(dt){
+  if(derby){ derby.t-=dt; if(derby.t<=0) endDerby(); }
+  else if(!P.room && started){ derbyT-=dt; if(derbyT<=0){ derbyT=600; if(fishing.state==='none' && S.fish.length<bagCap()) startDerby(); } }
+  if(race){ race.t-=dt; const p=race.pts[race.k];
+    if(p && Math.hypot(P.x-p.x,P.y-p.y)<60){ race.k++; tone(700+race.k*90,.12,'triangle',.1); burst(p.x,p.y,'#ffd54a',14,120); shake(2,.15);
+      if(race.k>=race.pts.length){ const left=Math.max(0,race.t), prize=Math.round(250+left*25+(race.ride?0:150)); S.money+=prize; S.st.earned+=prize; S.st.races=(S.st.races||0)+1; addXP(60);
+        banner('🏁','RACE WON!',`${(race.t0-left).toFixed(1)} seconds · +$${prize.toLocaleString()}`,'#ff6a5a'); [523,659,784,1046].forEach((f,i)=>tone(f,.15,'square',.07,i*.08)); race=null; save(); return; } }
+    if(race.t<=0){ toast(`⏰ Time's up! You got ${race.k}/${race.pts.length} flags. Try again from the Missions menu!`); SFX.miss(); race=null; } }
+}
+function drawRace(t){ if(!race) return; const c=ctx;
+  race.pts.forEach((p,k)=>{ if(k<race.k) return; const next=k===race.k, s=next?1.25+Math.sin(t*6)*.1:.8; c.save(); c.translate(p.x,p.y);
+    if(next){ c.strokeStyle='rgba(255,213,74,.8)'; c.lineWidth=3; c.beginPath(); c.ellipse(0,0,60,22,0,0,7); c.stroke(); }
+    c.scale(s,s); c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(0,0,10,4,0,0,7); c.fill(); c.strokeStyle='#ddd'; c.lineWidth=2.5; c.beginPath(); c.moveTo(0,0); c.lineTo(0,-44); c.stroke();
+    for(let r=0;r<3;r++) for(let q=0;q<4;q++){ c.fillStyle=(r+q)%2?'#111':'#fff'; c.fillRect(1+q*5+Math.sin(t*5+q)*1.5,-44+r*5,5,5); }
+    c.fillStyle='#fff'; c.font=`800 12px ${FONT}`; c.textAlign='center'; c.fillText(k+1,0,-50); c.restore(); }); }
+function edgeArrow(wx,wy,icon,t){ const sx=(wx-cam.x)*Z, sy=(wy-cam.y)*Z, m=46; if(sx>m && sx<VW-m && sy>m && sy<VH-m) return;
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); const bob=Math.sin(t*6)*3, cx=VW/2, cy=VH/2, a=Math.atan2(sy-cy,sx-cx), r=Math.min((VW/2-m)/Math.abs(Math.cos(a)||1e-6),(VH/2-m)/Math.abs(Math.sin(a)||1e-6));
+  ctx.translate(cx+Math.cos(a)*(r+bob),cy+Math.sin(a)*(r+bob)); ctx.fillStyle='rgba(18,28,48,.75)'; ctx.beginPath(); ctx.arc(0,0,26,0,7); ctx.fill(); ctx.rotate(a); ctx.fillStyle='#ffd54a'; ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-8,-12); ctx.lineTo(-3,0); ctx.lineTo(-8,12); ctx.closePath(); ctx.fill();
+  ctx.rotate(-a); ctx.font=`16px ${FONT}`; ctx.textAlign='center'; ctx.fillText(icon,0,-30); ctx.restore(); }
+function eventsHTML(){ return `<h2>🎪 Events</h2><div class="list">
+  <div class="mission"><div class="e">🏆</div><div><b>Fishing Derby</b><small>${derby?`On now! ${Math.ceil(derby.t)}s left · your best ${derby.best} lb`:'Catch the biggest fish in 3 minutes and beat 3 rivals. Wins: '+(S.st.derbyWins||0)}</small></div>${derby?'<span class="tag">Live!</span>':'<button data-derby>Start</button>'}</div>
+  <div class="mission"><div class="e">🏁</div><div><b>Flag Race</b><small>Run or drive through 6 flags before time runs out. Races won: ${S.st.races||0}</small></div>${race?'<span class="tag">Racing!</span>':'<button data-race>Start</button>'}</div></div>`; }
+
 // ---------- Update ----------
 function update(dt){
-  updateFrenzy(dt); updateJumpers(dt);
+  updateFrenzy(dt); updateJumpers(dt); updateEvents(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -5488,7 +5549,7 @@ function draw(t){
     ctx.globalAlpha=1; }
   drawCritters(t, vw, vh);
 
-  drawFrenzy(t); drawJumpers(t);
+  drawFrenzy(t); drawJumpers(t); drawRace(t);
   for(const b of bullets){
     if(b.sling){ ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(b.x,b.y,3.5,0,7); ctx.fill(); }
     else if(b.arrow){ const sp=Math.hypot(b.vx,b.vy), ux=b.vx/sp, uy=b.vy/sp; ctx.strokeStyle='#8a5a2a'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); ctx.strokeStyle='#e8402a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(b.x-ux*20,b.y-uy*20); ctx.lineTo(b.x-ux*26,b.y-uy*26); ctx.stroke(); }
@@ -6121,6 +6182,8 @@ function updateHud(){
     `${S.story<STORY.length?`📖 ${STORY[S.story].goal}<br>`:''}📍 ${LK.n}${NOSEASON.includes(LK.id)?'':` · ${SEASON_ICON[season()]} ${season()}`}${touchMode&&VW<900?` · ${clockText()}`:`<br>${clockText()} · ${weatherTxt()}<br>🌬️ ${windTxt()} · ${mudTxt()}`}<br>🏆 Missions: ${S.done.length}/${MISSIONS.length}${touchMode?'':' (M)'}`;
   if(P.inBoat) s += S.boatUp.sonar ? `<br>📡 ${Math.round(3+depthAt(P.x,P.y)*57)} ft deep${depthAt(P.x,P.y)>.7?' · big fish!':''}` : `<br>🌊 ${depthAt(P.x,P.y)>.7?'Deep water! Big fish here':'Shallow water'}`;
   if(S.ride) s += `<br>${VEH[S.ride].e} Riding your ${VEH[S.ride].n}`;
+  if(derby) s += `<br><span style="color:#ffd54a">🏆 Derby ${Math.floor(derby.t/60)}:${String(Math.floor(derby.t%60)).padStart(2,'0')} · best ${derby.best} lb</span>`;
+  if(race) s += `<br><span style="color:#ff8a7a">🏁 Race ${Math.ceil(race.t)}s · flag ${race.k+1}/${race.pts.length}</span>`;
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
   if(P.room) s = `<span class="cash">$${hudMoney().toLocaleString()}</span><br>${P.room==='shop'?'🏪 '+LK.n+' Shop':'🏡 Your Cabin'} · 🎒 ${S.fish.length}/${bagCap()}`;
   if(s!==hudStr){ hud.innerHTML = s; hudStr = s; }
