@@ -723,6 +723,8 @@ const MISSIONS = [
   {id:'duck',  n:'Hunt 5 ducks',              r:100,   e:'🦆', p:()=>[S.st.ducks,5]},
   {id:'buck',  n:'Hunt a Big Buck',           r:300,   e:'🦌', p:()=>[S.st.bucks,1]},
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
+  {id:'bigfoot', n:'Get a photo of Bigfoot',    r:2000,  e:'👣', p:()=>[S.st.bigfoot||0,1]},
+  {id:'golddeer', n:'Hunt a Golden Deer',       r:2000,  e:'✨', p:()=>[S.st.goldDeer||0,1]},
   {id:'track5',  n:'Track down 5 animals',      r:700,   e:'🐾', p:()=>[S.st.tracked||0,5]},
   {id:'track25', n:'Track down 25 animals',     r:4000,  e:'🐾', p:()=>[S.st.tracked||0,25]},
   {id:'photo10', n:'Take photos of 10 animals', r:800,   e:'📷', p:()=>[Object.keys(S.album||{}).length,10]},
@@ -1279,7 +1281,8 @@ function nextWeather(){
 // about 1 in 7 bucks is a giant TROPHY BUCK with huge antlers (more points = more money)
 function newDeer(p,buck,graze){ const trophy=buck && Math.random()<(S.gear&&S.gear.deercall?.2:.14), pts=trophy?[10,10,12,12,14,16][Math.floor(Math.random()*6)]:0, hp=trophy?14:buck?8:4;
   if(trophy) setTimeout(()=>{ if(started){ toast(`🦌 You hear a deep grunt... a TROPHY BUCK is somewhere nearby!`); tone(120,.5,'sawtooth',.06,0,80); } },0); // (can happen while the page is still loading)
-  return {x:p.x,y:p.y,vx:0,vy:0,t:0,hp,max:hp,buck,trophy,pts,scared:0,face:1,anim:0,graze}; }
+  const gold=!trophy && Math.random()<.02; if(gold) setTimeout(()=>{ if(started){ toast('✨ Something is sparkling in the woods... a GOLDEN DEER!'); [1318,1568,2093].forEach((f,i)=>tone(f,.15,'triangle',.06,i*.1)); } },0);
+  return {x:p.x,y:p.y,vx:0,vy:0,t:0,hp:gold?10:hp,max:gold?10:hp,buck,trophy,pts,gold,scared:0,face:1,anim:0,graze}; }
 
 // ===================== Game modes: Easy, Medium & Hard =====================
 const MODES={
@@ -1417,7 +1420,7 @@ function updateNPCs(dt){
 function npcTip(n){ const lt=LAKE_TIPS[LK.id]||[], all=[...lt,...TIPS]; return all[n.tip%all.length]; }
 
 function resetCreatures(){
-  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
+  ducks=[]; deer=[]; beasts=[]; owls=[]; bullets=[]; parts=[]; floats=[]; ripples=[]; strikes=[]; bolts=[]; game=[]; frenzy=null; jumpers=[]; frenzyT=60+Math.random()*60; race=null; tracks=[]; tracking=null; bigfoot=null; if(derby){ derby=null; toast('🏆 You left the derby lake, so the derby ended'); }
   for(let i=0;i<14;i++) spawnDuck();
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
@@ -1802,7 +1805,7 @@ function hit(t, b){
   a.dead = true;
   let val, name;
   if(t.kind==='duck'){ val=20; name=LK.duck.n; S.st.ducks++; }
-  else if(t.kind==='deer'){ val=a.trophy?500+a.pts*60:a.buck?200:75; name=a.trophy?`${a.pts}-Point Trophy Buck`:a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++;
+  else if(t.kind==='deer'){ val=a.gold?3000:a.trophy?500+a.pts*60:a.buck?200:75; if(a.gold){ S.st.goldDeer=(S.st.goldDeer||0)+1; setTimeout(()=>banner('✨','GOLDEN DEER!',`The rarest deer of all! +$${Math.round(3000*MODE().pay).toLocaleString()}`),0); shake(8,.5); SFX.trophy(); } name=a.trophy?`${a.pts}-Point Trophy Buck`:a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++;
     if(a.trophy){ S.st.trophyBucks=(S.st.trophyBucks||0)+1; S.buckMounts=S.buckMounts||[]; const bm={pts:a.pts, lake:LK.id, col:LK.deer.buck}; S.buckMounts.push(bm); S.buckMounts.sort((x,y)=>y.pts-x.pts); S.buckMounts.length=Math.min(S.buckMounts.length,3);
       window.__tb={pts:a.pts, on:S.buckMounts.includes(bm)}; shake(8,.5); vib([60,40,90]); SFX.trophy(); } }
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
@@ -3979,8 +3982,9 @@ function drawGame(a, t){
 }
 function drawDeer(d){
   const moving=!!(d.vx||d.vy), fr=walkFrame(d,moving);
-  const sp=animalSprite(`deer|${LK.id}|${d.buck?1:0}|${d.pts||0}|${fr}`, d.trophy?150:120, d.trophy?140:112, ()=>drawDeerRaw({x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,buck:d.buck,trophy:d.trophy,pts:d.pts}));
+  const sp=animalSprite(`deer|${LK.id}|${d.buck?1:0}|${d.pts||0}|${d.gold?1:0}|${fr}`, d.trophy?150:120, d.trophy?140:112, ()=>drawDeerRaw({x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,buck:d.buck,trophy:d.trophy,pts:d.pts,gold:d.gold}));
   blitAnimal(d, sp, performance.now()/1000, moving, 26, d.trophy?-96:-74);
+  if(d.gold){ const t=performance.now()/1000; for(let i=0;i<6;i++){ const a=t*1.5+i*1.05, k=(t*.7+i/6)%1; ctx.globalAlpha=1-k; ctx.fillStyle='#fff6b0'; ctx.beginPath(); ctx.arc(d.x+Math.cos(a)*26, d.y-30-k*30+Math.sin(a)*10, 2.4, 0, 7); ctx.fill(); } ctx.globalAlpha=1; }
   if(d.trophy){ const t=performance.now()/1000; ctx.fillStyle='#ffe680'; for(let i=0;i<3;i++){ const a=t*2+i*2.1, k=(t*.8+i/3)%1; ctx.globalAlpha=1-k; ctx.beginPath(); ctx.arc(d.x+(d.face||1)*30+Math.cos(a)*16, d.y-92-k*14+Math.sin(a)*5, 2.2, 0, 7); ctx.fill(); } ctx.globalAlpha=1; }
 }
 function drawBeast(a){
@@ -4614,6 +4618,7 @@ function photoSubjects(){ const L=[];
   for(const b of beasts) if(!b.dead) L.push({x:b.x,y:b.y,key:'beast:'+b.kind,n:BEAST[b.kind].n,e:BEAST_E[BEAST[b.kind].look]||'🐾'});
   if(!isNight()) for(const d of ducks) if(!d.dead) L.push({x:d.x,y:d.y,key:'duck:'+LK.id,n:LK.duck.n,e:'🦆'});
   for(const o of owls) if(!o.dead) L.push({x:o.x,y:o.y,key:'owl',n:'Owl',e:'🦉'});
+  if(bigfoot) L.push({x:bigfoot.x,y:bigfoot.y,key:'bigfoot',n:'BIGFOOT',e:'👣',bigfoot:1});
   for(const j of jumpers) if(FISH[j.i]) L.push({x:j.x,y:j.y,key:'fish:'+j.i,n:'Jumping '+FISH[j.i].n,e:'🐟',bonus:1});
   return L; }
 function inShot(x,y){ if(FP.on){ const q=fpProj(x,30,y); if(!q || q[0]<0||q[0]>VW||q[1]<0||q[1]>VH) return false; const cx=FP.cam.position.x, cz=FP.cam.position.z; return Math.hypot(x-cx,y-cz)<1100; }
@@ -4625,7 +4630,8 @@ function takePhoto(){
   if(!shots.length){ toast('📷 Click! Nothing in the picture... find some animals first'); return; }
   const fresh=[]; for(const p of shots){ if(!S.album[p.key]){ fresh.push(p); S.album[p.key]={n:p.n,e:p.e,c:0}; } S.album[p.key].c++; }
   const uniq=[...new Set(fresh.map(p=>p.key))].map(k=>fresh.find(p=>p.key===k));
-  if(uniq.length){ const cash=uniq.reduce((a,p)=>a+(p.bonus?120:60),0); S.money+=cash; S.st.earned+=cash; addXP(25*uniq.length); banner('📷','NEW PHOTO!',`${uniq.map(p=>p.e+' '+p.n).slice(0,3).join(', ')}${uniq.length>3?' + more':''} · +$${cash}`,'#9fe3ff');
+  if(shots.some(p=>p.bigfoot)){ S.st.bigfoot=(S.st.bigfoot||0)+1; const bf=S.st.bigfoot===1?5000:500; S.money+=bf; S.st.earned+=bf; addXP(300); shake(8,.5); setTimeout(()=>banner('👣','YOU PHOTOGRAPHED BIGFOOT!!!',`Nobody will believe it! +$${bf.toLocaleString()}`,'#c8a070'),300); }
+  if(uniq.length){ const cash=uniq.reduce((a,p)=>a+(p.bigfoot?0:p.bonus?120:60),0); S.money+=cash; S.st.earned+=cash; addXP(25*uniq.length); banner('📷','NEW PHOTO!',`${uniq.map(p=>p.e+' '+p.n).slice(0,3).join(', ')}${uniq.length>3?' + more':''} · +$${cash}`,'#9fe3ff');
     const n=Object.keys(S.album).length; if(n%10===0){ const b=n*50; S.money+=b; S.st.earned+=b; setTimeout(()=>banner('📚',`${n} PHOTOS!`,`Your album is growing! +$${b}`,'#9fe3ff'),400); } }
   else toast(`📸 Nice shot of ${shots.length>1?shots.length+' animals':'a '+shots[0].n.toLowerCase()}! (already in your album)`);
   save(); }
@@ -4665,7 +4671,7 @@ function leaveTracks(list,kind,dt){ for(const a of list){ if(a.dead || a.hide ||
 function updateTracks(dt){ if(P.room) return; leaveTracks(deer,'deer',dt); leaveTracks(game,'game',dt); leaveTracks(beasts,'beast',dt);
   const life=(iceOn()||LK.id==='frozen')?150:60; for(const p of tracks) p.t+=dt; if(tracks.length && tracks[0].t>life) tracks=tracks.filter(p=>p.t<=life);
   if(tracking){ const o=tracking.obj; tracking.t-=dt;
-    if(o.dead || o.hide || tracking.t<=0 || !(deer.includes(o)||game.includes(o)||beasts.includes(o))){ if(!o.dead && tracking.t<=0) toast('🐾 The trail went cold... look for fresh tracks'); tracking=null; }
+    if(o.dead || o.hide || tracking.t<=0 || !(deer.includes(o)||game.includes(o)||beasts.includes(o)||o===bigfoot)){ if(!o.dead && tracking.t<=0) toast('🐾 The trail went cold... look for fresh tracks'); tracking=null; }
     else if(Math.hypot(o.x-P.x,o.y-P.y)<160){ S.st.tracked=(S.st.tracked||0)+1; const cash=40+Math.round(tracking.far/20); S.money+=cash; S.st.earned+=cash; addXP(30);
       banner('🐾','TRACKED IT!',`You followed the tracks to a ${tracking.name}! +$${cash}`,'#c8a070'); tone(660,.1,'triangle',.1); tone(990,.16,'triangle',.1,.1); tracking=null; save(); } } }
 function trackNow(){
@@ -4674,12 +4680,13 @@ function trackNow(){
   const life=(iceOn()||LK.id==='frozen')?150:60; let best=null, bd=260;
   for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide){ bd=d; best=p; } }
   if(!best){ toast('🐾 No fresh tracks right here. Walk around fields and woods and look at the ground!'); tone(300,.1,'square',.04); return; }
-  const o=best.obj, pr=o._pr||{name:'animal'}, far=Math.hypot(o.x-P.x,o.y-P.y), dir=['east','south-east','south','south-west','west','north-west','north','north-east'][Math.round(((Math.atan2(o.y-P.y,o.x-P.x)+6.283)%6.283)/0.785)%8];
+  const o=best.obj, pr=o===bigfoot?{name:'BIGFOOT'}:o._pr||{name:'animal'}, far=Math.hypot(o.x-P.x,o.y-P.y), dir=['east','south-east','south','south-west','west','north-west','north','north-east'][Math.round(((Math.atan2(o.y-P.y,o.x-P.x)+6.283)%6.283)/0.785)%8];
   tracking={obj:o, name:pr.name, t:45, far}; tone(520,.08,'triangle',.08); tone(700,.12,'triangle',.08,.08);
   toast(`🐾 ${best.type==='hoof'?'Hoof prints':best.type==='bird'?'Bird tracks':'Paw prints'}! A ${pr.name.toLowerCase()} went ${dir}${best.t<15?' just now':''}. Follow the glowing tracks!`); }
 function drawPrint(c,p,glow){ c.save(); c.translate(p.x+Math.cos(p.a+1.57)*4*p.side, p.y+Math.sin(p.a+1.57)*4*p.side); c.rotate(p.a); const s=p.sz*1.4;
   c.fillStyle=glow?'rgba(255,214,90,.95)':(iceOn()||LK.id==='frozen')?'rgba(110,130,160,.6)':'rgba(70,50,30,.55)';
-  if(p.type==='hoof'){ for(const sd of [-1,1]){ c.beginPath(); c.ellipse(1*s,sd*1.6*s,3*s,1.3*s,0,0,7); c.fill(); } }
+  if(p.type==='big'){ c.beginPath(); c.ellipse(0,0,6*s,3*s,0,0,7); c.fill(); for(let i=0;i<5;i++){ c.beginPath(); c.arc(6.5*s,(-2.6+i*1.3)*s,.9*s,0,7); c.fill(); } }
+  else if(p.type==='hoof'){ for(const sd of [-1,1]){ c.beginPath(); c.ellipse(1*s,sd*1.6*s,3*s,1.3*s,0,0,7); c.fill(); } }
   else if(p.type==='bird'){ c.strokeStyle=c.fillStyle; c.lineWidth=1.3*s; c.lineCap='round'; c.beginPath(); c.moveTo(-3*s,0); c.lineTo(3*s,0); c.moveTo(0,0); c.lineTo(3*s,-2.5*s); c.moveTo(0,0); c.lineTo(3*s,2.5*s); c.stroke(); }
   else { c.beginPath(); c.ellipse(0,0,2.2*s,2.6*s,0,0,7); c.fill(); for(const [tx,ty] of [[2.8,-2.4],[3.6,-.8],[3.6,.8],[2.8,2.4]]){ c.beginPath(); c.arc(tx*s,ty*s,.9*s,0,7); c.fill(); } }
   c.restore(); }
@@ -4687,9 +4694,33 @@ function drawTracks(t){ if(!tracks.length) return; const life=(iceOn()||LK.id===
   for(const p of tracks){ if(p.x<x0||p.x>x1||p.y<y0||p.y>y1) continue; const glow=tracking && p.obj===tracking.obj; ctx.globalAlpha=Math.max(0,1-p.t/life)*(glow?.6+.4*Math.sin(t*6):1); drawPrint(ctx,p,glow); }
   ctx.globalAlpha=1; }
 
+// ===================== Bigfoot! (rare, at night or in fog, in the woods) =====================
+var bigfoot=null, bigfootT=120+Math.random()*180;
+const NOFOOT=['ocean','candy','moon','crystal','volcano'];
+function updateBigfoot(dt){
+  if(P.room || NOFOOT.includes(LK.id)){ bigfoot=null; return; }
+  if(!bigfoot){ if(!(isNight() || weather.type==='fog')) return; bigfootT-=dt; if(bigfootT>0) return; bigfootT=240+Math.random()*240;
+    for(let k=0;k<80;k++){ const a=Math.random()*6.283, d=650+Math.random()*350, x=P.x+Math.cos(a)*d, y=P.y+Math.sin(a)*d; if(landOk(x,y)){ bigfoot={x,y,vx:0,vy:0,t:45,anim:0,face:1,run:false,wa:Math.random()*6.283}; break; } }
+    if(bigfoot){ toast('👣 Branches are snapping in the woods... something BIG is out there! Look for giant footprints'); tone(90,.6,'sawtooth',.06,0,60); } return; }
+  const B=bigfoot, d=Math.hypot(B.x-P.x,B.y-P.y); B.t-=dt;
+  if(d<420 && !B.run){ B.run=true; toast('😱 BIGFOOT saw you! He\'s running away... quick, take a picture!'); tone(160,.4,'sawtooth',.08,0,90); }
+  const sp=B.run?240:55; if(B.run) B.wa=Math.atan2(B.y-P.y,B.x-P.x); else if(Math.random()<dt*.3) B.wa+=(Math.random()-.5)*2;
+  const nx=B.x+Math.cos(B.wa)*sp*dt, ny=B.y+Math.sin(B.wa)*sp*dt; if(!blocked(nx,ny) && !inLake(nx,ny,1.08)){ B.x=nx; B.y=ny; } else B.wa+=1.7;
+  B.vx=Math.cos(B.wa)*sp; B.vy=Math.sin(B.wa)*sp; if(Math.abs(B.vx)>10) B.face=B.vx>0?1:-1; B.anim+=dt*sp/9;
+  B._tk=(B._tk||0)+sp*dt; if(B._tk>40){ B._tk=0; B._side=-(B._side||1); tracks.push({x:B.x,y:B.y,a:B.wa,side:B._side,type:'big',sz:1.6,obj:B,t:0}); }
+  if(B.t<=0 || d>1800){ bigfoot=null; if(d<1400) toast('👣 Bigfoot disappeared into the forest...'); } }
+function drawBigfoot(c,B,t){ if(!B) return; c.save(); c.translate(B.x,B.y); c.fillStyle=`rgba(0,0,0,${SUN.a+.1})`; c.beginPath(); c.ellipse(0,1,20,6,0,0,7); c.fill(); c.scale(B.face,1);
+  const k=Math.sin(B.anim), col='#4a3220', dk='#2e1e12';
+  c.strokeStyle=dk; c.lineCap='round'; c.lineWidth=9; for(const sd of [-1,1]){ c.beginPath(); c.moveTo(sd*5,-34); c.lineTo(sd*5+k*sd*8,-2); c.stroke(); }
+  c.fillStyle=col; c.beginPath(); c.ellipse(0,-52,17,24,0,0,7); c.fill(); c.fillStyle='#5a4028'; c.beginPath(); c.ellipse(3,-50,9,15,0,0,7); c.fill();
+  c.strokeStyle=col; c.lineWidth=8; for(const sd of [-1,1]){ c.beginPath(); c.moveTo(sd*13,-66); c.quadraticCurveTo(sd*20,-48,sd*16-k*sd*10,-30); c.stroke(); }
+  c.fillStyle=col; c.beginPath(); c.arc(4,-80,11,0,7); c.fill(); c.fillStyle='#8a6a4a'; c.beginPath(); c.ellipse(8,-78,6,5,0,0,7); c.fill();
+  c.fillStyle='#111'; c.beginPath(); c.arc(9,-81,1.6,0,7); c.fill(); c.strokeStyle='#2e1e12'; c.lineWidth=2; c.beginPath(); c.moveTo(4,-86); c.lineTo(12,-84); c.stroke();
+  for(let i=0;i<10;i++){ c.strokeStyle=dk; c.lineWidth=1; c.beginPath(); const x=-14+(i*3.1)%28, y=-70+(i*7)%40; c.moveTo(x,y); c.lineTo(x-1,y+5); c.stroke(); } c.restore(); }
+
 // ---------- Update ----------
 function update(dt){
-  updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
+  updateBigfoot(dt); updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -5243,7 +5274,7 @@ function drawDeerRaw(d){
   c.fillStyle=`rgba(0,0,0,${SUN.a})`; c.beginPath(); c.ellipse(SUN.dx*14,0,26*SUN.len,7,0,0,7); c.fill();
   hpBar(d,d.trophy?-96:-74);
   c.scale(d.face,1); if(d.trophy) c.scale(1.22,1.22); // trophy bucks are BIG
-  const moving = d.vx||d.vy, col = d.buck?LK.deer.buck:LK.deer.col, dk=shade(col,.62), light='#f1e6d4';
+  const moving = d.vx||d.vy, col = d.gold?'#e8b830':d.buck?LK.deer.buck:LK.deer.col, dk=shade(col,.62), light='#f1e6d4';
   const leg=(x,ph,far)=>{ const p=d.anim+ph, sw=moving?Math.sin(p)*7:0, lift=moving?Math.max(0,Math.cos(p))*4.5:0, kx=x+sw*.3+(lift?2:0), ky=-10.5-lift*.5;
     c.strokeStyle= far?shade(col,.5):dk; c.lineCap='round';
     c.lineWidth=4.2; c.beginPath(); c.moveTo(x,-20); c.lineTo(kx,ky); c.stroke();
@@ -5687,6 +5718,7 @@ function draw(t){
   const list = [];
   for(const tr of trees) if(tr.x>cam.x-80 && tr.x<cam.x+vw+80 && tr.y>cam.y-20 && tr.y<cam.y+vh+120) list.push([tr.y, ()=>drawTree(tr)]);
   for(const d of deer) list.push([d.y, ()=>drawDeer(d)]);
+  if(bigfoot) list.push([bigfoot.y, ()=>drawBigfoot(ctx,bigfoot,t)]);
   for(const a of game) if(a.x>cam.x-80 && a.x<cam.x+vw+80 && a.y>cam.y-40 && a.y<cam.y+vh+140) list.push([a.climb?a.y+1:a.y, ()=>drawGame(a,t)]);
   for(const b of beasts) list.push([b.y, ()=>drawBeast(b)]);
   for(const n of npcs) list.push([n.y, ()=>drawPerson(n,t)]);
@@ -6245,6 +6277,7 @@ function fpFrame(t){
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-VX,tr.y-VY)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
   for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-VX,bl.y-VY)<2200){ const tw=bl.kind==='tower'; fpEnt(bl,tw?120:90,tw?220:110,tw?60:45,tw?210:100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y)); }
+  if(bigfoot && Math.hypot(bigfoot.x-VX,bigfoot.y-VY)<2400) fpEnt(bigfoot,90,120,45,108,0,()=>drawBigfoot(ctx,bigfoot,t),lit(bigfoot.x,bigfoot.y));
   if(drone && !P.inBoat){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,S.ride?120:80,S.ride?110:100,S.ride?60:40,S.ride?96:92,0,()=>S.ride?drawRider(t):drawPlayer(t),lit(P.x,P.y)); }
   if(S.pet && !P.inBoat && S.pet!=='parrot') fpEnt(pet,60,50,30,40,0,()=>drawPet(t),lit(pet.x,pet.y));
   if(!S.ride && S.vehSel && veh.x>0 && Math.hypot(veh.x-VX,veh.y-VY)<2000) fpEnt(veh,110,100,55,86,0,()=>drawParkedVehicle(t),lit(veh.x,veh.y));
