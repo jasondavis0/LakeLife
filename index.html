@@ -165,7 +165,7 @@ function resize(){
   VW = innerWidth; VH = innerHeight; DPR = Math.min(2, window.devicePixelRatio||1);
   cv.width = Math.round(VW*DPR); cv.height = Math.round(VH*DPR);
   cv.style.width = VW+'px'; cv.style.height = VH+'px';
-  Z = Math.max(.62, Math.min(1, Math.min(VW,VH)/620)); if(window.binosOn) Z*=.55;
+  Z = Math.max(.62, Math.min(1, Math.min(VW,VH)/620)); if(window.binosOn||window.towerZoom) Z*=.55;
 }
 resize(); addEventListener('resize', resize); addEventListener('orientationchange', ()=>setTimeout(resize, 200));
 if(!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h){ this.rect(x,y,w,h); };
@@ -183,7 +183,7 @@ const DOCKS = [{x:0,y:0,w:48,h:175},{x:0,y:0,w:175,h:48},{x:0,y:0,w:175,h:48}];
 const BOAT_HOME = {x:0, y:0};
 const HOME_SHAPE = {y:3250, rx:1322, ry:943};
 // GEO = this map's water: a wavy lake shore, islands, rivers & creeks, a secret pond, brush piles, deep holes, bridges, treasure spots
-let GEO = {harm:[], islands:[], rivers:[], ponds:[], brush:[], holes:[], bridges:[], treasures:[], bottles:[], pads:[], fields:[], blinds:[], rocks:[], burrows:[], wreck:null};
+let GEO = {harm:[], islands:[], rivers:[], ponds:[], brush:[], holes:[], bridges:[], treasures:[], bottles:[], pads:[], fields:[], blinds:[], rocks:[], burrows:[], props:[], wreck:null};
 const ANCHORS = [-Math.PI/2, Math.PI/2, 0, Math.PI]; // the shore stays smooth here (shop path and docks)
 function wrapA(a){ a=(a+Math.PI)%(Math.PI*2); if(a<0) a+=Math.PI*2; return a-Math.PI; }
 function shoreF(a){ let f=0; for(const h of GEO.harm) f+=h.a*Math.sin(h.k*a+h.p);
@@ -284,6 +284,7 @@ function genGeo(){
   for(let n=0,tries=0;n<2&&tries<200;tries++){ const a=r()*6.283, p=shorePt(a,.35+r()*.4); if(onIsland(p.x,p.y,60)) continue; G.bottles.push({x:p.x,y:p.y,k:n}); n++; }
   genFields(G, r);
   genRocks(G, r);
+  genProps(G, r);
 }
 function applyShape(sh){
   sh = sh || HOME_SHAPE;
@@ -690,9 +691,9 @@ function iceOn(){ return season()==='winter' && !!LK.freezes; }
 function iceHoleAt(x,y,r=16){ return (S.holes||[]).find(h=>h.lake===LK.id && Math.hypot(h.x-x,h.y-y)<r) || null; }
 function onIce(x,y){
   if(!iceOn()) return false;
-  if(lakeVal(x,y,1.02)<1 && !onIsland(x,y,-4)) return true;
-  if(inPond(x,y,1.02)) return true;
-  for(const R of GEO.rivers) if(R.kind==='creek' && riverDist(R,x,y)<R.w/2*1.02) return true;
+  if(lakeVal(x,y,1.045)<1 && !onIsland(x,y,-8)) return true; // a bit past the water's edge, so you can always step from the beach onto the ice
+  if(inPond(x,y,1.045)) return true;
+  for(const R of GEO.rivers) if(R.kind==='creek' && riverDist(R,x,y)<R.w/2*1.045) return true;
   return false;
 }
 // the season changes how everything looks
@@ -770,6 +771,7 @@ function drawMinimap(){
 function riverStroke(b,R,w,col){ b.strokeStyle=col; b.lineWidth=w; b.lineCap='round'; b.lineJoin='round'; b.beginPath(); R.pts.forEach((q,i)=>i?b.lineTo(q[0],q[1]):b.moveTo(q[0],q[1])); b.stroke(); }
 function landFree(x,y,pad){ // true if this spot is plain land (not water, trail, buildings or rivers)
   if(nearTrail(x,y,pad) || inBldg(x,y,pad+20) || inField(x,y,pad*.5) || rockAt(x,y,pad*.6)) return false;
+  for(const p of GEO.props||[]) if(Math.abs(p.x-x)<p.rad+pad && Math.abs(p.y-y)<p.rad+pad) return false;
   for(const R of GEO.rivers) if(riverDist(R,x,y)<R.w/2+pad+30) return false;
   for(const p of GEO.ponds) if(blobVal(p,x,y,pad+40)<1) return false;
   return true;
@@ -786,7 +788,7 @@ function buildWorld(){
     if (Math.abs(x-SHOP.x)<60 && y>SHOP.y && y<shopPathEnd()) continue;
     if (Math.abs(x-CABIN.x)<50 && y>CABIN.y && y<cabinPathEnd()) continue;
     if (GEO.ponds.some(p=>Math.hypot(x-p.x,y-p.y)<p.rx+260)) continue; // the pond's tree wall is added below
-    if (inField(x,y,70) || GEO.blinds.some(b=>Math.hypot(b.x-x,b.y-y)<95) || rockAt(x,y,50)) continue;
+    if (inField(x,y,70) || GEO.blinds.some(b=>Math.hypot(b.x-x,b.y-y)<95) || rockAt(x,y,50) || GEO.props.some(p=>Math.hypot(p.x-x,p.y-y)<p.rad+45)) continue;
     if (treesNear(x,y).some(t=>Math.hypot(t.x-x,t.y-y)<80)) continue;
     mkTree(x,y);
   }
@@ -1005,8 +1007,7 @@ function drawSunRays(t){
 }
 function drawWaterFx(t, vw, vh){
   const T=LK.T;
-  if(iceOn()){ drawIce(t, vw, vh); return; }
-  // rivers & creeks: moving ripples and current lines
+  // rivers & creeks: moving ripples and current lines (rivers stay open in winter)
   if(!ripplePat) ripplePat=ctx.createPattern(rippleCv,'repeat');
   for(const R of GEO.rivers){ if(R.bb[2]<cam.x||R.bb[0]>cam.x+vw||R.bb[3]<cam.y||R.bb[1]>cam.y+vh) continue;
     ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalAlpha=.14; ctx.strokeStyle=ripplePat; ctx.lineWidth=R.w-6;
@@ -1015,6 +1016,7 @@ function drawWaterFx(t, vw, vh){
     for(const off of [-.22,.18]){ ctx.beginPath(); R.pts.forEach((q,i)=>{ const n=R.pts[Math.min(i+1,R.pts.length-1)], pr=R.pts[Math.max(i-1,0)], a=Math.atan2(n[1]-pr[1],n[0]-pr[0]);
       const x=q[0]-Math.sin(a)*R.w*off, y=q[1]+Math.cos(a)*R.w*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke(); }
     ctx.restore(); }
+  if(iceOn()){ drawIce(t, vw, vh); return; }
   const muddy = (S.mud||0)>.05 && !['volcano','candy'].includes(LK.id);
   if(muddy) for(const R of GEO.rivers) if(!(R.bb[2]<cam.x||R.bb[0]>cam.x+vw||R.bb[3]<cam.y||R.bb[1]>cam.y+vh)) riverStroke(ctx,R,R.w-8,`rgba(125,92,50,${S.mud*.5})`);
   ctx.save(); lakePath(ctx,1,-4); for(const I of GEO.islands) blobPath(ctx,I,8); for(const p of GEO.ponds) blobPath(ctx,p,-3); ctx.clip('evenodd');
@@ -1091,9 +1093,17 @@ const flies = Array.from({length:34}, ()=>({x:0, y:0, ph:Math.random()*6.28, set
 
 // ---------- Time & weather ----------
 function newSeason(){
-  const sn=season(); if(sn==='spring') S.holes=[]; buildWorld(); if(FP.on) FP.lake=null;
+  const sn=season(); if(sn==='spring'){ S.holes=[]; S.holeV=(S.holeV||0)+1; } buildWorld(); if(FP.on) FP.lake=null;
+  if(fishing.state!=='none') fishing={state:'none'};
+  if(iceOn() && P.inBoat){ P.inBoat=false; setTimeout(()=>toast('❄️ The lake froze around your boat! You hopped out onto the ice'),2800); }
+  if(!P.inBoat && !P.room && !P.blind && blocked(P.x,P.y)) rescueToShore();
   toast({spring:'🌸 Spring! Bass move shallow to spawn. Flowers everywhere!', summer:'☀️ Summer! Big fish go deep when it\'s hot.', fall:'🍂 Fall! Fish feed like crazy before winter.',
     winter: LK.freezes?'❄️ Winter! The lake froze. Buy an Ice Auger and drill a hole to ice fish!':'❄️ Winter! Fish are slow and sleepy.'}[sn]);
+}
+// if the ice melts under you, you scramble back to the nearest dry land
+function rescueToShore(){
+  for(let d=20; d<2500; d+=20) for(let k=0;k<24;k++){ const a=k/24*6.283, x=P.x+Math.cos(a)*d, y=P.y+Math.sin(a)*d; if(x>20&&y>30&&x<WW-20&&y<WH-20 && !blocked(x,y)){ P.x=x; P.y=y; splashAt(x,y); setTimeout(()=>toast('🌸 The ice melted! You splashed back to shore'),2800); return; } }
+  P.x=START.x; P.y=START.y;
 }
 function hour(){ return (S.dayT*24+6)%24; }
 function isNight(){ const h=hour(); return h>=20 || h<5; }
@@ -1255,7 +1265,7 @@ function blocked(x,y){
   if(x<15||y<20||x>WW-15||y>WH-10) return true;
   if(inLake(x,y,1.03) && !onDock(x,y) && !onBridge(x,y) && !onIce(x,y)) return true;
   for(const t of treesNear(x,y)) if(Math.hypot(t.x-x,t.y-y) < t.r*.4+10) return true;
-  if(rockAt(x,y,4)) return true;
+  if(rockAt(x,y,4) || propAt(x,y,2)) return true;
   for(const n of npcs) if(Math.hypot(n.x-x,n.y-y) < 13) return true;
   for(const bl of GEO.blinds) if(Math.hypot(bl.x-x,bl.y-y) < (bl.kind==='stand'?16:28)) return true;
   if(inBldg(x,y,10) && y<(Math.abs(x-SHOP.x)<200?SHOP.y:CABIN.y)+55) return true;
@@ -1327,7 +1337,7 @@ function toggleBoat(){
   } else {
     // your boat comes to you: find the closest open water and hop in there
     let best=null;
-    if(nearBoat()) best={x:boat.x, y:boat.y, d:0, near:true};
+    if(nearBoat() && !boatBlocked(boat.x,boat.y)) best={x:boat.x, y:boat.y, d:0, near:true};
     else for(let k=0;k<48;k++){ const a=k/48*6.283;
       for(let d=20; d<2600; d+=15){ const x=P.x+Math.cos(a)*d, y=P.y+Math.sin(a)*d;
         if(x<0||y<0||x>WW||y>WH) break;
@@ -1347,6 +1357,7 @@ function useKey(){
   if(P.blind){ leaveBlind(); return; }
   const tk=nearTreasure(); if(tk>=0){ openTreasure(tk); return; }
   const bl=nearBlind(); if(bl && !P.inBoat){ enterBlind(bl); return; }
+  const pr=nearProp(); if(pr && !P.inBoat && propLabel(pr)){ useProp(pr); return; }
   if(nearShop()) enterRoom('shop');
   else if(nearCabin()) enterRoom('cabin');
   else toast('Walk to the shop or your cabin first');
@@ -2397,22 +2408,27 @@ function drawJump(t){
 }
 
 // ===================== Ice fishing =====================
+function iceHoleAhead(){ return iceHoleAt(P.x+P.fx*22,P.y+P.fy*16,34)||iceHoleAt(P.x,P.y,34); }
+function iceTip(){ if(iceHoleAhead()) return 'drop your line in the hole'; if(!S.gear.auger) return 'drill (you need an Ice Auger)';
+  const x=P.x+P.fx*26, y=P.y+P.fy*18; return onIce(x,y) && inLake(x,y,.98) && !onIsland(x,y,6) ? 'drill a hole' : 'drill a hole (walk out a little farther)'; }
 function iceAction(){
   if(!iceOn() || P.inBoat || !onIce(P.x,P.y)) return false;
   const hole=iceHoleAt(P.x+P.fx*22,P.y+P.fy*16,34) || iceHoleAt(P.x,P.y,34);
   if(hole){ fishing={state:'wait', bx:hole.x, by:hole.y, t:(1+Math.random()*2.5)*biteMult(), fly:0, flyMax:.01, sx:P.x, sy:P.y-40, ice:true};
     P.fx=(hole.x-P.x)||P.fx; P.fy=(hole.y-P.y)||P.fy; const l=Math.hypot(P.fx,P.fy)||1; P.fx/=l; P.fy/=l;
     setAct('cast',.3); tone(500,.06,'sine',.08); ripples.push({x:hole.x,y:hole.y,t:.6}); return true; }
+  if(!hole){ const w=findWater(0); if(w && w.d<170) return false; } // open river water right in front of you: cast normally
   if(!S.gear.auger){ toast('❄️ The lake is frozen! Buy an Ice Auger at the shop to drill a fishing hole'); return true; }
   const x=P.x+P.fx*26, y=P.y+P.fy*18;
-  if(!onIce(x,y)){ toast('Stand out on the ice to drill a hole'); return true; }
+  if(!onIce(x,y) || !inLake(x,y,.98) || onIsland(x,y,6) || inRiver(x,y)&&inRiver(x,y).kind==='river'){ toast('Walk a little farther out on the ice to drill a hole'); return true; }
   fishing={state:'drill', t:0, x, y}; toast('🌀 Drilling a hole in the ice...'); return true;
 }
 function updateDrill(dt){
-  const F=fishing; F.t+=dt;
+  const F=fishing; if(!iceOn() || !onIce(F.x,F.y)){ fishing={state:'none'}; return; }
+  F.t+=dt;
   if(Math.random()<dt*25) parts.push({x:F.x+(Math.random()-.5)*10, y:F.y-4, vx:(Math.random()-.5)*90, vy:-40-Math.random()*60, t:.5, col:'rgba(235,248,255,.95)', sz:4});
   if(Math.random()<dt*12) tone(140+Math.random()*40,.05,'sawtooth',.04);
-  if(F.t>=1.4){ S.holes=(S.holes||[]).filter(h=>h.lake!==LK.id || Math.hypot(h.x-F.x,h.y-F.y)>30); S.holes.push({lake:LK.id, x:F.x, y:F.y});
+  if(F.t>=1.4){ S.holes=(S.holes||[]).filter(h=>h.lake!==LK.id || Math.hypot(h.x-F.x,h.y-F.y)>30); S.holes.push({lake:LK.id, x:F.x, y:F.y}); S.holeV=(S.holeV||0)+1;
     const mine=S.holes.filter(h=>h.lake===LK.id); if(mine.length>10) S.holes.splice(S.holes.indexOf(mine[0]),1);
     fishing={state:'none'}; SFX.splash(); toast(`🕳️ Hole drilled! ${touchMode?'Tap Cast':'Press SPACE'} to drop your line in. Try an Ice Jig!`); save(); }
 }
@@ -2971,6 +2987,7 @@ function drawScarecrow(f, t){
 }
 // blinds and deer stands (you can climb in with E)
 function drawBlind(bl, t, noPlayer){
+  if(bl.kind==='tower'){ drawTower(bl,t,P.blind===bl && !noPlayer); return; }
   const c=ctx, inside=P.blind===bl && !noPlayer;
   c.save(); c.translate(bl.x,bl.y);
   c.fillStyle='rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(4,2,bl.kind==='duck'?38:30,9,0,0,7); c.fill();
@@ -3001,18 +3018,19 @@ function drawDecoys(t){
     ctx.fillStyle=LK.duck.body; ctx.beginPath(); ctx.ellipse(0,0,10,5,0,0,7); ctx.fill(); ctx.fillStyle=LK.duck.head; ctx.beginPath(); ctx.arc(8,-4,3.5,0,7); ctx.fill(); ctx.fillStyle=LK.duck.beak; ctx.fillRect(11,-4,3,1.6); ctx.restore(); }
 }
 function nearBlind(){ let best=null, bd=62; for(const b of GEO.blinds||[]){ const d=Math.hypot(b.x-P.x,b.y-P.y); if(d<bd){ bd=d; best=b; } } return best; }
-function blindName(b){ return b.kind==='stand'?'deer stand':b.kind==='duck'?'duck blind':'ground blind'; }
+function blindName(b){ return b.kind==='tower'?'lookout tower':b.kind==='stand'?'deer stand':b.kind==='duck'?'duck blind':'ground blind'; }
 function enterBlind(b){
   if(P.inBoat) return; P.blind=b; P.bx0=P.x; P.by0=P.y; P.x=b.x; P.y=b.y; P.fx=Math.cos(b.look); P.fy=Math.sin(b.look); fishing={state:'none'}; b.lureT=3;
   if(FP.on){ FP.yaw=b.look; FP.pitch=b.kind==='stand'?-.25:-.08; }
   tone(400,.08,'triangle',.08); tone(300,.1,'triangle',.08,.08);
+  if(b.kind==='tower'){ window.towerZoom=!FP.on; resize(); toast(`🗼 You climbed the lookout tower! You can see SO far from up here. ${touchMode?'Tap 🏠':'Press E'} to climb down`); if(S.gun>=0) setTool('gun'); return; }
   toast(b.kind==='duck' ? `🦆 You're hiding in the duck blind! Ducks will fly in to the decoys. ${touchMode?'Tap 🏠':'Press E'} to get out`
     : b.kind==='stand' ? `🦌 You climbed the deer stand! Deer can't see you up here. ${touchMode?'Tap 🏠':'Press E'} to climb down`
     : `🦌 You're hiding in the ground blind! Deer can't see you. ${touchMode?'Tap 🏠':'Press E'} to get out`);
   if(S.gun<0) toast('🔫 You need a gun to hunt. Buy one at the shop!'); else setTool('gun');
 }
 function leaveBlind(){
-  const b=P.blind; P.blind=null;
+  const b=P.blind; P.blind=null; if(window.towerZoom){ window.towerZoom=false; resize(); }
   for(let k=0;k<16;k++){ const a=b.look+Math.PI+(k%2?1:-1)*Math.ceil(k/2)*.4, x=b.x+Math.cos(a)*58, y=b.y+Math.sin(a)*58; if(!blocked(x,y)){ P.x=x; P.y=y; return; } }
   P.x=P.bx0; P.y=P.by0;
 }
@@ -3151,7 +3169,7 @@ function updateGame(dt, walk, steerTo){
 }
 function gameTargets(out){ for(const a of game) if(!a.hide && !a.dead){ const g=GAME[a.kind]; out.push({o:a, kind:'game', cx:a.x, cy:a.y-g.h*.45-(a.climb||0), r:g.r}); } }
 // ----- drawing the animals (side view, facing right, feet on the ground) -----
-function drawGame(a, t){
+function drawGameRaw(a, t){
   const g=GAME[a.kind], c=ctx; if(a.hide) return;
   c.save(); c.translate(a.x,a.y);
   const moving=Math.hypot(a.vx,a.vy)>8, col=g.col, dk=shade(col,.62), lt=shade(col,1.3);
@@ -3335,6 +3353,16 @@ function nextGun(){ // cycles through the guns you own
 // mountains all around the edge of the world, a sharper ground, boulders and flowers
 function fpWorldExtras(sc, dmy, T){
   const id=LK.id, cx=WW/2, cy=WH/2, R0=Math.hypot(WW,WH)/2;
+  // a thick forest around the edge of the world, so the land doesn't just stop
+  { const tt=T.trees, forest=['mix','pine','snowpine','swamp','prairie','palm'].includes(tt), n=forest ? Math.round((FP.lite?700:2200)*(tt==='prairie'?.4:1)) : 0;
+    if(n){ const winter=season()==='winter'&&LK.freezes, palm=tt==='palm', geo=palm?new THREE.CylinderGeometry(.15,.25,1,6):new THREE.ConeGeometry(1,1,7); geo.translate(0,.5,0);
+      const m=new THREE.InstancedMesh(geo,new THREE.MeshLambertMaterial(),n); let k=0;
+      for(let i=0;i<n*3 && k<n;i++){ const side=Math.floor(Math.random()*4), u=Math.random(), out=40+Math.random()*1300;
+        const x = side===0? -out : side===1? WW+out : -1400+u*(WW+2800), z = side===2? -out : side===3? WH+out : -1400+u*(WH+2800);
+        if(x>0&&x<WW&&z>0&&z<WH) continue; const h=palm?90+Math.random()*60:120+Math.random()*140, w=palm?20:h*(.28+Math.random()*.12);
+        dmy.position.set(x,-4,z); dmy.rotation.set(0,Math.random()*6,0); dmy.scale.set(w,h,w); dmy.updateMatrix(); m.setMatrixAt(k,dmy.matrix);
+        const g=winter?['#e8eef4','#d8e2ea','#3a5a3a']:tt==='swamp'?['#2e3e20','#3a4e28','#465c30']:['#2a5e26','#336a2c','#3f7a34','#24502a']; m.setColorAt(k, lin(g[Math.floor(Math.random()*g.length)])); k++; }
+      m.count=k; m.receiveShadow=true; sc.add(m); } }
   let seed=LAKES.indexOf(LK)*101+7; const rr=()=>{ seed=(seed*16807)%2147483647; return (seed-1)/2147483646; };
   const style = id==='canyon' ? 'mesa' : id==='volcano' ? 'volcano' : id==='candy' ? 'candy' : id==='ocean' ? 'hills' : id==='prairie' ? 'far' : id==='swamp' ? 'hills' : 'alps';
   const snowLine = style==='alps' ? .62 : style==='far' ? .7 : 2;
@@ -3425,6 +3453,200 @@ function useCall(){
   if(!P.blind) toast('📣 Tip: call from a blind or deer stand so they don\'t see you!');
 }
 function toggleBinos(){ if(!S.gear.binos){ toast('🔭 Buy binoculars at the shop\'s Outdoor Gear shelf'); return; } if(FP.on || P.room) return; window.binosOn=!window.binosOn; resize(); toast(window.binosOn?'🔭 Looking far away... (press Z again to stop)':'🔭 Binoculars away'); }
+
+// ===================== More stuff in the worlds =====================
+// campsites, barns, windmills, lookout towers, caves, berry bushes, mushrooms, log piles, picnic tables, a lighthouse...
+function genProps(G, r){
+  G.props=[]; const id=LK.id;
+  const ok=(x,y,rad,trailOk)=> x>rad+60 && y>rad+80 && x<WW-rad-60 && y<WH-rad-60 && (trailOk ? shoreDist(x,y)>40+rad && !nearTrail(x,y,rad*.6+20) || shoreDist(x,y)>TRAIL_OFF+rad+60 : shoreDist(x,y)>TRAIL_OFF+rad+60)
+    && !G.rivers.some(R=>riverDist(R,x,y)<R.w/2+rad+50) && !G.ponds.some(p=>Math.hypot(p.x-x,p.y-y)<p.rx+rad+(p.secret?300:80))
+    && Math.hypot(x-SHOP.x,y-SHOP.y)>rad+240 && Math.hypot(x-CABIN.x,y-CABIN.y)>rad+240 && Math.hypot(x-START.x,y-START.y)>rad+150
+    && !G.treasures.some(t=>Math.hypot(t.x-x,t.y-y)<rad+70) && !G.fields.some(f=>Math.hypot(f.x-x,f.y-y)<rad+Math.hypot(f.w,f.h)/2+40)
+    && !G.blinds.some(b=>Math.hypot(b.x-x,b.y-y)<rad+80) && !G.rocks.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+rad+70) && !G.props.some(o=>Math.hypot(o.x-x,o.y-y)<o.rad+rad+60)
+    && !(Math.abs(x-SHOP.x)<rad+70 && y>SHOP.y && y<LAKE.y) && !(Math.abs(x-CABIN.x)<rad+60 && y>CABIN.y && y<LAKE.y);
+  const place=(kind,n,rad,extra={},trailOk)=>{ for(let k=0,tries=0;k<n && tries<n*120;tries++){ const x=rad+60+r()*(WW-2*rad-120), y=rad+80+r()*(WH-2*rad-140);
+    if(!ok(x,y,rad,trailOk)) continue; G.props.push(Object.assign({kind,x,y,rad,seed:r()*1000,k},extra)); k++; } };
+  const farm=['home','prairie','swamp','frozen','mountain'].includes(id);
+  // a barn and silo next to the first field
+  if(farm && G.fields.length){ const f=G.fields[0]; for(let t=0;t<12;t++){ const a=r()*6.283, d=Math.hypot(f.w,f.h)/2+150, x=f.x+Math.cos(a)*d, y=f.y+Math.sin(a)*d*.8; if(ok(x,y,95)){ G.props.push({kind:'barn',x,y,rad:95,seed:r()*1000}); break; } } }
+  place('camp', id==='ocean'?1:2, 80);
+  if(id==='prairie') place('windmill',3,30); else if(id==='home'||id==='canyon'||id==='frozen') place('windmill',1,30);
+  if(id==='ocean'){ // a lighthouse and an old shipwreck on the beach
+    for(let t=0;t<60;t++){ const a=r()*6.283, q=shorePt(a,1,TRAIL_OFF+130); if(ANCHORS.some(an=>Math.abs(wrapA(a-an))<.4)) continue; if(ok(q.x,q.y,45)){ G.props.push({kind:'lighthouse',x:q.x,y:q.y,rad:45,seed:r()*1000}); break; } }
+    for(let t=0;t<60;t++){ const a=r()*6.283, q=shorePt(a,1,48); if(ANCHORS.some(an=>Math.abs(wrapA(a-an))<.5) || G.props.some(o=>Math.hypot(o.x-q.x,o.y-q.y)<500)) continue; G.props.push({kind:'shipwreck',x:q.x,y:q.y,rad:60,seed:r()*1000,ang:a}); break; } }
+  // caves in the rocks (explore them for loot)
+  const caveN = id==='mountain'?3 : id==='canyon'?3 : id==='frozen'?1 : 0, big=G.rocks.filter(o=>o.kind!=='boulder' || o.r>55);
+  for(let k=0,t=0;k<caveN && t<80 && big.length;t++){ const o=big[Math.floor(r()*big.length)]; const a=Math.PI/2+(r()-.5)*1.2, x=o.x+Math.cos(a)*(o.r*.8+14), y=o.y+Math.sin(a)*(o.r*.64+14);
+    if(G.props.some(p=>p.kind==='cave' && Math.hypot(p.x-x,p.y-y)<300) || inLake(x,y,1.1) || shoreDist(x,y)<TRAIL_OFF+40) continue; G.props.push({kind:'cave',x,y,rad:26,seed:r()*1000,cid:k}); k++; }
+  // things to pick: berries and mushrooms
+  place('berry', 16, 18); place('shroom', 14, 12); place('logs', 10, 34); place('picnic', 3, 34, {}, true); place('sign', 2, 16, {}, true);
+  // lookout towers you can climb (they work like a blind, but way up high)
+  const towerN = id==='mountain'?2 : ['home','frozen','prairie','swamp','canyon'].includes(id)?1 : 0;
+  for(let k=0,t=0;k<towerN && t<200;t++){ const x=200+r()*(WW-400), y=200+r()*(WH-400); if(!ok(x,y,40)) continue; G.blinds.push({x,y,kind:'tower',look:Math.atan2(LAKE.y-y,LAKE.x-x)}); k++; }
+}
+function propBlocks(p,x,y,pad=0){
+  const dx=x-p.x, dy=y-p.y;
+  if(p.kind==='barn') return (Math.abs(dx)<70+pad && dy>-60-pad && dy<10+pad) || Math.hypot(dx-92,dy+10)<26+pad;
+  if(p.kind==='camp') return Math.hypot(dx+52,dy+12)<30+pad || Math.hypot(dx,dy)<12+pad;
+  if(p.kind==='lighthouse') return Math.hypot(dx,dy)<34+pad;
+  if(p.kind==='shipwreck') return Math.hypot(dx,dy*1.6)<52+pad;
+  if(p.kind==='windmill') return Math.hypot(dx,dy)<16+pad;
+  if(p.kind==='logs'||p.kind==='picnic') return Math.abs(dx)<30+pad && Math.abs(dy)<12+pad;
+  return false;
+}
+function propAt(x,y,pad=0){ for(const p of GEO.props||[]) if(Math.abs(p.x-x)<p.rad+160 && Math.abs(p.y-y)<p.rad+160 && propBlocks(p,x,y,pad)) return p; return null; }
+const picked={}; // berries & mushrooms grow back after a while
+function propReady(p){ return !picked[LK.id+':'+GEO.props.indexOf(p)] || performance.now()>picked[LK.id+':'+GEO.props.indexOf(p)]; }
+function nearProp(){ let best=null, bd=1e9; for(const p of GEO.props||[]){ if(!['berry','shroom','cave','camp'].includes(p.kind)) continue; const d=Math.hypot(p.x-P.x,p.y-P.y); const lim=p.kind==='camp'?70:p.kind==='cave'?60:40; if(d<lim && d<bd){ bd=d; best=p; } } return best; }
+function propLabel(p){ if(p.kind==='berry') return propReady(p)?'pick berries':null; if(p.kind==='shroom') return propReady(p)?'pick the mushroom':null; if(p.kind==='cave') return caveDone(p)?null:'explore the cave'; if(p.kind==='camp') return 'rest by the campfire'; return null; }
+function caveDone(p){ return ((S.caves||{})[LK.id]||[]).includes(p.cid); }
+function useProp(p){
+  const key=LK.id+':'+GEO.props.indexOf(p);
+  if(p.kind==='berry'){ if(!propReady(p)){ toast('No berries left. They grow back soon!'); return; }
+    picked[key]=performance.now()+90000; const got=Math.min(15,MAX_HP-S.hp); S.hp=Math.min(MAX_HP,S.hp+15); setAct('eat',.9,{e:LK.id==='candy'?'🍬':'🫐'}); tone(660,.1,'triangle',.1); tone(990,.14,'triangle',.1,.1);
+    float(p.x,p.y-30, got>0?`+${got} ❤️`:'Yum!','#7CFC00'); toast(LK.id==='candy'?'🍬 Gumdrops! Yum!':LK.id==='volcano'?'🌶️ Fire berries! Spicy!':'🫐 You picked some wild berries. Yum!'); S.st.berries=(S.st.berries||0)+1; save(); return; }
+  if(p.kind==='shroom'){ if(!propReady(p)){ toast('Nothing here right now'); return; } picked[key]=performance.now()+150000;
+    const gold=Math.random()<.04, val=gold?400:15; S.money+=val; S.st.earned+=val; S.st.shrooms=(S.st.shrooms||0)+1; SFX.cash();
+    float(p.x,p.y-30,gold?`✨ GOLDEN MUSHROOM! +$${val}`:`🍄 +$${val}`, gold?'#ffd54a':'#7CFC00'); toast(gold?'✨ WOW! A super rare Golden Mushroom! +$400':'🍄 You found a wild mushroom and sold it to the shop for $15'); save(); return; }
+  if(p.kind==='cave'){ if(caveDone(p)){ toast('You already explored this cave'); return; }
+    (S.caves=S.caves||{}); (S.caves[LK.id]=S.caves[LK.id]||[]).push(p.cid); const val=400+Math.floor(Math.random()*500)+LAKES.indexOf(LK)*150;
+    S.money+=val; S.st.earned+=val; S.st.caves=(S.st.caves||0)+1; SFX.cash(); SFX.trophy(); burst(p.x,p.y-20,'#ffd54a',26,150);
+    for(let i=0;i<12;i++) parts.push({x:p.x,y:p.y-10,vx:(Math.random()-.5)*260,vy:-120-Math.random()*160,t:1.4,col:'#2a2a2a',sz:5}); // bats!
+    toast(`🦇 Bats fly out! Deep in the cave you find ${['old gold coins','a sparkly crystal','a lost tackle box full of money','dinosaur bones (a museum pays you!)'][p.cid%4]}: +$${val}`); save(); checkMissions(); return; }
+  if(p.kind==='camp'){ const got=Math.round(MAX_HP-S.hp); S.hp=MAX_HP; setAct('cheer',1); tone(440,.2,'triangle',.1); tone(660,.3,'triangle',.1,.2);
+    toast(got>0?`🔥 You warm up by the campfire. Health is full! (+${got})`:'🔥 Ahh, a cozy campfire. You feel great!'); save(); }
+}
+// ----- drawing -----
+function drawProp(p, t){
+  const c=ctx, sn=season(), snow=(sn==='winter'&&LK.freezes)||LK.id==='frozen'; c.save(); c.translate(p.x,p.y);
+  const sh=(w,h,ox=0)=>{ c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(ox+SUN.dx*w*.3,2,w*SUN.len,h,0,0,7); c.fill(); };
+  if(p.kind==='camp'){
+    // tent
+    c.save(); c.translate(-52,-6); sh(36,10); const tc=['#e0602a','#3a7bd5','#2e9a54'][Math.floor(p.seed)%3];
+    c.fillStyle=shade(tc,.7); c.beginPath(); c.moveTo(-34,0); c.lineTo(0,-46); c.lineTo(34,0); c.closePath(); c.fill();
+    c.fillStyle=tc; c.beginPath(); c.moveTo(-34,0); c.lineTo(0,-46); c.lineTo(6,0); c.closePath(); c.fill();
+    c.fillStyle='#2a1a10'; c.beginPath(); c.moveTo(-6,0); c.lineTo(0,-24); c.lineTo(8,0); c.closePath(); c.fill();
+    if(snow){ c.fillStyle='#fff'; c.beginPath(); c.moveTo(-14,-28); c.lineTo(0,-46); c.lineTo(12,-30); c.quadraticCurveTo(0,-34,-14,-28); c.fill(); } c.restore();
+    // logs to sit on and the fire
+    c.fillStyle='#6b4423'; c.fillRect(-14,24,28,7); c.fillRect(22,-6,7,24);
+    c.fillStyle='#7a7a72'; for(let i=0;i<8;i++){ const a=i/8*6.283; c.beginPath(); c.ellipse(Math.cos(a)*13,Math.sin(a)*6,4,3,0,0,7); c.fill(); }
+    c.strokeStyle='#4a2a14'; c.lineWidth=4; c.beginPath(); c.moveTo(-9,3); c.lineTo(9,-3); c.moveTo(-9,-3); c.lineTo(9,3); c.stroke();
+    for(let i=0;i<5;i++){ const fl=Math.sin(t*10+i*1.7)*3, h=14+((i*7)%6)+fl; c.fillStyle=['#ff5a1a','#ffb020','#ffe14d'][i%3]; c.beginPath(); c.moveTo(-8+i*4,0); c.quadraticCurveTo(-7+i*4+fl*.4,-h,-4+i*4,0); c.fill(); }
+    if(Math.random()<.3) parts.push({x:p.x+(Math.random()-.5)*8,y:p.y-14,vx:(Math.random()-.5)*10,vy:-50,t:.8,col:'rgba(255,180,60,.9)',sz:2});
+  }
+  else if(p.kind==='barn'){
+    sh(80,14);
+    const red='#b8352a'; c.fillStyle=shade(red,.85); c.fillRect(-68,-58,136,58);
+    c.strokeStyle='rgba(0,0,0,.18)'; c.lineWidth=1.5; for(let x=-60;x<68;x+=10){ c.beginPath(); c.moveTo(x,-58); c.lineTo(x,0); c.stroke(); }
+    c.fillStyle='#5a3a2a'; c.beginPath(); c.moveTo(-76,-56); c.lineTo(-40,-92); c.lineTo(40,-92); c.lineTo(76,-56); c.closePath(); c.fill(); // roof
+    if(snow){ c.fillStyle='#fff'; c.beginPath(); c.moveTo(-74,-58); c.lineTo(-40,-92); c.lineTo(40,-92); c.lineTo(74,-58); c.lineTo(60,-62); c.lineTo(-60,-62); c.closePath(); c.fill(); }
+    c.fillStyle='#f4f0e8'; c.fillRect(-26,-50,52,50); c.fillStyle=red; c.fillRect(-22,-46,20,46); c.fillRect(2,-46,20,46);
+    c.strokeStyle='#f4f0e8'; c.lineWidth=3; c.beginPath(); c.moveTo(-22,-46); c.lineTo(-2,0); c.moveTo(-2,-46); c.lineTo(-22,0); c.moveTo(2,-46); c.lineTo(22,0); c.moveTo(22,-46); c.lineTo(2,0); c.stroke();
+    c.fillStyle='#f4f0e8'; c.fillRect(-10,-78,20,16); c.fillStyle='#2a1a10'; c.fillRect(-7,-75,14,10);
+    // silo
+    c.save(); c.translate(92,-10); c.fillStyle='#a8b0b8'; c.fillRect(-20,-92,40,92); c.strokeStyle='rgba(0,0,0,.15)'; for(let y=-86;y<0;y+=10){ c.beginPath(); c.moveTo(-20,y); c.lineTo(20,y); c.stroke(); }
+    c.fillStyle='#7a828a'; c.beginPath(); c.arc(0,-92,20,Math.PI,0); c.fill(); if(snow){ c.fillStyle='#fff'; c.beginPath(); c.arc(0,-94,18,Math.PI,0); c.fill(); } c.restore();
+  }
+  else if(p.kind==='windmill'){
+    sh(16,6); c.strokeStyle='#7a6a5a'; c.lineWidth=3; c.beginPath(); c.moveTo(-14,0); c.lineTo(-2,-96); c.moveTo(14,0); c.lineTo(2,-96); c.stroke();
+    c.lineWidth=1.5; for(let y=-14;y>-90;y-=16){ const w=14-(-y/96)*12; c.beginPath(); c.moveTo(-w,y); c.lineTo(w,y-16); c.moveTo(w,y); c.lineTo(-w,y-16); c.stroke(); }
+    c.save(); c.translate(0,-100); c.rotate(t*(1+weather.wind*4)); c.fillStyle='#c8c8c0'; for(let i=0;i<12;i++){ c.save(); c.rotate(i/12*6.283); c.beginPath(); c.moveTo(-2,4); c.lineTo(-4,30); c.lineTo(4,30); c.lineTo(2,4); c.fill(); c.restore(); }
+    c.fillStyle='#8a8a82'; c.beginPath(); c.arc(0,0,5,0,7); c.fill(); c.restore();
+    c.fillStyle='#b8b0a0'; c.beginPath(); c.moveTo(2,-100); c.lineTo(30,-96); c.lineTo(30,-108); c.closePath(); c.fill();
+  }
+  else if(p.kind==='lighthouse'){
+    sh(36,10); for(let i=0;i<5;i++){ c.fillStyle=i%2?'#d8343a':'#f4f4f0'; const y0=-i*30, w0=24-i*2.4, w1=24-(i+1)*2.4; c.beginPath(); c.moveTo(-w0,y0); c.lineTo(-w1,y0-30); c.lineTo(w1,y0-30); c.lineTo(w0,y0); c.closePath(); c.fill(); }
+    c.fillStyle='#2a2a2a'; c.fillRect(-14,-162,28,6); c.fillStyle=isNight()?'#fff6b0':'#cde8f4'; c.fillRect(-10,-180,20,18); c.fillStyle='#2a2a2a'; c.beginPath(); c.moveTo(-14,-180); c.lineTo(0,-196); c.lineTo(14,-180); c.fill();
+    if(nightAmt()>.2){ c.save(); c.translate(0,-171); c.rotate(t*.8); const g=c.createLinearGradient(0,0,400,0); g.addColorStop(0,'rgba(255,250,200,.55)'); g.addColorStop(1,'rgba(255,250,200,0)'); c.fillStyle=g; c.beginPath(); c.moveTo(0,0); c.lineTo(400,-40); c.lineTo(400,40); c.closePath(); c.fill(); c.restore(); }
+  }
+  else if(p.kind==='shipwreck'){
+    c.rotate(.35); sh(60,14); c.fillStyle='#5a3a1e'; c.beginPath(); c.moveTo(-62,-4); c.quadraticCurveTo(-50,18,0,20); c.quadraticCurveTo(50,18,66,-8); c.lineTo(40,-26); c.lineTo(-44,-22); c.closePath(); c.fill();
+    c.strokeStyle='#3a2410'; c.lineWidth=2; for(let x=-50;x<56;x+=12){ c.beginPath(); c.moveTo(x,-22); c.lineTo(x+2,16); c.stroke(); }
+    c.fillStyle='#2a1a0a'; c.beginPath(); c.ellipse(4,-6,20,8,0,0,7); c.fill(); // hole in the hull
+    c.strokeStyle='#4a2e16'; c.lineWidth=5; c.beginPath(); c.moveTo(-6,-20); c.lineTo(-18,-80); c.stroke(); c.lineWidth=3; c.beginPath(); c.moveTo(-14,-62); c.lineTo(18,-58); c.stroke();
+    c.fillStyle='rgba(230,220,190,.8)'; c.beginPath(); c.moveTo(-15,-60); c.quadraticCurveTo(6,-50,16,-56); c.lineTo(12,-40); c.quadraticCurveTo(0,-44,-12,-42); c.fill();
+  }
+  else if(p.kind==='cave'){
+    const done=caveDone(p); c.fillStyle='#1a1410'; c.beginPath(); c.moveTo(-24,2); c.quadraticCurveTo(-26,-34,0,-38); c.quadraticCurveTo(26,-34,24,2); c.closePath(); c.fill();
+    c.strokeStyle=shade(LK.T.rock,.7); c.lineWidth=5; c.stroke(); c.fillStyle='rgba(0,0,0,.6)'; c.beginPath(); c.ellipse(0,-6,16,8,0,0,7); c.fill();
+    if(!done && Math.sin(t*2+p.seed)>.3){ c.fillStyle='#ffe680'; c.beginPath(); c.arc(4,-12,2.2,0,7); c.fill(); } // something shiny inside
+  }
+  else if(p.kind==='berry'){
+    const ready=propReady(p), col=LK.id==='candy'?'#ff6ab0':LK.id==='volcano'?'#3a2a20':shade(LK.T.ground,.62); sh(16,5);
+    for(const [ox,oy,rr] of [[-8,-8,9],[8,-8,9],[0,-14,10],[-3,-4,8]]){ c.fillStyle=col; c.beginPath(); c.arc(ox,oy,rr,0,7); c.fill(); }
+    c.fillStyle='rgba(255,255,255,.18)'; c.beginPath(); c.arc(-4,-17,4,0,7); c.fill();
+    if(ready){ const bc = LK.id==='candy'?['#ffe14d','#5ad0ff','#fff']:LK.id==='volcano'?['#ff5a1a','#ffb020']:(p.seed%2<1?['#3a4ab0','#5a6ad0']:['#d8283a','#ff4a5a']);
+      for(let i=0;i<9;i++){ c.fillStyle=bc[i%bc.length]; c.beginPath(); c.arc(Math.sin(i*2.3+p.seed)*11,-10+Math.cos(i*1.7)*6,2.4,0,7); c.fill(); } }
+    if(snow){ c.fillStyle='#fff'; c.beginPath(); c.ellipse(0,-20,10,4,0,0,7); c.fill(); }
+  }
+  else if(p.kind==='shroom'){ if(propReady(p)){ const gold=false; sh(8,3);
+    for(const [ox,s] of [[-5,1],[3,.75],[8,.6]]){ c.fillStyle='#f4ead8'; c.fillRect(ox-1.5*s,-7*s,3*s,7*s); c.fillStyle=LK.id==='candy'?'#ff8ac8':['#d8343a','#c8883a','#e8c070'][Math.floor(p.seed)%3]; c.beginPath(); c.ellipse(ox,-7*s,6*s,4*s,0,Math.PI,0); c.fill();
+      c.fillStyle='#fff'; c.beginPath(); c.arc(ox-2*s,-9*s,1*s,0,7); c.arc(ox+2*s,-8.5*s,.8*s,0,7); c.fill(); } } }
+  else if(p.kind==='logs'){ sh(32,8); c.fillStyle='#6b4423'; for(const [ox,oy] of [[-12,-6],[12,-6],[0,-16]]){ c.beginPath(); c.roundRect(ox-14,oy-6,28,12,6); c.fill(); c.fillStyle='#c8a070'; c.beginPath(); c.ellipse(ox+13,oy,3,5.5,0,0,7); c.fill(); c.fillStyle='#6b4423'; }
+    if(snow){ c.fillStyle='#fff'; c.beginPath(); c.ellipse(0,-22,16,4,0,0,7); c.fill(); } }
+  else if(p.kind==='picnic'){ sh(32,8); c.fillStyle='#8a5a2e'; c.fillRect(-30,-22,60,12); c.fillStyle='#6a4422'; c.fillRect(-30,-6,60,5); c.fillRect(-30,-34,60,5); c.fillRect(-26,-10,4,10); c.fillRect(22,-10,4,10);
+    c.fillStyle='#d8343a'; c.fillRect(-12,-24,24,10); c.fillStyle='#fff'; for(let i=0;i<4;i++) c.fillRect(-12+i*6,-24,3,10); }
+  else if(p.kind==='sign'){ sh(10,4); c.fillStyle='#6b4423'; c.fillRect(-2,-40,4,40); c.fillStyle='#a8784a'; c.fillRect(-24,-42,48,12); c.fillRect(-24,-28,48,12);
+    c.fillStyle='#2a1a10'; c.font=`800 8px ${FONT}`; c.textAlign='center'; const toS=Math.atan2(SHOP.y-p.y,SHOP.x-p.x), toL=Math.atan2(LAKE.y-p.y,LAKE.x-p.x), arr=a=>['➡','⬇','⬅','⬆'][Math.round(((a+6.283)%6.283)/1.5708)%4];
+    c.fillText(`SHOP ${arr(toS)}`,0,-33); c.fillText(`LAKE ${arr(toL)}`,0,-19); }
+  c.restore();
+}
+// lookout tower (a climbable "blind" up high)
+function drawTower(bl, t, inside){
+  const c=ctx, H=118; c.save(); c.translate(bl.x,bl.y);
+  c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(SUN.dx*20,2,30,9,0,0,7); c.fill();
+  c.strokeStyle='#6a4a2a'; c.lineWidth=4; c.beginPath(); c.moveTo(-22,0); c.lineTo(-14,-H); c.moveTo(22,0); c.lineTo(14,-H); c.stroke();
+  c.lineWidth=2; for(let y=-14;y>-H;y-=22){ const w=22-(-y/H)*8; c.beginPath(); c.moveTo(-w,y); c.lineTo(w-2,y-22); c.moveTo(w,y); c.lineTo(-w+2,y-22); c.stroke(); }
+  c.strokeStyle='#8a6a42'; c.lineWidth=2; for(let y=-6;y>-H;y-=10){ c.beginPath(); c.moveTo(-4,y); c.lineTo(4,y); c.stroke(); } // ladder
+  c.fillStyle='#7a5430'; c.fillRect(-26,-H-4,52,8);
+  if(inside){ c.save(); c.translate(-bl.x,-bl.y-H); drawPlayer(t); c.restore(); }
+  c.strokeStyle='#5a3a1e'; c.lineWidth=2.5; c.strokeRect(-26,-H-20,52,16); c.beginPath(); c.moveTo(0,-H-20); c.lineTo(0,-H-4); c.stroke();
+  c.fillStyle='#5a3a1e'; c.beginPath(); c.moveTo(-32,-H-46); c.lineTo(0,-H-64); c.lineTo(32,-H-46); c.closePath(); c.fill();
+  c.strokeStyle='#6a4a2a'; c.lineWidth=2; c.beginPath(); c.moveTo(-24,-H-4); c.lineTo(-24,-H-48); c.moveTo(24,-H-4); c.lineTo(24,-H-48); c.stroke();
+  c.restore();
+}
+function drawPropLights(L,lights){ for(const p of GEO.props||[]){ if(p.kind==='camp' && Math.abs(p.x-P.x)<1500 && Math.abs(p.y-P.y)<1100) lights.push(L(p.x,p.y-10,190,.85)); if(p.kind==='lighthouse' && Math.abs(p.x-P.x)<2000) lights.push(L(p.x,p.y-170,120,.9)); } }
+
+MISSIONS.push(
+  {id:'p_cave',   n:'Explore 3 caves',            r:600, e:'🦇', p:()=>[S.st.caves||0,3]},
+  {id:'p_berry',  n:'Pick wild berries 10 times', r:150, e:'🫐', p:()=>[S.st.berries||0,10]},
+  {id:'p_shroom', n:'Find 10 wild mushrooms',     r:200, e:'🍄', p:()=>[S.st.shrooms||0,10]},
+);
+
+// ----- animals are painted once per walking frame (with an outline, soft light and fur texture), then reused -----
+const AS = SMALL_DEVICE ? 1.25 : 2, WALK_FR = SMALL_DEVICE ? 6 : 8; // smaller pictures and fewer frames on phones & tablets to save memory
+function animalSprite(key, w, h, paint){
+  let sp=spriteCache.get(key); if(sp) return sp;
+  const cv=document.createElement('canvas'); cv.width=Math.ceil(w*AS); cv.height=Math.ceil(h*AS); const c=cv.getContext('2d'); c.scale(AS,AS); c.translate(w/2,h-14);
+  const saved=ctx, sv=SUN; ctx=c; SUN={dx:0,len:0,a:0}; try{ paint(); } finally{ ctx=saved; SUN=sv; }
+  sp={cv:finishSprite(cv), w, h, ax:w/2, ay:h-14}; spriteCache.set(key, sp); return sp; }
+const walkFrame=(a,moving)=> moving ? Math.floor((((a.anim%6.283)+6.283)%6.283)/6.283*WALK_FR) : 8;
+function blitAnimal(a, sp, t, moving, shW, hpY){
+  const c=ctx; c.save(); c.translate(a.x,a.y);
+  c.fillStyle=`rgba(0,0,0,${SUN.a})`; c.beginPath(); c.ellipse(SUN.dx*shW*.4,0,shW*1.1*SUN.len,Math.max(3,shW*.24),0,0,7); c.fill();
+  hpBar(a,hpY);
+  if(a.trapped>0) c.rotate(Math.sin(t*30)*.06);
+  c.scale(a.face||1, moving?1:1+Math.sin(t*2.2+a.x*.01)*.012); // breathing when it stands still
+  c.drawImage(sp.cv,-sp.ax,-sp.ay,sp.w,sp.h); c.restore();
+}
+function drawGame(a, t){
+  const g=GAME[a.kind]; if(a.hide) return;
+  if(a.climb) return drawGameRaw(a,t);
+  const moving=Math.hypot(a.vx,a.vy)>8, strut=a.kind==='turkey' && !moving && Math.sin(t*.5+a.x)>.4, fr=strut?9:walkFrame(a,moving);
+  const w=Math.round(2*(g.w*1.6+34)), h=Math.round(g.h*1.9+46);
+  const sp=animalSprite(`game|${a.kind}|${a.bull?1:0}|${fr}`, w, h, ()=>drawGameRaw({kind:a.kind,x:0,y:0,vx:moving?20:0,vy:0,anim:fr<8?fr/WALK_FR*6.283+.4:0,hp:1,max:1,face:1,bull:a.bull}, fr===9?2:7));
+  blitAnimal(a, sp, t, moving, g.w, -(g.h+14));
+}
+function drawDeer(d){
+  const moving=!!(d.vx||d.vy), fr=walkFrame(d,moving);
+  const sp=animalSprite(`deer|${LK.id}|${d.buck?1:0}|${fr}`, 120, 112, ()=>drawDeerRaw({x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,buck:d.buck}));
+  blitAnimal(d, sp, performance.now()/1000, moving, 26, -74);
+}
+function drawBeast(a){
+  const s=BEAST[a.kind], moving=!!(a.vx||a.vy), fr=walkFrame(a,moving), w=Math.round(s.bw*4+90), h=Math.round(s.leg+s.bh*2+s.head*2+70);
+  const sp=animalSprite(`beast|${a.kind}|${a.chasing?1:0}|${fr}`, w, h, ()=>drawBeastRaw({kind:a.kind,x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,chasing:a.chasing}));
+  blitAnimal(a, sp, performance.now()/1000, moving, s.bw*.9, -(s.leg+s.bh*2+s.head+16));
+}
 
 // ---------- Update ----------
 function update(dt){
@@ -3542,7 +3764,7 @@ function update(dt){
     const sp=Math.hypot(d.vx,d.vy);
     if(sp<1){ d.stuckT=0; return; }
     const inTree=treeAt(d.x,d.y);
-    const free=(x,y)=>!(x<40||y<60||x>WW-40||y>WH-20||inLake(x,y,1.12)||(avoidBldg && nearBldg(x,y,200))||inBldg(x,y,20)||(!inTree && treeAt(x,y))||rockAt(x,y,6));
+    const free=(x,y)=>!(x<40||y<60||x>WW-40||y>WH-20||inLake(x,y,1.12)||(avoidBldg && nearBldg(x,y,200))||inBldg(x,y,20)||(!inTree && treeAt(x,y))||rockAt(x,y,6)||propAt(x,y,6));
     const a=Math.atan2(d.vy,d.vx), sg=d.turnPref||1; let moved=false;
     for(const off of [0, .45*sg, .9*sg, 1.4*sg, -.45*sg, -.9*sg, -1.4*sg, 2*sg, -2*sg, Math.PI]){
       const aa=a+off, nx=d.x+Math.cos(aa)*sp*dt, ny=d.y+Math.sin(aa)*sp*dt;
@@ -3961,7 +4183,7 @@ function drawDuck(d){
   c.restore();
 }
 function hpBar(a, y){ if(a.hp<a.max){ ctx.fillStyle='#000'; ctx.fillRect(-20,y,40,5); ctx.fillStyle='#e33'; ctx.fillRect(-20,y,40*a.hp/a.max,5); } }
-function drawDeer(d){
+function drawDeerRaw(d){
   const c=ctx; c.save(); c.translate(d.x,d.y);
   c.fillStyle=`rgba(0,0,0,${SUN.a})`; c.beginPath(); c.ellipse(SUN.dx*14,0,26*SUN.len,7,0,0,7); c.fill();
   hpBar(d,-74);
@@ -4002,7 +4224,7 @@ function drawDeer(d){
 }
 function hexA(hex, a){ let h=hex.slice(1); if(h.length===3) h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
 function shade(hex, f){ if(hex.length===4) hex='#'+hex.slice(1).split('').map(x=>x+x).join(''); const n=parseInt(hex.slice(1),16); const r=Math.min(255,(n>>16)*f|0), g=Math.min(255,((n>>8)&255)*f|0), b=Math.min(255,(n&255)*f|0); return `rgb(${r},${g},${b})`; }
-function drawBeast(a){
+function drawBeastRaw(a){
   const s=BEAST[a.kind], c=ctx; c.save(); c.translate(a.x,a.y);
   c.fillStyle=`rgba(0,0,0,${SUN.a+.02})`; c.beginPath(); c.ellipse(SUN.dx*s.bw*.5,0,(s.bw+4)*SUN.len,6,0,0,7); c.fill();
   hpBar(a, -(s.leg+s.bh*2+s.head+16));
@@ -4399,6 +4621,7 @@ function draw(t){
   if(S.boat>0) list.push([boat.y, ()=>{ drawBoatHull(); if(P.inBoat) drawPlayer(t); }]);
   if(!P.inBoat && !P.blind) list.push([P.y, ()=>drawPlayer(t)]);
   for(const bl of GEO.blinds) if(bl.x>cam.x-80 && bl.x<cam.x+vw+80 && bl.y>cam.y-40 && bl.y<cam.y+vh+120) list.push([bl.y, ()=>drawBlind(bl,t)]);
+  for(const p of GEO.props) if(p.x>cam.x-260 && p.x<cam.x+vw+260 && p.y>cam.y-40 && p.y<cam.y+vh+260) list.push([p.y, ()=>drawProp(p,t)]);
   for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(q.x>cam.x-60&&q.x<cam.x+vw+60&&q.y>cam.y-20&&q.y<cam.y+vh+80) list.push([q.y, ()=>drawScarecrow(f,t)]); }
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,f] of list) f();
@@ -4423,7 +4646,7 @@ function draw(t){
   const n = nightAmt(), wt = weather.type==='storm' ? .4 : weather.type==='rain' ? .22 : 0;
   const darkness = 1-(1-n)*(1-wt);
   const L = (x,y,r,s)=>[(x-ox)*Z, (y-oy)*Z, r*Z, s];
-  const lights = [L(P.x, P.y-30, S.gear.lantern?420:240, .9)];
+  const lights = [L(P.x, P.y-30, S.gear.lantern?420:240, .9)]; drawPropLights(L,lights);
   if(n>.05) for(const b of [SHOP,CABIN]){ lights.push(L(b.x-b.w/2+30, b.y, 70, .8)); lights.push(L(b.x+b.w/2-30, b.y, 70, .8)); }
   if(fishing.state!=='none' && fishing.state!=='charge') lights.push(L(fishing.bx, fishing.by, 60, .6));
   // natural colors: a little less cartoon-bright, a little more contrast, darker when wet
@@ -4471,13 +4694,14 @@ function draw(t){
   ctx.textAlign='center'; ctx.font=`800 ${15/Z}px ${FONT}`;
   const label = (txt,x,y)=>{ ctx.lineWidth=4/Z; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.strokeText(txt,x,y); ctx.fillStyle='#fff'; ctx.fillText(txt,x,y); };
   if(!started){}
-  else if(P.blind) label(touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden! Press E to get out of the ${blindName(P.blind)}`, P.x, P.y-(P.blind.kind==='stand'?140:84));
-  else if(nearBlind() && !P.inBoat){ const bl=nearBlind(); label(touchMode?`Tap 🏠 to ${bl.kind==='stand'?'climb the deer stand':'hide in the '+blindName(bl)}`:`Press E to ${bl.kind==='stand'?'climb the deer stand':'hide in the '+blindName(bl)}`, bl.x, bl.y-(bl.kind==='stand'?110:70)); }
+  else if(P.blind) label(touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`${P.blind.kind==='tower'?'Up high!':'Hidden!'} Press E to get out of the ${blindName(P.blind)}`, P.x, P.y-(P.blind.kind==='tower'?200:P.blind.kind==='stand'?140:84));
+  else if(nearBlind() && !P.inBoat){ const bl=nearBlind(); label(`${touchMode?'Tap 🏠':'Press E'} to ${bl.kind==='stand'||bl.kind==='tower'?'climb the '+blindName(bl):'hide in the '+blindName(bl)}`, bl.x, bl.y-(bl.kind==='tower'?190:bl.kind==='stand'?110:70)); }
+  else if(nearProp() && propLabel(nearProp()) && !P.inBoat){ const pr=nearProp(); label(`${touchMode?'Tap 🏠':'Press E'} to ${propLabel(pr)}`, pr.x, pr.y-(pr.kind==='camp'?60:44)); }
   else if(nearTreasure()>=0){ const tr=GEO.treasures[nearTreasure()]; label(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!', tr.x, tr.y-44); }
   else if(nearShop()) label(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop', SHOP.x, SHOP.y-SHOP.h/2-70);
   else if(nearCabin()) label(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin', CABIN.x, CABIN.y-CABIN.h/2-62);
   else if(nearBoat()) label(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat', boat.x, boat.y-40);
-  else if(tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y)) label(`${touchMode?'Tap Cast':'Press SPACE'} to ${iceHoleAt(P.x+P.fx*22,P.y+P.fy*16,34)||iceHoleAt(P.x,P.y,34)?'drop your line in the hole':S.gear.auger?'drill a hole':'drill (you need an Ice Auger)'}`, P.x, P.y-62);
+  else if(tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y)) label(`${touchMode?'Tap Cast':'Press SPACE'} to ${iceTip()}`, P.x, P.y-62);
   else if(tool==='rod' && fishing.state==='none' && waterNear(P.x,P.y,150) && !P.inBoat && !(iceOn() && !findWater(.5))) label(touchMode?'Hold Cast, let go to throw':'Hold SPACE, let go to cast', P.x, P.y-62);
   if(started) for(const n of npcs) if(n.near){ speechBubble(ctx, n.x, n.y-64, n.name, npcTip(n), 1/Z); break; }
   if(started && S.hp<MAX_HP && fishing.state!=='charge'){
@@ -4606,7 +4830,7 @@ function fpToggle(){
     FP.r = new THREE.WebGLRenderer({antialias:!FP.lite}); FP.r.domElement.id='gl';
     FP.r.shadowMap.enabled=true; FP.r.shadowMap.type=THREE.PCFSoftShadowMap;
     FP.r.outputEncoding=THREE.sRGBEncoding; FP.r.toneMapping=THREE.ACESFilmicToneMapping; FP.r.toneMappingExposure=1.1;
-    document.body.insertBefore(FP.r.domElement, cv);
+    document.body.insertBefore(FP.r.domElement, cv); if(!FP.lite) FP.r.domElement.style.filter='saturate(1.12) contrast(1.05)';
     FP.cam = new THREE.PerspectiveCamera(70, 1, .5, 14000);
   }
   FP.on = !FP.on;
@@ -4678,7 +4902,9 @@ function fpBuild(){
   const lava=LK.id==='volcano', frozen=iceOn();
   FP.waterN=nrm; nrm.repeat.set(1,1);
   const uvWorld=(geo,ox,oz)=>{ const uv=geo.attributes.uv, pp=geo.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,(pp.getX(i)+ox)/520,(pp.getZ(i)+oz)/520); };
-  const waterMat=new THREE.MeshPhongMaterial({color:lin(T.water[1]), emissive: lava?lin('#ff5a10'):new THREE.Color(0), emissiveIntensity: lava?.9:0,
+  if(!FP.cubeRT){ FP.cubeRT=new THREE.WebGLCubeRenderTarget(FP.lite?128:256,{generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter}); FP.cubeRT.texture.encoding=THREE.sRGBEncoding; }
+  FP.cubeCam=new THREE.CubeCamera(4,12000,FP.cubeRT); sc.add(FP.cubeCam); FP.cubeT=0;
+  const waterMat=new THREE.MeshPhongMaterial({envMap:FP.cubeRT.texture, reflectivity: lava?0:.3, combine:THREE.MixOperation, color:lin(T.water[1]), emissive: lava?lin('#ff5a10'):new THREE.Color(0), emissiveIntensity: lava?.9:0,
     normalMap:nrm, normalScale:new THREE.Vector2(.55,.55), transparent:true, opacity: lava?.92:.72, shininess:160, specular:lin('#ffffff'), side:THREE.DoubleSide});
   const iceTex=canvasTex(256,256,(g)=>g.drawImage(iceCv,0,0)); iceTex.repeat.set(1,1);
   const iceMat=new THREE.MeshPhongMaterial({map:iceTex, color:lin('#e8f4fc'), shininess:90, specular:lin('#ffffff'), side:THREE.DoubleSide});
@@ -4687,6 +4913,9 @@ function fpBuild(){
   const lakeShape=new THREE.Shape(); for(let i=0;i<=220;i++){ const q=shorePt(i/220*Math.PI*2); i?lakeShape.lineTo(q.x-LAKE.x,q.y-LAKE.y):lakeShape.moveTo(q.x-LAKE.x,q.y-LAKE.y); }
   for(const I of GEO.islands){ const h=new THREE.Path(); for(let i=0;i<=80;i++){ const a=i/80*Math.PI*2, f=blobF(I,a), x=I.x+Math.cos(a)*I.rx*f-LAKE.x, y=I.y+Math.sin(a)*I.ry*f-LAKE.y; i?h.lineTo(x,y):h.moveTo(x,y); } lakeShape.holes.push(h); }
   const lg=new THREE.ShapeGeometry(lakeShape,1); lg.rotateX(Math.PI/2); FP.water=addWater(lg,LAKE.x,LAKE.y, frozen?iceMat:waterMat);
+  { const pos=[], idx=[], N=360; for(let i=0;i<=N;i++){ const a=i/N*Math.PI*2, q0=shorePt(a,1,-16), q1=shorePt(a,1,4); pos.push(q0.x,0,q0.y, q1.x,0,q1.y); if(i){ const k=i*2; idx.push(k-2,k-1,k, k-1,k+1,k); } }
+    const fg=new THREE.BufferGeometry(); fg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); fg.setIndex(idx);
+    FP.foam=new THREE.Mesh(fg,new THREE.MeshBasicMaterial({color:lava?0xffd080:0xffffff, transparent:true, opacity:.35, depthWrite:false, side:THREE.DoubleSide})); FP.foam.position.y=2.1; sc.add(FP.foam); }
   for(const pd of GEO.ponds){ const ps=new THREE.Shape(); for(let i=0;i<=80;i++){ const a=i/80*Math.PI*2, f=blobF(pd,a), x=Math.cos(a)*pd.rx*f, y=Math.sin(a)*pd.ry*f; i?ps.lineTo(x,y):ps.moveTo(x,y); }
     const pg=new THREE.ShapeGeometry(ps,1); pg.rotateX(Math.PI/2); addWater(pg,pd.x,pd.y, frozen?iceMat:waterMat); }
   const riverMat = LK.riverCol ? new THREE.MeshPhongMaterial({color:lin(LK.riverCol[1]), emissive: lava?lin('#ff5a10'):new THREE.Color(0), emissiveIntensity: lava?.8:0, normalMap:nrm, normalScale:new THREE.Vector2(.4,.4), shininess:120, specular:lin('#ffffff'), side:THREE.DoubleSide}) : waterMat;
@@ -4766,11 +4995,11 @@ function fpBuild(){
   FP.grassU={value:0};
   bmat.onBeforeCompile=sh=>{ sh.uniforms.uTime=FP.grassU; sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
     '#include <begin_vertex>\n float sway = sin(uTime*2.0 + instanceMatrix[3].x*0.05 + instanceMatrix[3].z*0.03) * position.y * 2.2; transformed.x += sway; transformed.z += sway*0.4;'); };
-  const want = T.trees==='dead'?2500 : T.trees==='snowpine'||T.trees==='cactus'?5000 : FP.lite?11000:42000;
+  const want = T.trees==='dead'?2500 : T.trees==='snowpine'||T.trees==='cactus'?5000 : FP.lite?12000:60000;
   const grassM=new THREE.InstancedMesh(bgeo,bmat,want); let gi=0;
   for(let k=0;k<want*3 && gi<want;k++){ const x=40+Math.random()*(WW-80), z=60+Math.random()*(WH-100);
     if(!landFree(x,z,28)) continue;
-    const h=8+Math.random()*9; dmy.position.set(x,hillAt(x,z),z); dmy.rotation.set(0,Math.random()*6.28,0); dmy.scale.set(1,h,1); dmy.updateMatrix(); grassM.setMatrixAt(gi++,dmy.matrix); }
+    const h=8+Math.random()*11; dmy.position.set(x,hillAt(x,z),z); dmy.rotation.set(0,Math.random()*6.28,0); dmy.scale.set(.9+Math.random()*.5,h,.9+Math.random()*.5); dmy.updateMatrix(); grassM.setColorAt(gi, new THREE.Color(.82+Math.random()*.3,.85+Math.random()*.3,.8+Math.random()*.25)); grassM.setMatrixAt(gi++,dmy.matrix); }
   grassM.count=gi; grassM.receiveShadow=true; sc.add(grassM);
   fpFields(sc, dmy);
   fpWorldExtras(sc, dmy, T);
@@ -4887,11 +5116,11 @@ function fpFrame(t){
   FP.grassU.value=t; FP.waterN.offset.set((t*.012)%1,(t*.007)%1); if(!iceOn()) FP.water.position.y=1.5+Math.sin(t*1.3)*.3;
   // ice-fishing holes
   const myHoles=(S.holes||[]).filter(h=>h.lake===LK.id);
-  if(FP.holeCount!==myHoles.length){ FP.holeMeshes.forEach(m=>FP.scene.remove(m)); FP.holeMeshes=[];
-    for(const h of myHoles){ const m=new THREE.Mesh(new THREE.CircleGeometry(11,20), new THREE.MeshBasicMaterial({color:lin('#0d2f4f')})); m.rotation.x=-Math.PI/2; m.position.set(h.x,1.9,h.y); FP.scene.add(m); FP.holeMeshes.push(m); }
+  if(FP.holeCount!==myHoles.length || FP.holeV!==(S.holeV||0) || FP.holeIce!==iceOn()){ FP.holeV=S.holeV||0; FP.holeIce=iceOn(); FP.holeMeshes.forEach(m=>FP.scene.remove(m)); FP.holeMeshes=[];
+    if(iceOn()) for(const h of myHoles){ const m=new THREE.Mesh(new THREE.CircleGeometry(11,20), new THREE.MeshBasicMaterial({color:lin('#0d2f4f')})); m.rotation.x=-Math.PI/2; m.position.set(h.x,1.9,h.y); FP.scene.add(m); FP.holeMeshes.push(m); }
     FP.holeCount=myHoles.length; }
   // camera = your eyes
-  const gyP=hillAt(P.x,P.y), eye=(P.inBoat?30:P.blind?(P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
+  const gyP=hillAt(P.x,P.y), eye=(P.inBoat?30:P.blind?(P.blind.kind==='tower'?170:P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
   FP.cam.position.set(P.x+shake, eye+bob, P.y); FP.lamp.position.set(P.x, eye+20, P.y);
   FP.cam.lookAt(P.x+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, eye+bob+Math.sin(FP.pitch)*100, P.y+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
   FP.cam.updateMatrixWorld();
@@ -4907,7 +5136,9 @@ function fpFrame(t){
   for(const o of owls) fpEnt(o, 60,90,30,30, 55, ()=>drawOwl(o), 1);
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-P.x,tr.y-P.y)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
-  for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-P.x,bl.y-P.y)<1800) fpEnt(bl,90,110,45,100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y));
+  for(const bl of GEO.blinds) if(bl!==P.blind && Math.hypot(bl.x-P.x,bl.y-P.y)<2200){ const tw=bl.kind==='tower'; fpEnt(bl,tw?120:90,tw?220:110,tw?60:45,tw?210:100,0,()=>drawBlind(bl,t,true),lit(bl.x,bl.y)); }
+  for(const p of GEO.props) if(Math.hypot(p.x-P.x,p.y-P.y)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
+    fpEnt(p,w,h,p.kind==='barn'?w*.38:w/2,h-16,0,()=>drawProp(p,t),lit(p.x,p.y)); }
   for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(Math.hypot(q.x-P.x,q.y-P.y)<1800){ f._sc=f._sc||{}; f._sc.x=q.x; f._sc.y=q.y; fpEnt(f._sc,60,70,30,62,0,()=>drawScarecrow(f,t),lit(q.x,q.y)); } }
   for(const b of GEO.bottles) if(!myBottles().includes(b.k) && Math.hypot(b.x-P.x,b.y-P.y)<1400) fpEnt(b,50,30,25,15,1.5,()=>drawBottleOne(b,t),lit(b.x,b.y));
   if(fishing.state==='fight' && fishing.phase==='jump' && fishing.chest==null){ const F=fishing, f=FISH[F.fish], L=Math.min(90,26+f.s*22);
@@ -4949,6 +5180,10 @@ function fpFrame(t){
       pos.setXYZ(i, tip.x+(bx-tip.x)*kk, tip.y+(by-tip.y)*kk-sag, tip.z+(bz-tip.z)*kk); }
     pos.needsUpdate=true; FP.line.material.color.set(F.state==='fight'&&F.tension>.7 ? 0xff5040 : 0xffffff);
   }
+  // refresh the reflections in the water every few seconds (hide the water itself while doing it)
+  FP.cubeT-=1/60; if(FP.cubeCam && FP.cubeT<=0 && !iceOn()){ FP.cubeT=FP.lite?8:3; FP.cubeCam.position.set(P.x,6,P.y);
+    const hid=[...FP.waters, FP.vm, FP.bobber, FP.line].filter(Boolean), vis=hid.map(o=>o.visible); hid.forEach(o=>o.visible=false); FP.cubeCam.update(r, FP.scene); hid.forEach((o,i)=>o.visible=vis[i]); }
+  if(FP.foam){ FP.foam.material.opacity=.28+.14*Math.sin(t*1.7); FP.foam.visible=!iceOn(); }
   r.render(FP.scene, FP.cam);
   // 2D layer on top: bullets, splashes, text, then the usual screen effects
   ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,W,H);
@@ -4963,7 +5198,8 @@ function fpFrame(t){
     const g=ctx.createLinearGradient(bx,0,bx+bw,0); g.addColorStop(0,'#4caf50'); g.addColorStop(.6,'#ffeb3b'); g.addColorStop(1,'#ff5722'); ctx.fillStyle=g; ctx.fillRect(bx,by,bw*F.p,12);
     ctx.font=`800 14px ${FONT}`; ctx.fillStyle='#fff'; ctx.fillText(F.p>.85?'MAX POWER!':'Let go to cast', W/2, by-8); }
   ctx.font=`800 16px ${FONT}`; ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillStyle='#fff';
-  const lab = P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
+  const npL = nearProp(), propLab = npL && propLabel(npL) && !P.inBoat ? `${touchMode?'Tap 🏠':'Press E'} to ${propLabel(npL)}` : '';
+  const lab = propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
   for(const nn of npcs) if(nn.near){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); break; }
@@ -4994,7 +5230,7 @@ function updateHud(){
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
   if(P.room) s = `<span class="cash">$${S.money.toLocaleString()}</span><br>${P.room==='shop'?'🏪 '+LK.n+' Shop':'🏡 Your Cabin'} · 🎒 ${S.fish.length}/${bagCap()}`;
   if(s!==hudStr){ hud.innerHTML = s; hudStr = s; }
-  const lbl = P.room ? '👆 Use' : fishing.state==='drill' ? '🌀 Drilling...' : tool==='gun' ? '🔫 Shoot' : fishing.state==='none' ? '🎣 Hold to cast' : fishing.state==='charge' ? '🎣 Let go!' : fishing.state==='wait' ? '🎣 Reel in' : fishing.state==='bite' ? '🎣 HOOK IT!' : '🎣 Hold to reel';
+  const lbl = P.room ? '👆 Use' : fishing.state==='drill' ? '🌀 Drilling...' : (tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y) && !P.inBoat) ? (iceHoleAhead()?'🕳️ Drop line':'🌀 Drill hole') : tool==='gun' ? '🔫 Shoot' : fishing.state==='none' ? '🎣 Hold to cast' : fishing.state==='charge' ? '🎣 Let go!' : fishing.state==='wait' ? '🎣 Reel in' : fishing.state==='bite' ? '🎣 HOOK IT!' : '🎣 Hold to reel';
   if(actBtn.textContent!==lbl) actBtn.textContent = lbl;
   const fc=String(foodCount()); if(foodCount.last!==fc){ document.getElementById('foodCount').textContent=fc; foodCount.last=fc; }
   const tc=String(TRAPS.reduce((a,tp)=>a+(S.traps[tp.id]||0),0)); if(trapKey.last!==tc){ document.getElementById('trapCount').textContent=tc; trapKey.last=tc; }
