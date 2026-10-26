@@ -185,7 +185,7 @@ const cv = document.getElementById('c'); let ctx = cv.getContext('2d'); // ctx c
 // VW/VH = screen size in CSS pixels, DPR = sharpness on Retina screens, Z = zoom (zooms out on phones so you see more)
 let VW, VH, DPR = 1, Z = 1;
 function resize(){
-  VW = innerWidth; VH = innerHeight; DPR = Math.min(window.dprCap||2, window.devicePixelRatio||1);
+  VW = innerWidth; VH = innerHeight; DPR = Math.min(window.dprCap||(matchMedia('(pointer:coarse)').matches?1.5:2), window.devicePixelRatio||1);
   cv.width = Math.round(VW*DPR); cv.height = Math.round(VH*DPR);
   cv.style.width = VW+'px'; cv.style.height = VH+'px';
   Z = Math.max(.62, Math.min(1, Math.min(VW,VH)/620)); if(window.binosOn||window.towerZoom) Z*=.55; if(window.droneZoom) Z*=.62; if(window.scopeZoom) Z*=1.35;
@@ -959,6 +959,8 @@ function buildWorld(){
     b.fillStyle=T.flowers[Math.floor(srnd()*T.flowers.length)]; b.beginPath(); b.arc(x,y,3,0,7); b.fill(); }
   for(const f of GEO.fields) drawFieldBg(b,f);
   for(const cr of GEO.craters||[]) drawCraterBg(b,cr,T);
+  if(LK.id!=='volcano'){ b.save(); lakePath(b,1,0); for(const I of GEO.islands) blobPath(b,I,4); b.clip('evenodd'); b.translate(LAKE.x,LAKE.y); b.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, wg=b.createRadialGradient(0,0,R*.05,0,0,R);
+    wg.addColorStop(0,'rgba(0,12,40,.40)'); wg.addColorStop(.55,'rgba(0,25,60,.18)'); wg.addColorStop(.8,'rgba(40,170,200,.10)'); wg.addColorStop(.93,'rgba(120,235,235,.38)'); wg.addColorStop(1,'rgba(190,255,245,.55)'); b.fillStyle=wg; b.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); b.restore(); }
   for(const rk of GEO.rocks) drawRockBg(b,rk,T);
   b.fillStyle=T.path; b.fillRect(SHOP.x-24, SHOP.y+40, 48, shopPathEnd()-SHOP.y-40);
   b.fillRect(CABIN.x-20, CABIN.y+40, 40, cabinPathEnd()-CABIN.y-40);
@@ -4606,7 +4608,7 @@ function perfTick(dt){
   perfS.wait-=dt; if(perfS.wait>0) return;
   perfS.t+=dt; perfS.n++; if(perfS.t<4) return;
   const fps=perfS.n/perfS.t; perfS.t=0; perfS.n=0;
-  if(fps<36){ perfS.lvl++; perfS.wait=3; window.dprCap=perfS.lvl===1?1.5:1; FP.lite=true; if(perfS.lvl>=2) FP.cubeT=1e9; resize(); }
+  if(fps<48){ perfS.lvl++; perfS.wait=3; window.dprCap=perfS.lvl===1?1.5:1; FP.lite=true; if(perfS.lvl>=2) FP.cubeT=1e9; resize(); }
 }
 
 // ===================== Fish Frenzy, catch streaks & jumping fish =====================
@@ -4976,7 +4978,7 @@ function drawJungleTop(t){ if(LK.id!=='jungle') return; for(const m of monkeys) 
 // ===================== First person: real 3D animals and people (instead of flat cut-outs) =====================
 const G3={}; function g3(k,mk){ return G3[k]||(G3[k]=mk()); }
 function fpMat(col){ FP.mats=FP.mats||new Map(); let m=FP.mats.get(col); if(!m){ m=new THREE.MeshLambertMaterial({color:new THREE.Color(col).convertSRGBToLinear(), flatShading:true}); FP.mats.set(col,m); } return m; }
-function part(geo,col,x,y,z,sx=1,sy=1,sz=1){ const m=new THREE.Mesh(geo,fpMat(col)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow=true; return m; }
+function part(geo,col,x,y,z,sx=1,sy=1,sz=1){ const m=new THREE.Mesh(geo,fpMat(col)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow=!FP.lite; return m; }
 const SPH=()=>g3('sph',()=>new THREE.SphereGeometry(1,12,9)), CYL=()=>g3('cyl',()=>new THREE.CylinderGeometry(1,1,1,8)), CONE=()=>g3('cone',()=>new THREE.ConeGeometry(1,1,7)), BOX=()=>g3('box',()=>new THREE.BoxGeometry(1,1,1));
 // four-legged animal, facing +x. spec: L body length, H leg height, B body height, neck, headL, neckA (lean), col, dk, antlers, horns, hump
 function buildQuad(q){ const g=new THREE.Group(), {L,H,B,col,dk}=q;
@@ -5064,7 +5066,7 @@ function buildPet(id){ if(id==='bunny') return buildRabbit('#f2eee6',true,.9); i
   if(id==='dragon'){ const g=buildBird('#4ac85a','#3aa84a','#f4f0e0',1.2); g.add(part(CONE(),'#4ac85a',-12,0,0,2,9,2)); g.children[g.children.length-1].rotation.z=1.57; return g; }
   const col=PET_COL[id]||'#8a8a8a', cat=id==='cat'||id==='fox'; return buildQuad({L:20,H:8,B:9,neck:4,headL:8,neckA:.5,col,dk:shade(col,.7),tailCol:id==='fox'?'#ffffff':col,belly:id==='fox'?'#f4f0e8':col}); }
 function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.modelScene=FP.scene; } const M=FP.models, VX=drone?drone.x:P.x, VY=drone?drone.y:P.y, used=new Set();
-  const place=(o,key,mk,elev,face,moving,anim)=>{ if(Math.hypot(o.x-VX,o.y-VY)>2400) return; let m=M.get(o); if(!m){ m=mk(); if(!m) return; FP.scene.add(m); M.set(o,m); } used.add(o);
+  const place=(o,key,mk,elev,face,moving,anim)=>{ if(Math.hypot(o.x-VX,o.y-VY)>(FP.lite?1500:2400)) return; let m=M.get(o); if(!m){ m=mk(); if(!m) return; FP.scene.add(m); M.set(o,m); } used.add(o);
     const bob=moving?Math.abs(Math.sin(anim))*1.6:0; m.position.set(o.x, hillAt(o.x,o.y)+elev+bob, o.y); m.rotation.y=-face; const U=m.userData;
     if(U.legs) U.legs.forEach((lg,i)=>{ lg.rotation.z = moving ? Math.sin(anim+(lg.userData.ph!=null?lg.userData.ph:i*Math.PI))*.55 : 0; });
     if(U.arms) U.arms.forEach((ar,i)=>{ ar.rotation.z = moving ? Math.sin(anim+i*Math.PI)*.5 : 0; });
@@ -6227,18 +6229,18 @@ function draw(t){
 // rain, rainbow, flash, vignette, fight meter and catch popup (used by both views)
 function drawWaterLooks(t, vw, vh){ if(LK.id==='volcano') return; const c=ctx, day=1-nightAmt();
   c.save(); lakePath(c,1,0); for(const I of GEO.islands) blobPath(c,I,4); c.clip('evenodd');
-  c.save(); c.translate(LAKE.x,LAKE.y); c.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, g=c.createRadialGradient(0,0,R*.05,0,0,R);
+  // (the deep-water / shallows colors are painted once into the ground picture)
   g.addColorStop(0,'rgba(0,12,40,.40)'); g.addColorStop(.55,'rgba(0,25,60,.18)'); g.addColorStop(.8,'rgba(40,170,200,.10)'); g.addColorStop(.93,'rgba(120,235,235,.38)'); g.addColorStop(1,'rgba(190,255,245,.55)'); c.fillStyle=g; c.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); c.restore();
   if(day>.35){ const G=80, x0=Math.floor(cam.x/G), y0=Math.floor(cam.y/G), x1=Math.ceil((cam.x+vw)/G), y1=Math.ceil((cam.y+vh)/G); c.fillStyle='#ffffff';
     for(let gx=x0;gx<=x1;gx++) for(let gy=y0;gy<=y1;gy++){ const h=((gx*73856093)^(gy*19349663))>>>0; if(h%2) continue; const tw=Math.sin(t*2.2+(h%628)/100); if(tw<.55) continue;
       const x=gx*G+(h%G), y=gy*G+((h>>>8)%G), s2=1+((h>>>4)%3)*.5; c.globalAlpha=(tw-.55)*2.2*day; c.fillRect(x-4*s2,y-.6,8*s2,1.3); c.fillRect(x-.6,y-2.4*s2,1.3,4.8*s2); } c.globalAlpha=1; }
   c.restore();
   c.save(); c.lineCap='round'; c.strokeStyle=`rgba(255,255,255,${.28+.1*Math.sin(t*1.3)})`; c.lineWidth=3; c.setLineDash([18,26]); c.lineDashOffset=-t*10; lakePath(c,.99,-6); c.stroke();
-  c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=2; c.setLineDash([10,34]); c.lineDashOffset=t*7; lakePath(c,.975,-14); c.stroke(); c.restore(); }
+  if(!touchMode && !perfS.lvl){ c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=2; c.setLineDash([10,34]); c.lineDashOffset=t*7; lakePath(c,.975,-14); c.stroke(); } c.restore(); }
 // warm morning & golden evening light over the top-down view (cartoon-style color, nothing too dark)
-function drawGrade(){ if(FP.on || P.room || LK.dark || LK.space) return; const h=hour(); let col=null, a=0;
+function drawGrade(){ if(FP.on || P.room || LK.dark || LK.space || touchMode || perfS.lvl) return; const h=hour(); let col=null, a=0;
   if(h>=5.5 && h<9){ col='255,190,110'; a=.13*(1-(h-5.5)/3.5); } else if(h>=16 && h<19.5){ col='255,140,70'; a=.15*((h-16)/3.5); } else if(h>=9 && h<16){ col='255,250,220'; a=.035; }
-  if(!col) return; ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); const g=ctx.createLinearGradient(0,0,VW*.6,VH); g.addColorStop(0,`rgba(${col},${a*1.6})`); g.addColorStop(1,`rgba(${col},${a*.3})`); ctx.globalCompositeOperation='soft-light'; ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH); ctx.globalCompositeOperation='source-over'; ctx.fillStyle=g; ctx.globalAlpha=.35; ctx.fillRect(0,0,VW,VH); ctx.restore(); }
+  if(!col) return; ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); const g=ctx.createLinearGradient(0,0,VW*.6,VH); g.addColorStop(0,`rgba(${col},${a*1.6})`); g.addColorStop(1,`rgba(${col},${a*.3})`); ctx.fillStyle=g; ctx.globalAlpha=.55; ctx.fillRect(0,0,VW,VH); ctx.restore(); }
 function drawScreenFx(t, n){
   drawGrade(); drawAmbient(t); drawSunRays(t);
   // rain / snow / ash / sprinkles
@@ -6351,7 +6353,7 @@ function fpToggle(){
   if(!FP.r){
     FP.lite = touchMode || perfS.lvl>0; // phones (and slow computers) get a lighter version
     FP.r = new THREE.WebGLRenderer({antialias:!FP.lite}); FP.r.domElement.id='gl';
-    FP.r.shadowMap.enabled=true; FP.r.shadowMap.type=THREE.PCFSoftShadowMap;
+    FP.r.shadowMap.enabled=true; FP.r.shadowMap.type=FP.lite?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
     FP.r.outputEncoding=THREE.sRGBEncoding; FP.r.toneMapping=THREE.ACESFilmicToneMapping; FP.r.toneMappingExposure=1.1;
     document.body.insertBefore(FP.r.domElement, cv); if(!FP.lite) FP.r.domElement.style.filter='saturate(1.12) contrast(1.05)';
     FP.cam = new THREE.PerspectiveCamera(70, 1, .5, 14000);

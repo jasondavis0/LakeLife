@@ -1,7 +1,7 @@
 // Lake Life offline helper (a "service worker").
 // The first time you open the game with internet, this saves a copy on the device.
 // With internet, the game always loads the NEWEST version; with no Wi-Fi it opens the saved copy.
-const CACHE = 'lake-life-v32'; // change this number whenever the icon or files change, so devices grab fresh copies
+const CACHE = 'lake-life-v33'; // change this number whenever the icon or files change, so devices grab fresh copies
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
