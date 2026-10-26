@@ -745,6 +745,9 @@ const MISSIONS = [
   {id:'race1',  n:'Win a Flag Race',             r:500,   e:'🏁', p:()=>[S.st.races||0,1]},
   {id:'race10', n:'Win 10 Flag Races',           r:3000,  e:'🏎️', p:()=>[S.st.races||0,10]},
   {id:'owl',   n:'Hunt an owl at night',      r:150,   e:'🦉', p:()=>[S.st.owls,1]},
+  {id:'balloon20',n:'Pop 20 party balloons',     r:400,   e:'🎈', p:()=>[S.st.balloons||0,20]},
+  {id:'ufo1',   n:'Zap a UFO',                  r:800,   e:'👽', p:()=>[S.st.ufos||0,1]},
+  {id:'ufopic', n:'Photograph a UFO',           r:500,   e:'🛸', p:()=>[S.st.ufoPics||0,1]},
   {id:'bird1',  n:'Shoot a flying bird',        r:100,   e:'🐦', p:()=>[S.st.birds||0,1]},
   {id:'bird25', n:'Shoot 25 flying birds',      r:1500,  e:'🦅', p:()=>[S.st.birds||0,25]},
   {id:'goldbird',n:'Shoot a Golden Bird',       r:2500,  e:'✨', p:()=>[S.st.goldBirds||0,1]},
@@ -1827,6 +1830,8 @@ function targets(){
   for(const d of deer) out.push({o:d, kind:'deer', cx:d.x, cy:d.y-22, r:26});
   for(const b of beasts){ const s=BEAST[b.kind]; out.push({o:b, kind:'beast', cx:b.x, cy:b.y-s.leg-s.bh, r:s.bw*.9}); }
   for(const o of owls) out.push({o, kind:'owl', cx:o.x, cy:o.y, r:16});
+  for(const bl of balloons) if(!bl.dead && bl.h>0) out.push({o:bl, kind:'balloon', cx:bl.x, cy:FP.on?bl.y:bl.y-bl.h, r:15});
+  if(ufo && ufo.hp>0 && ufo.ph!=='out') out.push({o:ufo, kind:'ufo', cx:ufo.x, cy:FP.on?ufo.y:ufo.y-150, r:42});
   for(const b of birds) if(b.vis && !b.dead && b.k) out.push({o:b, kind:'bird', cx:b.x, cy:b.y, r:b.k.big?18:14});
   gameTargets(out);
   return out.filter(t=>!t.o.dead);
@@ -1840,7 +1845,7 @@ function shoot(auto){
   let a;
   if(auto){
     let best=null, bd=S.gun===0?GUNS[0].range:gunRange();
-    for(const t of targets()){ const d=Math.hypot(t.cx-P.x, t.cy-(P.y-24))*(t.kind==='bird'?1.4:1); if(d<bd){ bd=d; best=t; } }
+    for(const t of targets()){ const d=Math.hypot(t.cx-P.x, t.cy-(P.y-24))*(t.kind==='bird'||t.kind==='balloon'?1.4:t.kind==='ufo'?1.2:1); if(d<bd){ bd=d; best=t; } }
     a = best ? Math.atan2(best.cy-(P.y-24), best.cx-P.x) : Math.atan2(P.fy,P.fx);
   } else a = Math.atan2(mouse.y/Z+cam.y-(P.y-24), mouse.x/Z+cam.x-P.x);
   if(FP.on){ a=FP.yaw; let bd=scopeOn?.05:.16;
@@ -1861,6 +1866,7 @@ function shoot(auto){
 }
 function hit(t, b){
   const a=t.o; b.life=0; b.hit=true;
+  if(t.kind==='balloon'){ popBalloon(a); return; } if(t.kind==='ufo'){ hitUFO(); return; }
   a.hp -= b.dmg;
   if(t.kind==='deer' || t.kind==='beast' || t.kind==='game') burst(t.cx, t.cy, '#c0392b', 6, 80);
   if(t.kind==='deer') a.scared=3;
@@ -2107,6 +2113,7 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-wheel')){ panel='wheel'; renderPanel(); box.scrollTop=0; return; }
   if(b.hasAttribute('data-derby')){ closePanel(); startDerby(); return; }
   if(b.hasAttribute('data-race')){ closePanel(); startRace(); return; }
+  if(b.hasAttribute('data-balloons')){ closePanel(); if(!balloons.length && !isNight()) startBalloons(); return; }
   if(b.hasAttribute('data-modecycle')){ if(S.fish.length){ toast('🎒 Sell the fish in your bag first, then you can change the mode'); return; } const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
   if(b.hasAttribute('data-singvoice')){ const L=voiceList(); if(L.length){ const cur=pickSingVoice(), nx=L[(L.indexOf(cur)+1)%L.length]; S.singVoice=nx.name; save(); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance('Down by the lake where the tall pines grow'); u.voice=nx; u.lang=nx.lang; u.rate=.9; u.pitch=.85; u.volume=.6; speechSynthesis.speak(u); }catch(e){} renderPanel(); } return; }
   if(b.hasAttribute('data-singwords')){ S.singWords = S.singWords!==true; save(); renderPanel(); return; }
@@ -4779,6 +4786,7 @@ function eventsHTML(){ return `<h2>🎪 Events</h2><div class="list">
   <div class="mission"><div class="e">⭐</div><div><b>Secret Spots</b><small>${secretsGot().length}/3 found in ${LK.n} · ${secretsTotal()} found in all worlds. Explore far away from the trails!</small></div><span class="tag">${secretsGot().length}/3</span></div>
   ${albumHTML()}
   <div class="mission"><div class="e">🦆</div><div><b>Golden Rubber Ducks</b><small>${ducksGot().length}/6 found in ${LK.n} · ${ducksTotal()} found in all worlds. They're hidden all over!</small></div><span class="tag">${ducksGot().length}/6</span></div>
+  <div class="mission"><div class="e">🎈</div><div><b>Balloon Party</b><small>Balloons float up around you. Pop them for prizes! Popped: ${S.st.balloons||0}${S.st.ufos?` · UFOs zapped: ${S.st.ufos}`:''}</small></div>${balloons.length?'<span class="tag">Now!</span>':isNight()?'<span class="tag">Daytime</span>':'<button data-balloons>Start</button>'}</div>
   <div class="mission"><div class="e">🏁</div><div><b>Flag Race</b><small>Run or drive through 6 flags before time runs out. Races won: ${S.st.races||0}</small></div>${race?'<span class="tag">Racing!</span>':'<button data-race>Start</button>'}</div></div>`; }
 
 // ===================== Golden rubber ducks (6 hidden in every world) & pirate dig maps =====================
@@ -4839,6 +4847,7 @@ function photoSubjects(){ const L=[];
   if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree) L.push({x:m.x,y:m.y,key:'monkey',n:'Monkey',e:'🐒'}); if(!FP.on) for(const b of toucans) L.push({x:b.x,y:b.y-90,key:'toucan',n:'Toucan',e:'🦜'}); }
   if(bigfoot) L.push({x:bigfoot.x,y:bigfoot.y,key:'bigfoot',n:'BIGFOOT',e:'👣',bigfoot:1});
   for(const j of jumpers) if(FISH[j.i]) L.push({x:j.x,y:j.y,key:'fish:'+j.i,n:'Jumping '+FISH[j.i].n,e:'🐟',bonus:1});
+  if(ufo && ufo.ph!=='out') L.push({x:ufo.x,y:ufo.y,key:'ufo',n:'UFO',e:'🛸',bonus:1,ufo:1});
   return L; }
 function inShot(x,y){ if(FP.on){ const q=fpProj(x,30,y); if(!q || q[0]<0||q[0]>VW||q[1]<0||q[1]>VH) return false; const cx=FP.cam.position.x, cz=FP.cam.position.z; return Math.hypot(x-cx,y-cz)<1100; }
   const sx=(x-cam.x)*Z, sy=(y-cam.y)*Z; return sx>-10 && sx<VW+10 && sy>-10 && sy<VH+10; }
@@ -4850,6 +4859,7 @@ function takePhoto(){
   const fresh=[]; for(const p of shots){ if(!S.album[p.key]){ fresh.push(p); S.album[p.key]={n:p.n,e:p.e,c:0}; } S.album[p.key].c++; }
   const uniq=[...new Set(fresh.map(p=>p.key))].map(k=>fresh.find(p=>p.key===k));
   if(bigfoot && !bigfoot.snapped && shots.some(p=>p.bigfoot)){ bigfoot.snapped=true; S.st.bigfoot=(S.st.bigfoot||0)+1; const bf=S.st.bigfoot===1?5000:500; S.money+=bf; S.st.earned+=bf; addXP(300); shake(8,.5); setTimeout(()=>banner('👣','YOU PHOTOGRAPHED BIGFOOT!!!',`Nobody will believe it! +$${bf.toLocaleString()}`,'#c8a070'),300); }
+  if(ufo && !ufo.snapped && shots.some(p=>p.ufo)){ ufo.snapped=true; S.st.ufoPics=(S.st.ufoPics||0)+1; const up=S.st.ufoPics===1?1500:300; S.money+=up; S.st.earned+=up; addXP(150); setTimeout(()=>banner('🛸','YOU PHOTOGRAPHED A UFO!',`Proof that aliens are real! +$${up.toLocaleString()}`,'#9aff9a'),300); }
   if(uniq.length){ const cash=uniq.reduce((a,p)=>a+(p.bigfoot?0:p.bonus?120:60),0); S.money+=cash; S.st.earned+=cash; addXP(25*uniq.length); banner('📷','NEW PHOTO!',`${uniq.map(p=>p.e+' '+p.n).slice(0,3).join(', ')}${uniq.length>3?' + more':''} · +$${cash}`,'#9fe3ff');
     const n=Object.keys(S.album).length; if(n%10===0){ const b=n*50; S.money+=b; S.st.earned+=b; setTimeout(()=>banner('📚',`${n} PHOTOS!`,`Your album is growing! +$${b}`,'#9fe3ff'),400); } }
   else toast(`📸 Nice shot of ${shots.length>1?shots.length+' animals':'a '+shots[0].n.toLowerCase()}! (already in your album)`);
@@ -4866,6 +4876,66 @@ function updateStars(dt){ if(shootStar){ shootStar.t+=dt; if(shootStar.t>1.4) sh
 function drawShootStar(){ const s2=shootStar; if(!s2) return; const k=Math.min(1,s2.t/1.1), x=(s2.x+s2.dx*k)*VW, y=(s2.y+s2.dx*.4*k)*VH;
   ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.globalAlpha=1-Math.max(0,(s2.t-1.1)/.3); const g=ctx.createLinearGradient(x-120,y-48,x,y); g.addColorStop(0,'rgba(255,255,255,0)'); g.addColorStop(1,'rgba(255,255,240,.95)');
   ctx.strokeStyle=g; ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(x-120,y-48); ctx.lineTo(x,y); ctx.stroke(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,3,0,7); ctx.fill(); ctx.restore(); }
+// 🎈 BALLOON PARTY: balloons float up around you. Shoot them, or run into the low ones!
+var balloons=[], balloonT=150+Math.random()*90;
+const BALLOON_COLS=['#ff4a5a','#3a9aff','#ffd23f','#4ad06a','#c86aff','#ff8a2a','#ff6ac8'];
+function startBalloons(){ balloons=[]; const gold=Math.random()<.35;
+  for(let i=0;i<14;i++){ const a=Math.random()*6.283, d=90+Math.random()*300; balloons.push({x:P.x+Math.cos(a)*d, y:P.y+Math.sin(a)*d*.75, h:-i*14, v:16+Math.random()*12, ph:Math.random()*6, col:BALLOON_COLS[i%BALLOON_COLS.length], kind:gold&&i===7?'gold':Math.random()<.18?'fw':'cash'}); }
+  banner('🎈','BALLOON PARTY!',`Pop the balloons! ${S.gun>=0?'Shoot them':'Run into the low ones'} for prizes`,'#ff8ac8'); [659,784,988].forEach((f,i)=>tone(f,.12,'triangle',.08,i*.1)); }
+function popBalloon(bl){ if(bl.dead) return; bl.dead=true; S.st.balloons=(S.st.balloons||0)+1; const x=bl.x, y=FP.on?bl.y:bl.y-bl.h;
+  burst(x,y,bl.kind==='gold'?'#ffd23f':bl.col,14,150); for(const c2 of ['#fff','#ffd23f','#5ad0ff']) burst(x,y,c2,4,110); noise(.05,.22,3000); tone(1200,.05,'square',.05);
+  let msg; if(bl.kind==='gold'){ const m=Math.round(250*MODE().pay); S.money+=m; S.st.earned+=m; msg=`+$${m}`; banner('🌟','GOLDEN BALLOON!',`Lucky pop! +$${m}`); SFX.trophy(); }
+  else if(bl.kind==='fw'){ S.items.fireworks=(S.items.fireworks||0)+1; msg='+1 🎆'; }
+  else { const m=Math.round((15+Math.floor(Math.random()*6)*5)*MODE().pay); S.money+=m; S.st.earned+=m; msg=`+$${m}`; SFX.cash(); }
+  float(x, y-10, `🎈 ${msg}`, bl.kind==='gold'?'#ffd54a':'#ffb0e0'); addXP(3); save(); }
+function updateBalloons(dt){
+  if(!balloons.length){ if(P.room || !started || isNight() || LK.cave) return; balloonT-=dt; if(balloonT<=0){ balloonT=300+Math.random()*150; startBalloons(); } return; }
+  for(const bl of balloons){ if(bl.dead) continue; bl.h+=bl.v*dt; bl.x+=Math.sin(performance.now()/900+bl.ph)*8*dt;
+    if(bl.h>0 && bl.h<46 && !P.inBoat && Math.hypot(bl.x-P.x,bl.y-P.y)<30) popBalloon(bl); }
+  balloons=balloons.filter(bl=>!bl.dead && bl.h<480);
+  if(!balloons.length) toast('🎈 The balloons floated away! Another party will come later'); }
+function drawBalloons(t){ if(!balloons.length) return; const c=ctx;
+  for(const bl of balloons){ if(bl.h<0) continue; const x=bl.x, y=bl.y-bl.h, gd=bl.kind==='gold', col=gd?'#ffd23f':bl.col;
+    c.fillStyle=`rgba(0,0,0,${Math.max(.04,.18-bl.h/2500)})`; c.beginPath(); c.ellipse(bl.x+bl.h*.08,bl.y,9,3.5,0,0,7); c.fill();
+    c.strokeStyle='rgba(255,255,255,.85)'; c.lineWidth=1.2; c.beginPath(); c.moveTo(x,y+14); c.quadraticCurveTo(x+Math.sin(t*3+bl.ph)*6,y+26,x,y+40); c.stroke();
+    c.fillStyle=col; c.beginPath(); c.ellipse(x,y,11,13.5,0,0,7); c.fill(); c.strokeStyle=shade(col,.55); c.lineWidth=1.4; c.stroke();
+    c.beginPath(); c.moveTo(x-3,y+15.5); c.lineTo(x+3,y+15.5); c.lineTo(x,y+12); c.closePath(); c.fillStyle=shade(col,.75); c.fill();
+    c.fillStyle='rgba(255,255,255,.6)'; c.beginPath(); c.ellipse(x-4,y-5,3,5,-.4,0,7); c.fill();
+    if(gd && Math.sin(t*7+bl.ph)>.2){ c.fillStyle='#fff'; c.fillRect(x+7,y-14,2,6); c.fillRect(x+5,y-12,6,2); } } }
+
+// 🛸 UFO: on some nights a silly UFO hovers by and beams up a cow. Snap a photo or zap it 6 times!
+var ufo=null, ufoT=120+Math.random()*120;
+function updateUFO(dt){
+  if(!ufo){ if(P.room || !started || !isNight() || LK.cave) return; ufoT-=dt; if(ufoT>0) return; ufoT=260+Math.random()*180;
+    const a=Math.random()*6.283, d=230+Math.random()*120, tx=P.x+Math.cos(a)*d, ty=P.y+Math.sin(a)*d*.7;
+    ufo={x:tx-1500, y:ty-500, tx, ty, sx:tx-1500, sy:ty-500, t:0, ph:'in', hp:6, cow:0}; banner('🛸','UFO SIGHTING!','Take a photo of it, or zap it 6 times for space treasure!','#9aff9a'); tone(300,.6,'sine',.06,0,900); return; }
+  const u=ufo; u.t+=dt; if(Math.random()<dt*.8) tone(500+Math.random()*400,.25,'sine',.025,0,200+Math.random()*900);
+  if(u.ph==='in'){ const k=Math.min(1,u.t/3), e=1-Math.pow(1-k,3); u.x=u.sx+(u.tx-u.sx)*e; u.y=u.sy+(u.ty-u.sy)*e; if(k>=1){ u.ph='hover'; u.t=0; } }
+  else if(u.ph==='hover'){ u.x=u.tx+Math.sin(u.t*.9)*30; u.y=u.ty+Math.cos(u.t*.7)*12; u.cow=(u.cow+dt/6)%1; if(u.t>30 || !isNight()){ u.ph='out'; u.t=0; u.sx=u.x; u.sy=u.y; } }
+  else { u.x=u.sx+u.t*u.t*500; u.y=u.sy-u.t*u.t*180; if(u.t>2.6) ufo=null; } }
+function hitUFO(){ const u=ufo; if(!u || u.hp<=0 || u.ph==='out') return; u.hp--; shake(3,.15); tone(900-u.hp*90,.08,'square',.06); burst(u.x, FP.on?u.y:u.y-150, '#9aff9a', 8, 120);
+  if(u.hp>0){ float(u.x, (FP.on?u.y:u.y-150)-30, `ZAP! ${u.hp} more`, '#9aff9a'); return; }
+  const m=Math.round(400*MODE().pay); S.money+=m; S.st.earned+=m; S.st.ufos=(S.st.ufos||0)+1; addXP(120);
+  for(const c2 of ['#9aff9a','#ff6ac8','#5ad0ff','#ffd23f']) burst(u.x, FP.on?u.y:u.y-150, c2, 14, 220);
+  banner('👽','UFO ZAPPED!',`The aliens dropped space treasure and zoomed away! +$${m}`,'#9aff9a'); SFX.trophy(); u.ph='out'; u.t=0; u.sx=u.x; u.sy=u.y; save(); }
+function drawUFO(t){ const u=ufo; if(!u) return; const c=ctx, alt=150+Math.sin(t*2)*6, x=u.x, y=u.y-alt;
+  c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(u.x,u.y,34,11,0,0,7); c.fill();
+  if(u.ph==='hover'){ const g=c.createLinearGradient(0,y,0,u.y); g.addColorStop(0,'rgba(140,255,150,.55)'); g.addColorStop(1,'rgba(140,255,150,.12)'); c.fillStyle=g;
+    c.beginPath(); c.moveTo(x-14,y+8); c.lineTo(x+14,y+8); c.lineTo(u.x+44,u.y); c.lineTo(u.x-44,u.y); c.closePath(); c.fill();
+    const cy=u.y-(u.y-y-10)*u.cow; c.save(); c.translate(x,cy); c.rotate(Math.sin(t*3)*.4); c.font=`${30-u.cow*10}px ${FONT}`; c.textAlign='center'; c.textBaseline='middle'; c.fillText('🐄',0,0); c.restore(); }
+  c.save(); c.translate(x,y); c.scale(1.4,1.4); c.translate(-x,-y); // a bigger, sillier saucer
+  c.fillStyle='rgba(150,240,255,.85)'; c.beginPath(); c.ellipse(x,y-6,16,13,0,Math.PI,0); c.fill();
+  c.fillStyle='#6ad04a'; c.beginPath(); c.arc(x,y-8,6,0,7); c.fill(); c.fillStyle='#111'; c.beginPath(); c.ellipse(x-2.4,y-9,1.6,2.4,-.3,0,7); c.ellipse(x+2.4,y-9,1.6,2.4,.3,0,7); c.fill();
+  const g2=c.createLinearGradient(0,y-8,0,y+10); g2.addColorStop(0,'#eef2f8'); g2.addColorStop(1,'#7a8698'); c.fillStyle=g2; c.beginPath(); c.ellipse(x,y+2,40,11,0,0,7); c.fill(); c.strokeStyle='rgba(30,40,60,.7)'; c.lineWidth=1.5; c.stroke();
+  for(let i=0;i<7;i++){ const a=i/7*6.283+t*2, lx=x+Math.cos(a)*32, ly=y+3+Math.sin(a)*7; if(Math.sin(a)<-.2) continue; c.fillStyle=['#ff4a5a','#ffd23f','#5ad0ff','#9aff9a'][(i+Math.floor(t*4))%4]; c.beginPath(); c.arc(lx,ly,3,0,7); c.fill(); }
+  c.restore(); edgeArrow(u.x, y, '🛸', t); }
+function buildBalloon(col){ const g=new THREE.Group(); g.add(part(SPH(),col,0,20,0,7,8.5,7)); g.add(part(CONE(),shade(col,.75),0,11,0,1.4,2.4,1.4)); g.add(part(CYL(),'#f4f4f4',0,0,0,.25,20,.25)); return g; }
+function buildUFO(){ const g=new THREE.Group(); g.add(part(SPH(),'#c4ccd8',0,0,0,40,7,40)); g.add(part(SPH(),'#7ae8ff',0,6,0,15,12,15)); g.add(part(SPH(),'#6ad04a',0,8,0,5,5,5));
+  for(let i=0;i<8;i++){ const a=i/8*6.283; g.add(part(SPH(),['#ff4a5a','#ffd23f','#5ad0ff','#9aff9a'][i%4],Math.cos(a)*34,0,Math.sin(a)*34,3,3,3)); }
+  const beam=new THREE.Mesh(new THREE.ConeGeometry(48,160,20,1,true), new THREE.MeshBasicMaterial({color:0x8aff9a,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide})); beam.position.y=-80; g.add(beam);
+  const cow=new THREE.Group(); cow.add(part(BOX(),'#f4f4f4',0,0,0,12,7,7)); cow.add(part(BOX(),'#222',3,1,0,4,7.2,7.2)); cow.add(part(BOX(),'#f4f4f4',8,2,0,5,5,5)); for(const [lx,lz] of [[-4,-2.5],[-4,2.5],[4,-2.5],[4,2.5]]) cow.add(part(CYL(),'#f4f4f4',lx,-6,lz,1.2,5,1.2)); g.add(cow);
+  g.userData.beam=beam; g.userData.cow=cow; return g; }
+
 // pets sometimes dig up a little surprise
 var petDigT=70+Math.random()*60;
 function updatePetDig(dt){ if(!S.pet || petFlies() || P.room || P.inBoat || !pet.set) return; if(P.moving) petDigT-=dt; if(petDigT>0) return; petDigT=80+Math.random()*80;
@@ -5129,6 +5199,8 @@ function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.mode
   if(S.pet && !P.inBoat && !P.room){ if(pet._id!==S.pet && M.has(pet)){ FP.scene.remove(M.get(pet)); M.delete(pet); } pet._id=S.pet; const fl=petFlies(); if(pet._lx!=null && Math.hypot(pet.x-pet._lx,pet.y-pet._ly)>.3) pet._fa=Math.atan2(pet.y-pet._ly,pet.x-pet._lx); pet._lx=pet.x; pet._ly=pet.y;
     place(pet,'pet',()=>buildPet(S.pet),fl?42+Math.sin(t*4)*3:0,pet._fa!=null?pet._fa:(pet.face||1)>0?0:Math.PI,!!pet.moving,(pet.anim||0)*1.2); }
   if(!LK.dark && !LK.space) updateBirds(t, VX-700, VY-700, 1400, 1400);
+  for(const bl of balloons) if(!bl.dead && bl.h>0) place(bl,'balloon',()=>buildBalloon(bl.kind==='gold'?'#ffd23f':bl.col),bl.h*.5,0,false,0);
+  if(ufo){ place(ufo,'ufo',buildUFO,170+Math.sin(t*2)*5,t*.6,false,0); const um=M.get(ufo); if(um){ um.userData.beam.visible=um.userData.cow.visible=ufo.ph==='hover'; um.userData.cow.position.y=-160+150*ufo.cow; um.userData.cow.rotation.z=Math.sin(t*3)*.4; } }
   for(const b of birds){ const m0=M.get(b); if(m0 && m0.userData.k!==b.k){ FP.scene.remove(m0); M.delete(b); } } // a bird came back as a different kind
   for(const b of birds) if(b.k && (b.vis||b.dead)) place(b,'bird'+b.k.n,()=>{ const g=buildBird(b.k.col,shade(b.k.col,.8),'#ffa020',b.k.big?2.2:1.4); g.userData.k=b.k; return g; },b.dead?Math.max(0,120*(1-b.fallT*b.fallT))+2:120+Math.sin(t*2+b.ph)*4,b.dead?b.fallT*2:0,false,0);
   if(!isNight()) for(const d of ducks) if(!d.dead) place(d,'duck',buildDuck,1.5+Math.sin(d.bob||0)*.4,ang(d),false,0);
@@ -5163,7 +5235,7 @@ function spinWheel(){ if(!wheelReady() || wheelSpin) return; S.wheelDay=dayKey()
 function update(dt){
   updateJungle(dt);
   updateSecrets();
-  updateBigfoot(dt); updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateGoldDucks(); updateDig(dt);
+  updateBigfoot(dt); updateTracks(dt); updateStars(dt); updatePetDig(dt); updateHiddenMaps(); updateFrenzy(dt); updateJumpers(dt); updateEvents(dt); updateBalloons(dt); updateUFO(dt); updateGoldDucks(); updateDig(dt);
   { const before=S.dayT; S.dayT = (S.dayT + dt/DAYLEN) % 1;
     if(S.dayT<before){ const old=season(); S.day=(S.day||0)+1; if(season()!==old) newSeason(); } }
   weather.t -= dt; if(weather.t<=0) nextWeather();
@@ -5859,6 +5931,11 @@ function drawOwl(o){
 // ---------- Character animations ----------
 // P.act = a short action animation (cast, catch, hurt...). Poses for charging and fighting come from the fishing state.
 function setAct(type, dur, data){ P.act = {type, t:0, dur, data}; }
+// legs & shoes: each foot swings forward and back (and lifts a little) as you walk
+function walkLegs(c, pants, shoe, step, fx, tuck){ const side=Math.abs(fx)>.35;
+  for(const [lx,p] of [[-4,step],[4,-step]]){ const dx=side?fx*p*1.1:0, dy=-Math.max(0,p)*(side?.5:.9)-tuck, sx=side?(fx>0?1:-1):0;
+    c.strokeStyle=pants; c.lineWidth=6; c.lineCap='butt'; c.beginPath(); c.moveTo(lx,-14+tuck*.3); c.lineTo(lx+dx,-1+dy); c.stroke();
+    c.fillStyle=shoe; c.beginPath(); c.roundRect(lx+dx-3.5+sx*1.5,-2.5+dy,7,3.5,1.4); c.fill(); } }
 function drawPerson(n, t, noLine){
   const c=ctx, fx=n.fx, fy=n.fy, st=n.state, cheer=st==='cheer';
   const jump = cheer&&n.got ? Math.abs(Math.sin(n.anim*9))*6 : 0;
@@ -5866,8 +5943,7 @@ function drawPerson(n, t, noLine){
   c.save(); c.translate(n.x,n.y);
   c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(SUN.dx*9,0,14*SUN.len,5,0,0,7); c.fill();
   c.translate(0,-jump + Math.sin(n.anim*2)*.5);
-  { const st2=n.walking?Math.sin(n.anim*13)*4:0; c.fillStyle=n.pants; c.fillRect(-7,-14+Math.max(0,st2)*.5,6,14-Math.max(0,st2)*.5); c.fillRect(1,-14+Math.max(0,-st2)*.5,6,14-Math.max(0,-st2)*.5); }
-  c.fillStyle='#3a2a1a'; c.fillRect(-8,-2,7,3); c.fillRect(1,-2,7,3);
+  walkLegs(c, n.pants, '#3a2a1a', n.walking?Math.sin(n.anim*13)*4:0, fx||0, 0);
   const g=c.createLinearGradient(-10,-32,10,-12); g.addColorStop(0,shade(n.shirt,1.15)); g.addColorStop(1,shade(n.shirt,.75));
   c.fillStyle=g; c.beginPath(); c.roundRect(-10,-32,20,20,5); c.fill(); c.strokeStyle='rgba(30,18,10,.68)'; c.lineWidth=1.4; c.stroke();
   // arms + rod
@@ -5982,10 +6058,7 @@ function drawPlayer(t){
   c.translate(0,-jump);
   if(!P.inBoat){
     const step = P.moving ? Math.sin(P.anim*14)*4 : 0, tuck = jump>2 ? 3 : 0;
-    c.fillStyle=outfitPants(LL);
-    c.fillRect(-7,-14+Math.max(0,step)*.5+tuck*.3,6,14-Math.max(0,step)*.5-tuck);
-    c.fillRect(1,-14+Math.max(0,-step)*.5+tuck*.3,6,14-Math.max(0,-step)*.5-tuck);
-    c.fillStyle='#3a2a1a'; c.fillRect(-8,-2-tuck+Math.max(0,step)*0,7,3); c.fillRect(1,-2-tuck,7,3);
+    walkLegs(c, outfitPants(LL), '#3a2a1a', step, fx, tuck);
   }
   c.translate(ux,uy);
   // back arm, body, front arm
@@ -6225,6 +6298,7 @@ function draw(t){
   drawDarkness(darkness, lights);
 
   ctx.save(); ctx.scale(Z,Z); ctx.translate(-ox,-oy);
+  drawBalloons(t); drawUFO(t); // after the darkness so they stay bright
   // fireflies
   if(n>.35){
     ctx.globalAlpha = Math.min(1,(n-.35)*3);
