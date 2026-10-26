@@ -6230,7 +6230,6 @@ function draw(t){
 function drawWaterLooks(t, vw, vh){ if(LK.id==='volcano') return; const c=ctx, day=1-nightAmt();
   c.save(); lakePath(c,1,0); for(const I of GEO.islands) blobPath(c,I,4); c.clip('evenodd');
   // (the deep-water / shallows colors are painted once into the ground picture)
-  g.addColorStop(0,'rgba(0,12,40,.40)'); g.addColorStop(.55,'rgba(0,25,60,.18)'); g.addColorStop(.8,'rgba(40,170,200,.10)'); g.addColorStop(.93,'rgba(120,235,235,.38)'); g.addColorStop(1,'rgba(190,255,245,.55)'); c.fillStyle=g; c.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); c.restore();
   if(day>.35){ const G=80, x0=Math.floor(cam.x/G), y0=Math.floor(cam.y/G), x1=Math.ceil((cam.x+vw)/G), y1=Math.ceil((cam.y+vh)/G); c.fillStyle='#ffffff';
     for(let gx=x0;gx<=x1;gx++) for(let gy=y0;gy<=y1;gy++){ const h=((gx*73856093)^(gy*19349663))>>>0; if(h%2) continue; const tw=Math.sin(t*2.2+(h%628)/100); if(tw<.55) continue;
       const x=gx*G+(h%G), y=gy*G+((h>>>8)%G), s2=1+((h>>>4)%3)*.5; c.globalAlpha=(tw-.55)*2.2*day; c.fillRect(x-4*s2,y-.6,8*s2,1.3); c.fillRect(x-.6,y-2.4*s2,1.3,4.8*s2); } c.globalAlpha=1; }
@@ -6823,8 +6822,8 @@ function loop(now){
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
   if(started && !panel) update(dt);
   if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
-  draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud();
-  requestAnimationFrame(loop);
+  requestAnimationFrame(loop); // ask for the next frame first, so one drawing bug can never freeze the game
+  try{ draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud(); }catch(e){ ctx.setTransform(1,0,0,1,0,0); if(!window.__drawErr){ window.__drawErr=e; console.error(e); } }
 }
 requestAnimationFrame(loop);
 document.getElementById('fishTotal').textContent = FISH.length;
