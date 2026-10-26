@@ -1843,7 +1843,7 @@ function hit(t, b){
   a.dead = true;
   let val, name;
   if(t.kind==='duck'){ val=20; name=LK.duck.n; S.st.ducks++; }
-  else if(t.kind==='deer'){ val=a.gold?3000:a.trophy?500+a.pts*60:a.buck?200:75; if(a.gold){ S.st.goldDeer=(S.st.goldDeer||0)+1; setTimeout(()=>banner('✨','GOLDEN DEER!',`The rarest deer of all! +$${Math.round(3000*MODE().pay).toLocaleString()}`),0); shake(8,.5); SFX.trophy(); } name=a.trophy?`${a.pts}-Point Trophy Buck`:a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++;
+  else if(t.kind==='deer'){ val=a.gold?3000:a.trophy?500+a.pts*60:a.buck?200:75; if(a.gold){ S.st.goldDeer=(S.st.goldDeer||0)+1; setTimeout(()=>banner('✨','GOLDEN DEER!',`The rarest deer of all! +$${Math.round(3000*MODE().pay).toLocaleString()}`),0); shake(8,.5); SFX.trophy(); } name=a.gold?'Golden Deer':a.trophy?`${a.pts}-Point Trophy Buck`:a.buck?LK.deer.bn:LK.deer.n; S.st.deer++; if(a.buck) S.st.bucks++;
     if(a.trophy){ S.st.trophyBucks=(S.st.trophyBucks||0)+1; S.buckMounts=S.buckMounts||[]; const bm={pts:a.pts, lake:LK.id, col:LK.deer.buck}; S.buckMounts.push(bm); S.buckMounts.sort((x,y)=>y.pts-x.pts); S.buckMounts.length=Math.min(S.buckMounts.length,3);
       window.__tb={pts:a.pts, on:S.buckMounts.includes(bm)}; shake(8,.5); vib([60,40,90]); SFX.trophy(); } }
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
@@ -3791,10 +3791,29 @@ function fpWorldExtras(sc, dmy, T){
     const m=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true, flatShading:true, emissive: style==='volcano'?lin('#401008'):new THREE.Color(0)}));
     m.position.set(x,h/2-20,z); m.rotation.y=rr()*6; sc.add(m);
   }
+  // the trail around the lake and the path to the shop: a raised dirt path with pebbles and stones along the edges
+  { const snowy=(season()==='winter'&&LK.freezes)||LK.id==='frozen', c0=T.trail[0], c1=T.trail[1], c2=T.trail[2]||T.trail[0];
+    const tex=canvasTex(128,128,g=>{ g.fillStyle=snowy?'#e8eef4':c1; g.fillRect(0,0,128,128); for(let i=0;i<260;i++){ g.fillStyle=snowy?(i%2?'#d0dae4':'#f8fbff'):(i%3?c0:c2); const r=1+Math.random()*2.6; g.beginPath(); g.ellipse(Math.random()*128,Math.random()*128,r,r*.7,Math.random()*3,0,7); g.fill(); }
+      g.strokeStyle='rgba(0,0,0,.12)'; g.lineWidth=2; for(let i=0;i<6;i++){ g.beginPath(); g.moveTo(0,Math.random()*128); g.bezierCurveTo(40,Math.random()*128,90,Math.random()*128,128,Math.random()*128); g.stroke(); } });
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping; const mat=new THREE.MeshLambertMaterial({map:tex}), side=new THREE.MeshLambertMaterial({color:lin(snowy?'#c8d2dc':shade(c0,.7))});
+    const okPt=(x,y)=>!inLake(x,y,1.0) && !GEO.rivers.some(R=>riverDist(R,x,y)<R.w/2+6) && !onBridge(x,y);
+    const ribbon=(pts,W)=>{ const pos=[], uv=[], idx=[], spos=[], sidx=[]; let along=0;
+      for(let i=0;i<pts.length;i++){ const p=pts[i], q=pts[Math.min(i+1,pts.length-1)], o=pts[Math.max(i-1,0)], ta=Math.atan2(q.y-o.y,q.x-o.x), nx=-Math.sin(ta), ny=Math.cos(ta);
+        if(i) along+=Math.hypot(p.x-pts[i-1].x,p.y-pts[i-1].y); for(const sd of [-1,1]){ const x=p.x+nx*W/2*sd, y=p.y+ny*W/2*sd, h=hillAt(x,y); pos.push(x,h+1.4,y); uv.push(sd<0?0:1,along/60); spos.push(x,h+1.4,y, x,h-1.5,y); } }
+      for(let i=0;i<pts.length-1;i++){ if(!pts[i].ok||!pts[i+1].ok) continue; const a=i*2; idx.push(a,a+2,a+1, a+1,a+2,a+3); for(const sd of [0,1]){ const b0=(i*2+sd)*2, b1=((i+1)*2+sd)*2; sidx.push(b0,b1,b0+1, b0+1,b1,b1+1); } }
+      const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2)); geo.setIndex(idx); geo.computeVertexNormals();
+      const m=new THREE.Mesh(geo,mat); m.receiveShadow=true; sc.add(m);
+      const sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.Float32BufferAttribute(spos,3)); sg.setIndex(sidx); sg.computeVertexNormals(); const sm=new THREE.Mesh(sg,side); sm.material.side=THREE.DoubleSide; sc.add(sm); };
+    const loop=[]; const N=420; for(let i=0;i<=N;i++){ const a=i/N*6.2832, p=shorePt(a,1,TRAIL_OFF); p.ok=okPt(p.x,p.y); loop.push(p); } ribbon(loop,46);
+    const sp=[]; for(let y=SHOP.y+40; y<=shopPathEnd(); y+=20){ const p={x:SHOP.x,y}; p.ok=okPt(p.x,p.y); sp.push(p); } if(sp.length>1) ribbon(sp,46);
+    // little stones along both edges (one InstancedMesh, so it stays fast)
+    const stones=[]; for(let i=0;i<N;i+=1){ const p=loop[i], q=loop[i+1]; if(!p.ok) continue; const ta=Math.atan2(q.y-p.y,q.x-p.x), nx=-Math.sin(ta), ny=Math.cos(ta); for(const sd of [-1,1]) if(((i*7+(sd>0?3:0))%5)<2) stones.push([p.x+nx*(25+((i*13)%5))*sd, p.y+ny*(25+((i*13)%5))*sd, 2+((i*17)%7)*.5]); }
+    const im=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0), new THREE.MeshLambertMaterial({color:lin(snowy?'#dfe6ee':'#8a8478'),flatShading:true}), stones.length), mtx=new THREE.Matrix4(), qt=new THREE.Quaternion(), e3=new THREE.Euler();
+    stones.forEach(([x,y,r],k)=>{ e3.set(k*.7,k*1.3,k*.4); qt.setFromEuler(e3); mtx.compose(new THREE.Vector3(x,hillAt(x,y)+r*.45,y),qt,new THREE.Vector3(r*1.3,r*.7,r)); im.setMatrixAt(k,mtx); }); im.castShadow=true; im.receiveShadow=true; sc.add(im); }
   // moon craters: a raised dusty rim around a dark bowl
   for(const cr of GEO.craters||[]){ const y0=hillAt(cr.x,cr.y), rim=new THREE.Mesh(new THREE.TorusGeometry(cr.r,Math.max(5,cr.r*.13),6,Math.max(16,Math.round(cr.r/6))), new THREE.MeshLambertMaterial({color:lin('#a8a8b2'),flatShading:true}));
-    rim.rotation.x=Math.PI/2; rim.scale.z=.45; rim.position.set(cr.x,y0+1,cr.y); rim.receiveShadow=true; sc.add(rim);
-    const bowl=new THREE.Mesh(new THREE.CircleGeometry(cr.r*.97,Math.max(16,Math.round(cr.r/6))), new THREE.MeshLambertMaterial({color:lin('#4a4a56')})); bowl.rotation.x=-Math.PI/2; bowl.position.set(cr.x,y0+.6,cr.y); bowl.receiveShadow=true; sc.add(bowl); }
+    rim.rotation.x=Math.PI/2; rim.scale.z=.45; rim.scale.y=.72; rim.position.set(cr.x,y0+1,cr.y); rim.receiveShadow=true; sc.add(rim);
+    const bowl=new THREE.Mesh(new THREE.CircleGeometry(cr.r*.97,Math.max(16,Math.round(cr.r/6))), new THREE.MeshLambertMaterial({color:lin('#4a4a56')})); bowl.rotation.x=-Math.PI/2; bowl.scale.y=.72; bowl.position.set(cr.x,y0+.6,cr.y); bowl.receiveShadow=true; sc.add(bowl); }
   // rocks, peaks and mesas on the map
   for(const rk of GEO.rocks){ const y0=hillAt(rk.x,rk.y);
     const base = rk.kind==='mesa' ? '#b0583a' : id==='volcano' ? '#2a2420' : id==='candy' ? '#ffe0f0' : T.rock;
@@ -4767,11 +4786,11 @@ function precipNow(){ return iceOn() && LK.precip==='rain' ? 'snow' : LK.precip;
 const BEAST_E={bear:'🐻',wolf:'🐺',boar:'🐗',gator:'🐊',crab:'🦀',cat:'🐆'};
 function photoSubjects(){ const L=[];
   for(const a of game) if(!a.hide && !a.dead) L.push({x:a.x,y:a.y,key:'game:'+a.kind,n:GAME[a.kind].n,e:GAME[a.kind].e||'🐾'});
-  for(const d of deer) if(!d.dead) L.push({x:d.x,y:d.y,key:'deer:'+LK.id+(d.trophy?':trophy':d.buck?':buck':''),n:d.trophy?'Trophy Buck':d.buck?LK.deer.bn:LK.deer.n,e:'🦌'});
+  for(const d of deer) if(!d.dead) L.push({x:d.x,y:d.y,key:'deer:'+LK.id+(d.gold?':gold':d.trophy?':trophy':d.buck?':buck':''),n:d.gold?'Golden Deer':d.trophy?'Trophy Buck':d.buck?LK.deer.bn:LK.deer.n,e:d.gold?'✨':'🦌'});
   for(const b of beasts) if(!b.dead) L.push({x:b.x,y:b.y,key:'beast:'+b.kind,n:BEAST[b.kind].n,e:BEAST_E[BEAST[b.kind].look]||'🐾'});
   if(!isNight()) for(const d of ducks) if(!d.dead) L.push({x:d.x,y:d.y,key:'duck:'+LK.id,n:LK.duck.n,e:'🦆'});
   for(const o of owls) if(!o.dead) L.push({x:o.x,y:o.y,key:'owl',n:'Owl',e:'🦉'});
-  if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree) L.push({x:m.x,y:m.y,key:'monkey',n:'Monkey',e:'🐒'}); for(const b of toucans) L.push({x:b.x,y:b.y-90,key:'toucan',n:'Toucan',e:'🦜'}); }
+  if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree) L.push({x:m.x,y:m.y,key:'monkey',n:'Monkey',e:'🐒'}); if(!FP.on) for(const b of toucans) L.push({x:b.x,y:b.y-90,key:'toucan',n:'Toucan',e:'🦜'}); }
   if(bigfoot) L.push({x:bigfoot.x,y:bigfoot.y,key:'bigfoot',n:'BIGFOOT',e:'👣',bigfoot:1});
   for(const j of jumpers) if(FISH[j.i]) L.push({x:j.x,y:j.y,key:'fish:'+j.i,n:'Jumping '+FISH[j.i].n,e:'🐟',bonus:1});
   return L; }
@@ -4784,7 +4803,7 @@ function takePhoto(){
   if(!shots.length){ toast('📷 Click! Nothing in the picture... find some animals first'); return; }
   const fresh=[]; for(const p of shots){ if(!S.album[p.key]){ fresh.push(p); S.album[p.key]={n:p.n,e:p.e,c:0}; } S.album[p.key].c++; }
   const uniq=[...new Set(fresh.map(p=>p.key))].map(k=>fresh.find(p=>p.key===k));
-  if(shots.some(p=>p.bigfoot)){ S.st.bigfoot=(S.st.bigfoot||0)+1; const bf=S.st.bigfoot===1?5000:500; S.money+=bf; S.st.earned+=bf; addXP(300); shake(8,.5); setTimeout(()=>banner('👣','YOU PHOTOGRAPHED BIGFOOT!!!',`Nobody will believe it! +$${bf.toLocaleString()}`,'#c8a070'),300); }
+  if(bigfoot && !bigfoot.snapped && shots.some(p=>p.bigfoot)){ bigfoot.snapped=true; S.st.bigfoot=(S.st.bigfoot||0)+1; const bf=S.st.bigfoot===1?5000:500; S.money+=bf; S.st.earned+=bf; addXP(300); shake(8,.5); setTimeout(()=>banner('👣','YOU PHOTOGRAPHED BIGFOOT!!!',`Nobody will believe it! +$${bf.toLocaleString()}`,'#c8a070'),300); }
   if(uniq.length){ const cash=uniq.reduce((a,p)=>a+(p.bigfoot?0:p.bonus?120:60),0); S.money+=cash; S.st.earned+=cash; addXP(25*uniq.length); banner('📷','NEW PHOTO!',`${uniq.map(p=>p.e+' '+p.n).slice(0,3).join(', ')}${uniq.length>3?' + more':''} · +$${cash}`,'#9fe3ff');
     const n=Object.keys(S.album).length; if(n%10===0){ const b=n*50; S.money+=b; S.st.earned+=b; setTimeout(()=>banner('📚',`${n} PHOTOS!`,`Your album is growing! +$${b}`,'#9fe3ff'),400); } }
   else toast(`📸 Nice shot of ${shots.length>1?shots.length+' animals':'a '+shots[0].n.toLowerCase()}! (already in your album)`);
@@ -4814,7 +4833,7 @@ function updatePetDig(dt){ if(!S.pet || petFlies() || P.room || P.inBoat || !pet
 // ===================== Animal tracks: footprints you can follow =====================
 var tracks=[], tracking=null;
 const HOOF=['javelina','goat','bison','pronghorn','moose','elk','boar'], BIGPRINT=['bison','moose','bear','elk'];
-function printOf(a,kind){ if(kind==='deer') return {type:'hoof',sz:1,name:a.trophy?'Trophy Buck':a.buck?LK.deer.bn:LK.deer.n};
+function printOf(a,kind){ if(kind==='deer') return {type:'hoof',sz:1,name:a.gold?'Golden Deer':a.trophy?'Trophy Buck':a.buck?LK.deer.bn:LK.deer.n};
   if(kind==='game'){ const g=GAME[a.kind], L=g.look; return {type:L==='turkey'?'bird':HOOF.includes(L)?'hoof':'paw', sz:BIGPRINT.includes(L)?1.5:g.small?.6:1, name:g.n}; }
   const b=BEAST[a.kind], L=b.look; if(L==='crab'||L==='gator') return null; return {type:HOOF.includes(L)?'hoof':'paw', sz:L==='bear'?1.6:1.1, name:b.n}; }
 function leaveTracks(list,kind,dt){ for(const a of list){ if(a.dead || a.hide || a.climb) continue; if(a._px==null){ a._px=a.x; a._py=a.y; continue; }
@@ -4825,18 +4844,20 @@ function leaveTracks(list,kind,dt){ for(const a of list){ if(a.dead || a.hide ||
 function updateTracks(dt){ if(P.room) return; leaveTracks(deer,'deer',dt); leaveTracks(game,'game',dt); leaveTracks(beasts,'beast',dt);
   const life=(iceOn()||LK.id==='frozen')?150:60; for(const p of tracks) p.t+=dt; if(tracks.length && tracks[0].t>life) tracks=tracks.filter(p=>p.t<=life);
   if(tracking){ const o=tracking.obj; tracking.t-=dt;
-    if(o.dead || o.hide || tracking.t<=0 || !(deer.includes(o)||game.includes(o)||beasts.includes(o)||o===bigfoot)){ if(!o.dead && tracking.t<=0) toast('🐾 The trail went cold... look for fresh tracks'); tracking=null; }
-    else if(Math.hypot(o.x-P.x,o.y-P.y)<160){ S.st.tracked=(S.st.tracked||0)+1; const cash=40+Math.round(tracking.far/20); S.money+=cash; S.st.earned+=cash; addXP(30);
+    if(o.dead || o.hide || tracking.t<=0 || !(deer.includes(o)||game.includes(o)||beasts.includes(o)||o===bigfoot)){ if(!o.dead) toast('🐾 The trail went cold... look for fresh tracks'); tracking=null; }
+    else if(Math.hypot(o.x-P.x,o.y-P.y)<160){ o._trackedAt=performance.now(); S.st.tracked=(S.st.tracked||0)+1; const cash=40+Math.round(tracking.far/20); S.money+=cash; S.st.earned+=cash; addXP(30);
       banner('🐾','TRACKED IT!',`You followed the tracks to a ${tracking.name}! +$${cash}`,'#c8a070'); tone(660,.1,'triangle',.1); tone(990,.16,'triangle',.1,.1); tracking=null; save(); } } }
 function trackNow(){
   if(!S.gear.tracker){ toast('🐾 Buy an Animal Tracking Kit at the shop\'s Outdoor Gear shelf!'); return; } if(P.room){ toast('Go outside to look for tracks'); return; }
   if(tracking){ tracking=null; toast('🐾 You stopped tracking'); return; }
   const life=(iceOn()||LK.id==='frozen')?150:60; let best=null, bd=260;
-  for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide){ bd=d; best=p; } }
+  const alive=o=>o===bigfoot||deer.includes(o)||game.includes(o)||beasts.includes(o);
+  for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide && alive(p.obj) && !(p.obj._trackedAt && performance.now()-p.obj._trackedAt<60000)){ bd=d; best=p; } }
   if(!best){ toast('🐾 No fresh tracks right here. Walk around fields and woods and look at the ground!'); tone(300,.1,'square',.04); return; }
   const o=best.obj, pr=o===bigfoot?{name:'BIGFOOT'}:o._pr||{name:'animal'}, far=Math.hypot(o.x-P.x,o.y-P.y), dir=['east','south-east','south','south-west','west','north-west','north','north-east'][Math.round(((Math.atan2(o.y-P.y,o.x-P.x)+6.283)%6.283)/0.785)%8];
-  tracking={obj:o, name:pr.name, t:45, far}; tone(520,.08,'triangle',.08); tone(700,.12,'triangle',.08,.08);
-  toast(`🐾 ${best.type==='hoof'?'Hoof prints':best.type==='bird'?'Bird tracks':'Paw prints'}! A ${pr.name.toLowerCase()} went ${dir}${best.t<15?' just now':''}. Follow the glowing tracks!`); }
+  if(far<250){ toast(`👀 The ${pr.name.toLowerCase()} is right here! Find tracks that lead somewhere farther away`); return; }
+  tracking={obj:o, name:pr.name, t:45, far}; tone(520,.08,'triangle',.08); tone(700,.12,'triangle',.08,.08); const nm=pr.name.toLowerCase(), an=/^[aeiou]/.test(nm)?'An':'A';
+  toast(`🐾 ${best.type==='big'?'GIANT footprints':best.type==='hoof'?'Hoof prints':best.type==='bird'?'Bird tracks':'Paw prints'}! ${an} ${nm} went ${dir}${best.t<15?' just now':''}. ${FP.on?'Head '+dir+'!':'Follow the glowing tracks!'}`); }
 function drawPrint(c,p,glow){ c.save(); c.translate(p.x+Math.cos(p.a+1.57)*4*p.side, p.y+Math.sin(p.a+1.57)*4*p.side); c.rotate(p.a); const s=p.sz*1.4;
   c.fillStyle=glow?'rgba(255,214,90,.95)':(iceOn()||LK.id==='frozen')?'rgba(110,130,160,.6)':'rgba(70,50,30,.55)';
   if(p.type==='big'){ c.beginPath(); c.ellipse(0,0,6*s,3*s,0,0,7); c.fill(); for(let i=0;i<5;i++){ c.beginPath(); c.arc(6.5*s,(-2.6+i*1.3)*s,.9*s,0,7); c.fill(); } }
@@ -6187,7 +6208,7 @@ function draw(t){
   else if(nearBoat()) label(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat', boat.x, boat.y-40);
   else if(tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y)) label(`${touchMode?'Tap Cast':'Press SPACE'} to ${iceTip()}`, P.x, P.y-62);
   else if(tool==='rod' && fishing.state==='none' && waterNear(P.x,P.y,150) && !P.inBoat && !(iceOn() && !findWater(.5))) label(touchMode?'Hold Cast, let go to throw':'Hold SPACE, let go to cast', P.x, P.y-62);
-  if(started){ const nb=npcs.find(n=>n.singer&&(n.near||samSinging(n)))||npcs.find(n=>n.near); if(nb) speechBubble(ctx, nb.x, nb.y-64, nb.name, npcTip(nb), 1/Z); }
+  if(started){ const onScr=n=>n.x>cam.x && n.x<cam.x+VW/Z && n.y>cam.y && n.y<cam.y+VH/Z; const nb=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near&&!n.singer)||npcs.find(n=>n.singer&&samSinging(n)&&onScr(n)); if(nb) speechBubble(ctx, nb.x, nb.y-64, nb.name, npcTip(nb), 1/Z); }
   if(started && S.hp<MAX_HP && fishing.state!=='charge'){
     const w=44, x=P.x-w/2, y=(P.inBoat?P.y+8:P.y)-78, k=S.hp/MAX_HP;
     ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(x-2,y-2,w+4,9);
@@ -6725,7 +6746,7 @@ function fpFrame(t){
   const lab = drone ? '' : propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
-  { const nn=npcs.find(n=>n.singer&&(n.near||samSinging(n)))||npcs.find(n=>n.near); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
+  { const nn=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near&&!n.singer)||npcs.find(n=>n.singer&&samSinging(n)&&fpProj(n.x,70,n.y)); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
   if(gunOut && scopeOn && S.scope) drawScopeOverlay(W,H);
   else if(gunOut){ ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(W/2,H/2,9,0,7); ctx.moveTo(W/2-16,H/2); ctx.lineTo(W/2-6,H/2); ctx.moveTo(W/2+6,H/2); ctx.lineTo(W/2+16,H/2); ctx.moveTo(W/2,H/2-16); ctx.lineTo(W/2,H/2-6); ctx.moveTo(W/2,H/2+6); ctx.lineTo(W/2,H/2+16); ctx.stroke(); }
   if(S.hp<30){ ctx.fillStyle=`rgba(200,0,0,${.12+.08*Math.sin(t*5)})`; ctx.fillRect(0,0,W,H); }
@@ -6794,11 +6815,11 @@ if('serviceWorker' in navigator && location.protocol==='https:' && !/claude\.ai|
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // iPads keep the app open in the background, so check for a newer version whenever it comes back
     let hiddenAt=0;
-    document.addEventListener('visibilitychange',()=>{ if(document.hidden){ hiddenAt=Date.now(); return; } reg.update().catch(()=>{}); if(!started && hiddenAt && Date.now()-hiddenAt>60000) location.reload(); });
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden){ hiddenAt=Date.now(); return; } reg.update().catch(()=>{}); if(!window.__playing && hiddenAt && Date.now()-hiddenAt>60000) location.reload(); });
     setInterval(()=>reg.update().catch(()=>{}), 30*60*1000);
   }).catch(()=>{});
   let swapped=false; const hadCtrl=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(swapped || !hadCtrl) return; swapped=true;
-    if(!started) location.reload(); else toast('✨ A new version of Lake Life is ready! Close the game and open it again to get it'); });
+    if(!window.__playing) location.reload(); else toast('✨ A new version of Lake Life is ready! Close the game and open it again to get it'); });
 }
 // the instructions slide off to the left; the little tab brings them back
 const helpEl=document.getElementById('help'), helpBtn=document.getElementById('helpBtn');
@@ -6872,7 +6893,7 @@ function showModePick(){ const m=S.mode||'medium'; document.querySelectorAll('#m
   document.getElementById('modeInfo').innerHTML=`<b>${MODES[m].e} ${MODES[m].n}:</b> ${MODES[m].d}`; }
 document.querySelectorAll('#modePick button').forEach(b=>b.addEventListener('click',()=>{ ac(); setMode(b.dataset.mode); tone(660,.08,'triangle',.08); showModePick(); }));
 showModePick();
-document.getElementById('playBtn').addEventListener('click', ()=>{ try{ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); } }catch(e){}
+document.getElementById('playBtn').addEventListener('click', ()=>{ window.__playing=true; try{ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); } }catch(e){}
   ac(); document.getElementById('start').hidden=true;
   const go=()=>{ started=true; setTimeout(dailyGift,2500); setTimeout(()=>{ if(wheelReady()) toast(`🎡 Your free Prize Wheel spin is ready! (${touchMode?'tap 🏆':'press M'})`); },11000); setTimeout(()=>{ const Q=ensureQuests(); if(!Q.bonus) toast(`📅 Today's quests: ${Q.list.map(questName).join(' · ')} (${touchMode?'tap 🏆':'press M'})`); },6500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
   if(!S.introSeen) playIntro(go); else go();
