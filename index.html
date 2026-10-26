@@ -6651,7 +6651,14 @@ document.getElementById('fishTotal').textContent = FISH.length;
 window.__gameReady = true;
 // On the website, save the game on the device so it opens with no internet next time
 if('serviceWorker' in navigator && location.protocol==='https:' && !/claude\.ai|claudeusercontent/.test(location.hostname)){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    // iPads keep the app open in the background, so check for a newer version whenever it comes back
+    let hiddenAt=0;
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden){ hiddenAt=Date.now(); return; } reg.update().catch(()=>{}); if(!started && hiddenAt && Date.now()-hiddenAt>60000) location.reload(); });
+    setInterval(()=>reg.update().catch(()=>{}), 30*60*1000);
+  }).catch(()=>{});
+  let swapped=false; const hadCtrl=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(swapped || !hadCtrl) return; swapped=true;
+    if(!started) location.reload(); else toast('✨ A new version of Lake Life is ready! Close the game and open it again to get it'); });
 }
 // the instructions slide off to the left; the little tab brings them back
 const helpEl=document.getElementById('help'), helpBtn=document.getElementById('helpBtn');

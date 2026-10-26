@@ -1,12 +1,12 @@
 // Lake Life offline helper (a "service worker").
 // The first time you open the game with internet, this saves a copy on the device.
-// After that the game opens even with no Wi-Fi. When there IS internet, it quietly
-// downloads any newer version so the next launch is up to date.
-const CACHE = 'lake-life-v27'; // change this number whenever the icon or files change, so devices grab fresh copies
+// With internet, the game always loads the NEWEST version; with no Wi-Fi it opens the saved copy.
+const CACHE = 'lake-life-v28'; // change this number whenever the icon or files change, so devices grab fresh copies
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // {cache:'reload'} skips the browser's own cache, so we never save an old copy
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -34,10 +34,24 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // The game's own files: open the saved copy right away, and grab a newer one for next time
+  // The game itself (the page): get the newest version from the internet first (wait up to 5 seconds),
+  // and only use the saved copy when there's no internet
+  const isPage = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
+  if (isPage) {
+    e.respondWith(caches.open(CACHE).then(async c => {
+      try {
+        const r = await Promise.race([fetch(req, {cache: 'no-store'}), new Promise((_, rej) => setTimeout(() => rej('slow'), 5000))]);
+        if (r && r.ok) { c.put('./index.html', r.clone()); return r; }
+      } catch (err) {}
+      return (await c.match(req, {ignoreSearch: true})) || (await c.match('./index.html')) || Response.error();
+    }));
+    return;
+  }
+
+  // Icons and other small files: saved copy right away, and grab a newer one for next time
   e.respondWith(caches.open(CACHE).then(async c => {
     const saved = await c.match(req, {ignoreSearch: true});
     const fresh = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => null);
-    return saved || (await fresh) || (await c.match('./index.html')) || Response.error();
+    return saved || (await fresh) || Response.error();
   }));
 });
