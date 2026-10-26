@@ -963,10 +963,12 @@ function buildWorld(){
   for(const f of GEO.fields) drawFieldBg(b,f);
   for(const cr of GEO.craters||[]) drawCraterBg(b,cr,T);
   for(const rk of GEO.rocks) drawRockBg(b,rk,T);
+  b.fillStyle=shade(T.path,.66); b.fillRect(SHOP.x-27, SHOP.y+40, 54, shopPathEnd()-SHOP.y-40); b.fillRect(CABIN.x-23, CABIN.y+40, 46, cabinPathEnd()-CABIN.y-40);
   b.fillStyle=T.path; b.fillRect(SHOP.x-24, SHOP.y+40, 48, shopPathEnd()-SHOP.y-40);
   b.fillRect(CABIN.x-20, CABIN.y+40, 40, cabinPathEnd()-CABIN.y-40);
   // the trail follows the wavy shore all the way around
   b.lineJoin='round';
+  b.strokeStyle=shade(T.trail[0],.66); b.lineWidth=56; lakePath(b,1,TRAIL_OFF); b.stroke();
   b.strokeStyle=T.trail[0]; b.lineWidth=50; lakePath(b,1,TRAIL_OFF); b.stroke();
   b.strokeStyle=T.trail[1]; b.lineWidth=40; lakePath(b,1,TRAIL_OFF); b.stroke();
   for(let i=0;i<900;i++){ const a=srnd()*6.28, p=shorePt(a,1,TRAIL_OFF+(srnd()-.5)*36); b.fillStyle=srnd()<.5?T.trail[0]:T.trail[2]; b.fillRect(p.x,p.y,3,3); }
@@ -990,6 +992,7 @@ function buildWorld(){
   if(LK.id!=='volcano'){ b.save(); lakePath(b,1,0); for(const I of GEO.islands) blobPath(b,I,4); b.clip('evenodd'); b.translate(LAKE.x,LAKE.y); b.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, wg=b.createRadialGradient(0,0,R*.05,0,0,R);
     wg.addColorStop(0,'rgba(0,12,40,.40)'); wg.addColorStop(.55,'rgba(0,25,60,.18)'); wg.addColorStop(.8,'rgba(40,170,200,.10)'); wg.addColorStop(.93,'rgba(120,235,235,.38)'); wg.addColorStop(1,'rgba(190,255,245,.55)'); b.fillStyle=wg; b.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); b.restore(); }
   b.strokeStyle='rgba(0,0,0,.18)'; b.lineWidth=5; lakePath(b,1,-2); b.stroke();
+  if(LK.id!=='volcano'){ b.fillStyle='rgba(255,255,255,.55)'; for(let i=0;i<1400;i++){ const a=i/1400*6.283, h=((i*2654435761)>>>0)%1000/1000, p=shorePt(a,1,-7-h*7); b.beginPath(); b.arc(p.x,p.y,1.6+((h*7.3)%1)*2.6,0,7); b.fill(); } }
   b.strokeStyle=hexA(T.water[3],.9); b.lineWidth=10; lakePath(b,1,-9); b.stroke();
   // deep holes look darker; brush piles are tangled sticks under the water
   for(const h of GEO.holes){ const hg=b.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r); hg.addColorStop(0, LK.id==='volcano'?'rgba(120,10,0,.5)':'rgba(0,8,30,.55)'); hg.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=hg; b.beginPath(); b.arc(h.x,h.y,h.r,0,7); b.fill();
@@ -1033,6 +1036,7 @@ function buildWorld(){
     if(kind<.55 && T.trees!=='dead' && T.trees!=='lolli'){ // bush
       const r=10+srnd()*9, dk=shade(T.ground,.62), md=shade(T.ground,.78), lt=shade(T.ground,.95);
       b.fillStyle='rgba(0,0,0,.18)'; b.beginPath(); b.ellipse(x+3,y+3,r*1.4,r*.6,0,0,7); b.fill();
+      b.fillStyle=shade(T.ground,.32); for(const [ox,oy,rr] of [[-r*.6,-r*.3,r*.8],[r*.6,-r*.3,r*.8],[0,-r*.6,r]]){ b.beginPath(); b.arc(x+ox,y+oy,rr+1.6,0,7); b.fill(); }
       for(const [ox,oy,rr,cc] of [[-r*.6,-r*.3,r*.8,dk],[r*.6,-r*.3,r*.8,dk],[0,-r*.6,r,md],[-r*.25,-r*.9,r*.5,lt]]){ b.fillStyle=cc; b.beginPath(); b.arc(x+ox,y+oy,rr,0,7); b.fill(); }
       if(srnd()<.35){ b.fillStyle=T.trees==='snowpine'?'#fff':'#d8304a'; for(let j=0;j<4;j++){ b.beginPath(); b.arc(x+(srnd()-.5)*r*1.4,y-r*.5+(srnd()-.5)*r*.8,2,0,7); b.fill(); } }
     } else if(kind<.7 && (T.trees==='mix'||T.trees==='swamp')){ // mushrooms
@@ -3766,6 +3770,7 @@ function drawRockBg(b, rk, T){
   b.fillStyle='rgba(0,0,0,.25)'; b.beginPath(); b.ellipse(rk.x+rk.r*.15,rk.y+rk.r*.12,rk.r*1.05,rk.r*.8,0,0,7); b.fill();
   const pts=[]; const n=rk.kind==='boulder'?9:14; for(let i=0;i<n;i++){ const a=i/n*6.283, d=rk.r*(.82+rr()*.25); pts.push([rk.x+Math.cos(a)*d, rk.y+Math.sin(a)*d*.8]); }
   const poly=(s,dy=0)=>{ b.beginPath(); pts.forEach((p,i)=>{ const x=rk.x+(p[0]-rk.x)*s, y=rk.y+(p[1]-rk.y)*s+dy; i?b.lineTo(x,y):b.moveTo(x,y); }); b.closePath(); };
+  if(rk.kind!=='mesa'){ b.fillStyle='rgba(28,24,20,.6)'; poly(1+2.2/rk.r); b.fill(); }
   if(rk.kind==='mesa'){ // layered red cliffs with a flat top
     for(let L=0;L<4;L++){ b.fillStyle=shade(base, .7+L*.12); poly(1-L*.05, -L*rk.r*.1); b.fill(); }
     b.fillStyle=shade(base,1.25); poly(.78,-rk.r*.42); b.fill(); b.fillStyle='rgba(60,120,40,.35)'; for(let i=0;i<8;i++){ b.beginPath(); b.arc(rk.x+(rr()-.5)*rk.r*1.1,rk.y-rk.r*.42+(rr()-.5)*rk.r*.7,4+rr()*5,0,7); b.fill(); }
@@ -5427,8 +5432,14 @@ function makeSprite(key, w, h, ax, ay, paint){
   let sp=spriteCache.get(key); if(sp) return sp;
   const cv=document.createElement('canvas'); cv.width=Math.ceil(w*SS); cv.height=Math.ceil(h*SS);
   const c=cv.getContext('2d'); c.scale(SS,SS); c.translate(ax,ay); paint(c);
-  sp={cv:finishSprite(cv), w, h, ax, ay}; spriteCache.set(key, sp); return sp;
+  let out=finishSprite(cv); const ink=key.startsWith('tree|')?(LK.id==='candy'?'rgba(140,40,95,.7)':LK.id==='crystal'?'rgba(45,25,100,.75)':'rgba(22,34,14,.78)'):(key==='shop'||key==='cabin')?'rgba(52,30,14,.8)':null;
+  if(ink) out=inkOutline(out, ink, 2.6);
+  sp={cv:out, w, h, ax, ay}; spriteCache.set(key, sp); return sp;
 }
+// draws a dark outline around everything solid in a picture, like a cartoon sticker
+function inkOutline(cv, col, px){ const o=document.createElement('canvas'); o.width=cv.width; o.height=cv.height; const c=o.getContext('2d');
+  for(let i=0;i<12;i++){ const a=i/12*6.283; c.drawImage(cv, Math.cos(a)*px, Math.sin(a)*px); }
+  c.globalCompositeOperation='source-in'; c.fillStyle=col; c.fillRect(0,0,o.width,o.height); c.globalCompositeOperation='source-over'; c.drawImage(cv,0,0); return o; }
 function paintTree(c, r, k, type){
   if(type==='palm'){
     const lean=(k-.5)*.8*r, top=[lean,-r*2];
@@ -5858,13 +5869,13 @@ function drawPerson(n, t, noLine){
   { const st2=n.walking?Math.sin(n.anim*13)*4:0; c.fillStyle=n.pants; c.fillRect(-7,-14+Math.max(0,st2)*.5,6,14-Math.max(0,st2)*.5); c.fillRect(1,-14+Math.max(0,-st2)*.5,6,14-Math.max(0,-st2)*.5); }
   c.fillStyle='#3a2a1a'; c.fillRect(-8,-2,7,3); c.fillRect(1,-2,7,3);
   const g=c.createLinearGradient(-10,-32,10,-12); g.addColorStop(0,shade(n.shirt,1.15)); g.addColorStop(1,shade(n.shirt,.75));
-  c.fillStyle=g; c.beginPath(); c.roundRect(-10,-32,20,20,5); c.fill(); c.strokeStyle='rgba(0,0,0,.3)'; c.lineWidth=1; c.stroke();
+  c.fillStyle=g; c.beginPath(); c.roundRect(-10,-32,20,20,5); c.fill(); c.strokeStyle='rgba(30,18,10,.68)'; c.lineWidth=1.4; c.stroke();
   // arms + rod
   const up = cheer&&n.got, hand = up?[9,-54]:[fx*8,-22], hand2 = up?[-9,-54]:[fx*3,-19];
   const arm=h=>{ c.strokeStyle=shade(n.shirt,.8); c.lineWidth=4.5; c.lineCap='round'; c.beginPath(); c.moveTo(h[0]>0?6:-6,-28); c.lineTo(h[0],h[1]); c.stroke(); c.fillStyle=n.skin; c.beginPath(); c.arc(h[0],h[1],2.8,0,7); c.fill(); };
   arm(hand2); arm(hand);
   // head
-  c.fillStyle=n.skin; c.beginPath(); c.arc(0,-40,9,0,7); c.fill(); c.strokeStyle='rgba(0,0,0,.25)'; c.lineWidth=1; c.stroke();
+  c.fillStyle=n.skin; c.beginPath(); c.arc(0,-40,9,0,7); c.fill(); c.strokeStyle='rgba(40,22,12,.72)'; c.lineWidth=1.4; c.stroke();
   if(n.hat==='none' || n.hat==='cap' || n.hat==='sun'){ c.fillStyle=n.hair; c.beginPath(); c.arc(0,-42,9,Math.PI*1.05,Math.PI*1.95); c.fill(); }
   if(fy>-.5) drawFace(c, face, fx, t+n.anim);
   if(n.beard){ c.fillStyle=n.hair; c.beginPath(); c.arc(fx*2,-36,6.5,.1,Math.PI-.1); c.fill(); }
@@ -5982,14 +5993,14 @@ function drawPlayer(t){
     c.fillStyle=LL.skin; c.beginPath(); c.arc(h[0],h[1],2.8,0,7); c.fill(); };
   const shirt=()=>{ const g=c.createLinearGradient(-10,-32,10,-12); g.addColorStop(0,shade(shirtC,1.15)); g.addColorStop(1,shade(shirtC,.68));
     c.fillStyle=g; c.beginPath(); c.roundRect(-10,-32,20,20,5); c.fill();
-    c.strokeStyle='rgba(60,10,5,.45)'; c.lineWidth=1.2; c.stroke();
+    c.strokeStyle='rgba(40,12,6,.7)'; c.lineWidth=1.4; c.stroke();
     c.fillStyle='#4a2a14'; c.fillRect(-10,-16,20,3); c.fillStyle='#e8c050'; c.fillRect(-2,-16,4,3);
     if(fy>-.5){ c.fillStyle='rgba(255,255,255,.7)'; c.beginPath(); c.arc(fx*2,-27,1,0,7); c.arc(fx*2,-22,1,0,7); c.fill(); } drawOutfit(c,LL,fx,fy); };
   if(fy<-.5) { shirt(); arm(hand2); arm(hand); }
   else { arm(hand2); shirt(); }
   // head
   { const g=c.createRadialGradient(-3,-43,2,0,-40,10); g.addColorStop(0,shade(LL.skin,1.08)); g.addColorStop(1,shade(LL.skin,.86)); c.fillStyle=g; }
-  c.beginPath(); c.arc(0,-40,9,0,7); c.fill(); c.strokeStyle='rgba(120,60,30,.35)'; c.lineWidth=1; c.stroke(); drawHair(c,LL,fy);
+  c.beginPath(); c.arc(0,-40,9,0,7); c.fill(); c.strokeStyle='rgba(40,22,12,.72)'; c.lineWidth=1.4; c.stroke(); drawHair(c,LL,fy);
   if(fy > -.5){ c.fillStyle='rgba(255,120,120,.35)'; c.beginPath(); c.arc(-5+fx*3,-37,1.8,0,7); c.arc(5+fx*3,-37,1.8,0,7); c.fill(); }
   if(fy > -.5) drawFace(c, face, fx, t);
   if(fy > -.5) drawBeard(c, LL, fx);
