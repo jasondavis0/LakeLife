@@ -951,6 +951,8 @@ function buildWorld(){
   for(let i=0;i<1000;i++){ const x=srnd()*WW, y=srnd()*WH, r=60+srnd()*170, light=srnd()<.5;
     const gg=b.createRadialGradient(x,y,0,x,y,r); gg.addColorStop(0, light?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)'); gg.addColorStop(1,'rgba(0,0,0,0)');
     b.fillStyle=gg; b.fillRect(x-r,y-r,r*2,r*2); }
+  for(let i=0;i<220;i++){ const x=srnd()*WW, y=srnd()*WH, r=120+srnd()*380, lt=srnd()<.5, g=b.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,lt?'rgba(255,250,200,.10)':'rgba(0,30,0,.11)'); g.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=g; b.fillRect(x-r,y-r,r*2,r*2); }
   for(let i=0;i<(SMALL_DEVICE?80000:115000);i++){ const x=srnd()*WW, y=srnd()*WH, h=5+srnd()*5, lean=(srnd()-.5)*3;
     b.strokeStyle=srnd()<.5?T.tuft[0]:T.tuft[1]; b.lineWidth=1.6; b.beginPath(); b.moveTo(x,y); b.lineTo(x+lean,y-h); b.stroke(); }
   for(let i=0;i<5000;i++){ const x=srnd()*WW, y=srnd()*WH; if(shoreDist(x,y)<60 || inLake(x,y,1.4)) continue;
@@ -1163,6 +1165,7 @@ function drawWaterFx(t, vw, vh){
       const x=q[0]-Math.sin(a)*R.w*off, y=q[1]+Math.cos(a)*R.w*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke(); }
     ctx.restore(); }
   if(iceOn()){ drawIce(t, vw, vh); return; }
+  drawWaterLooks(t, vw, vh);
   const muddy = (S.mud||0)>.05 && !['volcano','candy'].includes(LK.id);
   if(muddy) for(const R of GEO.rivers) if(!(R.bb[2]<cam.x||R.bb[0]>cam.x+vw||R.bb[3]<cam.y||R.bb[1]>cam.y+vh)) riverStroke(ctx,R,R.w-8,`rgba(125,92,50,${S.mud*.5})`);
   ctx.save(); lakePath(ctx,1,-4); for(const I of GEO.islands) blobPath(ctx,I,8); for(const p of GEO.ponds) blobPath(ctx,p,-3); ctx.clip('evenodd');
@@ -6222,8 +6225,22 @@ function draw(t){
   drawMinimap(); drawDroneHud();
 }
 // rain, rainbow, flash, vignette, fight meter and catch popup (used by both views)
+function drawWaterLooks(t, vw, vh){ if(LK.id==='volcano') return; const c=ctx, day=1-nightAmt();
+  c.save(); lakePath(c,1,0); for(const I of GEO.islands) blobPath(c,I,4); c.clip('evenodd');
+  c.save(); c.translate(LAKE.x,LAKE.y); c.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, g=c.createRadialGradient(0,0,R*.05,0,0,R);
+  g.addColorStop(0,'rgba(0,12,40,.40)'); g.addColorStop(.55,'rgba(0,25,60,.18)'); g.addColorStop(.8,'rgba(40,170,200,.10)'); g.addColorStop(.93,'rgba(120,235,235,.38)'); g.addColorStop(1,'rgba(190,255,245,.55)'); c.fillStyle=g; c.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); c.restore();
+  if(day>.35){ const G=80, x0=Math.floor(cam.x/G), y0=Math.floor(cam.y/G), x1=Math.ceil((cam.x+vw)/G), y1=Math.ceil((cam.y+vh)/G); c.fillStyle='#ffffff';
+    for(let gx=x0;gx<=x1;gx++) for(let gy=y0;gy<=y1;gy++){ const h=((gx*73856093)^(gy*19349663))>>>0; if(h%2) continue; const tw=Math.sin(t*2.2+(h%628)/100); if(tw<.55) continue;
+      const x=gx*G+(h%G), y=gy*G+((h>>>8)%G), s2=1+((h>>>4)%3)*.5; c.globalAlpha=(tw-.55)*2.2*day; c.fillRect(x-4*s2,y-.6,8*s2,1.3); c.fillRect(x-.6,y-2.4*s2,1.3,4.8*s2); } c.globalAlpha=1; }
+  c.restore();
+  c.save(); c.lineCap='round'; c.strokeStyle=`rgba(255,255,255,${.28+.1*Math.sin(t*1.3)})`; c.lineWidth=3; c.setLineDash([18,26]); c.lineDashOffset=-t*10; lakePath(c,.99,-6); c.stroke();
+  c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=2; c.setLineDash([10,34]); c.lineDashOffset=t*7; lakePath(c,.975,-14); c.stroke(); c.restore(); }
+// warm morning & golden evening light over the top-down view (cartoon-style color, nothing too dark)
+function drawGrade(){ if(FP.on || P.room || LK.dark || LK.space) return; const h=hour(); let col=null, a=0;
+  if(h>=5.5 && h<9){ col='255,190,110'; a=.13*(1-(h-5.5)/3.5); } else if(h>=16 && h<19.5){ col='255,140,70'; a=.15*((h-16)/3.5); } else if(h>=9 && h<16){ col='255,250,220'; a=.035; }
+  if(!col) return; ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); const g=ctx.createLinearGradient(0,0,VW*.6,VH); g.addColorStop(0,`rgba(${col},${a*1.6})`); g.addColorStop(1,`rgba(${col},${a*.3})`); ctx.globalCompositeOperation='soft-light'; ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH); ctx.globalCompositeOperation='source-over'; ctx.fillStyle=g; ctx.globalAlpha=.35; ctx.fillRect(0,0,VW,VH); ctx.restore(); }
 function drawScreenFx(t, n){
-  drawAmbient(t); drawSunRays(t);
+  drawGrade(); drawAmbient(t); drawSunRays(t);
   // rain / snow / ash / sprinkles
   if(weather.type==='rain'||weather.type==='storm'){
     const storm = weather.type==='storm', count = storm ? 420 : 220, kind = precipNow();
