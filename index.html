@@ -745,6 +745,9 @@ const MISSIONS = [
   {id:'race1',  n:'Win a Flag Race',             r:500,   e:'🏁', p:()=>[S.st.races||0,1]},
   {id:'race10', n:'Win 10 Flag Races',           r:3000,  e:'🏎️', p:()=>[S.st.races||0,10]},
   {id:'owl',   n:'Hunt an owl at night',      r:150,   e:'🦉', p:()=>[S.st.owls,1]},
+  {id:'bird1',  n:'Shoot a flying bird',        r:100,   e:'🐦', p:()=>[S.st.birds||0,1]},
+  {id:'bird25', n:'Shoot 25 flying birds',      r:1500,  e:'🦅', p:()=>[S.st.birds||0,25]},
+  {id:'goldbird',n:'Shoot a Golden Bird',       r:2500,  e:'✨', p:()=>[S.st.goldBirds||0,1]},
   {id:'wolf',  n:'Defeat a wolf',             r:200,   e:'🐺', p:()=>[S.st.wolves,1]},
   {id:'boar',  n:'Defeat a wild boar',        r:250,   e:'🐗', p:()=>[S.st.boars,1]},
   {id:'bear',  n:'Defeat a bear',             r:500,   e:'🐻', p:()=>[S.st.bears,1]},
@@ -959,8 +962,6 @@ function buildWorld(){
     b.fillStyle=T.flowers[Math.floor(srnd()*T.flowers.length)]; b.beginPath(); b.arc(x,y,3,0,7); b.fill(); }
   for(const f of GEO.fields) drawFieldBg(b,f);
   for(const cr of GEO.craters||[]) drawCraterBg(b,cr,T);
-  if(LK.id!=='volcano'){ b.save(); lakePath(b,1,0); for(const I of GEO.islands) blobPath(b,I,4); b.clip('evenodd'); b.translate(LAKE.x,LAKE.y); b.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, wg=b.createRadialGradient(0,0,R*.05,0,0,R);
-    wg.addColorStop(0,'rgba(0,12,40,.40)'); wg.addColorStop(.55,'rgba(0,25,60,.18)'); wg.addColorStop(.8,'rgba(40,170,200,.10)'); wg.addColorStop(.93,'rgba(120,235,235,.38)'); wg.addColorStop(1,'rgba(190,255,245,.55)'); b.fillStyle=wg; b.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); b.restore(); }
   for(const rk of GEO.rocks) drawRockBg(b,rk,T);
   b.fillStyle=T.path; b.fillRect(SHOP.x-24, SHOP.y+40, 48, shopPathEnd()-SHOP.y-40);
   b.fillRect(CABIN.x-20, CABIN.y+40, 40, cabinPathEnd()-CABIN.y-40);
@@ -986,6 +987,8 @@ function buildWorld(){
   b.fillStyle=g; lakePath(b); b.fill();
   for(const R of GEO.rivers){ riverStroke(b,R,R.w,rc[0]); riverStroke(b,R,R.w*.55,rc[1]); }
   for(const p of GEO.ponds){ const pg=b.createRadialGradient(p.x,p.y,10,p.x,p.y,p.rx*1.1); pg.addColorStop(0,T.water[0]); pg.addColorStop(.6,T.water[1]); pg.addColorStop(1,T.water[3]); b.fillStyle=pg; blobPath(b,p); b.fill(); }
+  if(LK.id!=='volcano'){ b.save(); lakePath(b,1,0); for(const I of GEO.islands) blobPath(b,I,4); b.clip('evenodd'); b.translate(LAKE.x,LAKE.y); b.scale(1,LAKE.ry/LAKE.rx); const R=LAKE.rx*1.08, wg=b.createRadialGradient(0,0,R*.05,0,0,R);
+    wg.addColorStop(0,'rgba(0,12,40,.40)'); wg.addColorStop(.55,'rgba(0,25,60,.18)'); wg.addColorStop(.8,'rgba(40,170,200,.10)'); wg.addColorStop(.93,'rgba(120,235,235,.38)'); wg.addColorStop(1,'rgba(190,255,245,.55)'); b.fillStyle=wg; b.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4); b.restore(); }
   b.strokeStyle='rgba(0,0,0,.18)'; b.lineWidth=5; lakePath(b,1,-2); b.stroke();
   b.strokeStyle=hexA(T.water[3],.9); b.lineWidth=10; lakePath(b,1,-9); b.stroke();
   // deep holes look darker; brush piles are tangled sticks under the water
@@ -1075,7 +1078,20 @@ let ripplePat=null;
 let SUN={dx:0,len:1,a:.2};
 function sunInfo(){ const h=hour(); if(h<5.5||h>19.5) return {dx:0,len:1,a:.06}; const k=Math.max(-1,Math.min(1,(h-12.5)/6)); return {dx:k, len:1+Math.abs(k)*1.2, a:.06+.2*(1-nightAmt())}; }
 const flutters = Array.from({length:7}, ()=>({x:0,y:0,set:false,ph:Math.random()*6,col:'#fff'}));
-const birds = Array.from({length:3}, (_,i)=>({x:-999,y:0,sp:60+Math.random()*30,ph:Math.random()*6,wait:i*6}));
+const birds = Array.from({length:5}, (_,i)=>({x:-1e9,y:0,sp:60+Math.random()*30,ph:Math.random()*6,wait:i*3}));
+// kinds of flying birds you can shoot (golden ones are super rare)
+const BIRDS=[{n:'Crow',col:'#2a2a2a',v:25,w:30},{n:'Blue Jay',col:'#3a7bd5',v:35,w:22},{n:'Cardinal',col:'#d8202a',v:45,w:18},{n:'Canada Goose',col:'#6a5a4a',v:80,w:12,big:true},{n:'Golden Bird',col:'#ffd23f',v:500,w:2,gold:true}];
+function pickBird(){ if(LK.id==='ocean') return Math.random()<.04?BIRDS[4]:{n:'Seagull',col:'#f4f4f4',v:30,w:1};
+  if(LK.id==='jungle' && Math.random()<.5) return {n:'Parrot',col:'#2ec04a',v:60,w:1};
+  let r=Math.random()*BIRDS.reduce((a,b)=>a+b.w,0); for(const b of BIRDS){ r-=b.w; if(r<=0) return b; } return BIRDS[0]; }
+// moves the birds across whatever area you can see (top-down screen or around you in first person)
+function updateBirds(t, x0, y0, w, h){ const day=nightAmt()<.3;
+  for(const b of birds){
+    if(b.dead){ b.fallT=Math.min(1,(b.fallT||0)+1/48); b.lie=(b.lie||0)+1/60; if(b.lie>4){ b.dead=false; b.x=-1e9; b.vis=false; } continue; }
+    if(!day){ b.vis=false; continue; }
+    if(b.x<x0-120 || b.x>x0+w+120){ b.vis=false; b.wait-=1/60; if(b.wait>0) continue; b.x=x0-100; b.y=y0+Math.random()*h*.7; b.wait=3+Math.random()*6; b.k=pickBird(); b.hp=1; b.fallT=0; b.lie=0; }
+    if(!b.k) b.k=pickBird();
+    b.x += b.sp/60*(b.k.big?.8:1); b.y += Math.sin(t+b.ph)*.2; b.vis=true; } }
 const amb = Array.from({length:40}, ()=>({x:Math.random(),y:Math.random(),s:Math.random(),r:Math.random()*6}));
 function drawGrass(t, vw, vh){
   const c1=shade(LK.T.tuft[0],.82), c2=LK.T.tuft[1];
@@ -1107,16 +1123,17 @@ function drawCritters(t, vw, vh){
     }
   }
   // birds flying overhead with shadows on the ground
-  if(day){
-    for(const b of birds){
-      if(b.x<cam.x-120 || b.x>cam.x+vw+120){ b.wait-=1/60; if(b.wait>0) continue; b.x=cam.x-100; b.y=cam.y+Math.random()*vh*.7; b.wait=4+Math.random()*8; }
-      b.x += b.sp/60; b.y += Math.sin(t+b.ph)*.2;
-      const w=Math.sin(t*9+b.ph)*5;
-      ctx.fillStyle='rgba(0,0,0,.1)'; ctx.beginPath(); ctx.ellipse(b.x+40,b.y+90,7,2.5,0,0,7); ctx.fill();
-      ctx.strokeStyle= LK.id==='ocean' ? '#f4f4f4' : '#3a3a3a'; ctx.lineWidth=2.2; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(b.x-9,b.y-w); ctx.quadraticCurveTo(b.x-4,b.y-3,b.x,b.y); ctx.quadraticCurveTo(b.x+4,b.y-3,b.x+9,b.y-w); ctx.stroke();
-    }
-  }
+  updateBirds(t, cam.x, cam.y, vw, vh);
+  for(const b of birds){ if(!b.k || (!b.vis && !b.dead)) continue; const k=b.k, sc=k.big?1.5:1;
+    if(b.dead){ const f=b.fallT*b.fallT, x=b.x+40*f, y=b.y+90*f; ctx.save(); ctx.translate(x,y); ctx.rotate(b.fallT*2.8); ctx.scale(sc,sc);
+      ctx.fillStyle=k.col; ctx.beginPath(); ctx.ellipse(0,0,6,3.5,0,0,7); ctx.fill(); ctx.strokeStyle=shade(k.col,.7); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-9,-4); ctx.moveTo(6,0); ctx.lineTo(9,-4); ctx.stroke();
+      ctx.fillStyle='#ffa020'; ctx.beginPath(); ctx.moveTo(6,-1); ctx.lineTo(9,0); ctx.lineTo(6,1); ctx.fill(); ctx.restore(); continue; }
+    const w=Math.sin(t*9+b.ph)*5*sc;
+    ctx.fillStyle='rgba(0,0,0,.1)'; ctx.beginPath(); ctx.ellipse(b.x+40,b.y+90,7*sc,2.5*sc,0,0,7); ctx.fill();
+    ctx.strokeStyle=k.col==='#f4f4f4'?'#f4f4f4':shade(k.col,.85); ctx.lineWidth=2.4*sc; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(b.x-9*sc,b.y-w); ctx.quadraticCurveTo(b.x-4*sc,b.y-3,b.x,b.y); ctx.quadraticCurveTo(b.x+4*sc,b.y-3,b.x+9*sc,b.y-w); ctx.stroke();
+    ctx.fillStyle=k.col; ctx.beginPath(); ctx.ellipse(b.x,b.y,3.2*sc,2*sc,0,0,7); ctx.fill();
+    if(k.gold && Math.sin(t*8+b.ph)>.3){ ctx.fillStyle='#fff'; ctx.fillRect(b.x-1,b.y-7,2,4); ctx.fillRect(b.x-3,b.y-6,6,2); } }
 }
 function drawAmbient(t){
   const id=LK.id, wet=weather.type==='rain'||weather.type==='storm';
@@ -1806,6 +1823,7 @@ function targets(){
   for(const d of deer) out.push({o:d, kind:'deer', cx:d.x, cy:d.y-22, r:26});
   for(const b of beasts){ const s=BEAST[b.kind]; out.push({o:b, kind:'beast', cx:b.x, cy:b.y-s.leg-s.bh, r:s.bw*.9}); }
   for(const o of owls) out.push({o, kind:'owl', cx:o.x, cy:o.y, r:16});
+  for(const b of birds) if(b.vis && !b.dead && b.k) out.push({o:b, kind:'bird', cx:b.x, cy:b.y, r:b.k.big?18:14});
   gameTargets(out);
   return out.filter(t=>!t.o.dead);
 }
@@ -1818,7 +1836,7 @@ function shoot(auto){
   let a;
   if(auto){
     let best=null, bd=S.gun===0?GUNS[0].range:gunRange();
-    for(const t of targets()){ const d=Math.hypot(t.cx-P.x, t.cy-(P.y-24)); if(d<bd){ bd=d; best=t; } }
+    for(const t of targets()){ const d=Math.hypot(t.cx-P.x, t.cy-(P.y-24))*(t.kind==='bird'?1.4:1); if(d<bd){ bd=d; best=t; } }
     a = best ? Math.atan2(best.cy-(P.y-24), best.cx-P.x) : Math.atan2(P.fy,P.fx);
   } else a = Math.atan2(mouse.y/Z+cam.y-(P.y-24), mouse.x/Z+cam.x-P.x);
   if(FP.on){ a=FP.yaw; let bd=scopeOn?.05:.16;
@@ -1852,6 +1870,7 @@ function hit(t, b){
     if(a.trophy){ S.st.trophyBucks=(S.st.trophyBucks||0)+1; S.buckMounts=S.buckMounts||[]; const bm={pts:a.pts, lake:LK.id, col:LK.deer.buck}; S.buckMounts.push(bm); S.buckMounts.sort((x,y)=>y.pts-x.pts); S.buckMounts.length=Math.min(S.buckMounts.length,3);
       window.__tb={pts:a.pts, on:S.buckMounts.includes(bm)}; shake(8,.5); vib([60,40,90]); SFX.trophy(); } }
   else if(t.kind==='owl'){ val=40; name='Owl'; S.st.owls++; }
+  else if(t.kind==='bird'){ val=a.k.v; name=a.k.n; a.fallT=0; a.lie=0; S.st.birds=(S.st.birds||0)+1; if(a.k.gold){ S.st.goldBirds=(S.st.goldBirds||0)+1; setTimeout(()=>banner('✨','GOLDEN BIRD!',`So rare! +$${Math.round(500*MODE().pay).toLocaleString()}`),0); SFX.trophy(); shake(5,.3); } }
   else if(t.kind==='game'){ const g=GAME[a.kind]; val=Math.round(g.val*(a.bull?1.6:1)); name=(a.bull&&g.bn)||g.n; S.st.game[a.kind]=(S.st.game[a.kind]||0)+1; }
   else { const s=BEAST[a.kind]; val=s.val; name=s.n; S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]=(S.st[{bear:'bears',wolf:'wolves',boar:'boars',gator:'gators',crab:'crabs',cat:'cats'}[s.look]]||0)+1; }
   val=Math.round(val*MODE().pay);
@@ -1859,7 +1878,7 @@ function hit(t, b){
   S.money += val; S.st.earned += val; SFX.cash(); addXP(5+Math.sqrt(val)); questProg('hunt',1);
   if(window.__tb){ banner('🦌','TROPHY BUCK!',`A huge ${__tb.pts}-point buck! +$${val.toLocaleString()}${__tb.on?" · it's on your cabin wall":''}`); window.__tb=null; }
   float(t.cx, t.cy-24, `+$${val} ${name}!${P.blind?' 🎯 blind bonus':''}`, '#7CFC00');
-  burst(t.cx, t.cy, t.kind==='duck'||t.kind==='owl' ? '#f5f0e1' : '#8b5a2b', 16, 140);
+  burst(t.cx, t.cy, t.kind==='bird' ? t.o.k.col : t.kind==='duck'||t.kind==='owl' ? '#f5f0e1' : '#8b5a2b', 16, 140);
   save();
 }
 
@@ -2438,8 +2457,10 @@ const LOOK_COLORS={skin:['#ffe0c4','#f2c9a0','#d9a47a','#b07850','#8a5a3a','#5a3
   shirt:['#d33a2c','#3a7bd5','#2e9a54','#e0a020','#8a4ad0','#e05a8a','#1fa0a0','#333a44','#f4f4f4','#ff7a1a'], pants:['#2b4c7e','#3a3a3a','#6a5a3a','#4a6a3a','#7a2a2a','#c8b890'],
   rod:['#7a4a22','#222222','#d33a2c','#3a7bd5','#2e9a54','#ffd23f','#ff7ac8','#c0c8d0']};
 const HAIR_STYLES=['short','long','spiky','curly','bald'];
+const BEARDS=[{id:'none',n:'Clean Shaven',p:0},{id:'stubble',n:'Stubble',p:30},{id:'mustache',n:'Mustache',p:60},{id:'goatee',n:'Goatee',p:80},{id:'beard',n:'Full Beard',p:150},
+  {id:'handlebar',n:'Handlebar Mustache',p:200},{id:'chops',n:'Mutton Chops',p:220},{id:'bushy',n:'Big Bushy Beard',p:300},{id:'wizard',n:'Long Wizard Beard',p:600}];
 function LOOK(){ const L=S.look, C=LOOK_COLORS; return {skin:C.skin[L.skin]||C.skin[1], hair:C.hair[L.hair]||C.hair[0], style:L.style, shirt:C.shirt[L.shirt]||C.shirt[0], pants:C.pants[L.pants]||C.pants[0],
-  hat:L.hat, hatCol:C.shirt[L.hatCol]||C.shirt[2], outfit:L.outfit, shades:L.shades&&S.owned.shades, rod:C.rod[L.rod]||C.rod[0]}; }
+  hat:L.hat, hatCol:C.shirt[L.hatCol]||C.shirt[2], outfit:L.outfit, shades:L.shades&&S.owned.shades, rod:C.rod[L.rod]||C.rod[0], beard:L.beard||'none'}; }
 // ===================== Boat upgrades =====================
 const BOAT_UPS={
   motor:  [{n:'Stock motor',p:0},{n:'40 hp motor',p:500,d:'+20% speed'},{n:'115 hp motor',p:2000,d:'+40% speed'},{n:'250 hp motor',p:6000,d:'+60% speed'}],
@@ -2453,7 +2474,7 @@ S.own=Object.assign({line:[0], hook:[0]}, S.own||{});
 if(!S.lures){ S.lures=['worm']; if(S.bait>=1) S.lures.push('cricket'); if(S.bait>=2) S.lures.push('spinner','crank'); if(S.bait>=3) S.lures.push('glow'); }
 S.boatUp=Object.assign({motor:0,sonar:0,storage:0}, S.boatUp||{});
 S.look=Object.assign({skin:1,hair:0,style:'short',shirt:0,pants:0,hat:'cap',hatCol:2,outfit:'tee',shades:false,rod:0}, S.look||{});
-S.owned=Object.assign({hats:['cap','none'], outfits:['tee'], shades:false}, S.owned||{});
+S.owned=Object.assign({hats:['cap','none'], outfits:['tee'], shades:false}, S.owned||{}); S.owned.beards??=['none'];
 if(!Array.isArray(S.wall)) S.wall=Array(12).fill(null);
 S.mud??=0; S.explored??={}; S.kinds??={}; S.bosses??={}; S.found??={}; S.bottles??={}; S.secrets??={};
 for(const k of ['legend','boss','chests','bottles','variants','fog','am3','mudFish','refused']) S.st[k]??=0;
@@ -3114,6 +3135,18 @@ function drawCabinRoom(c,t){
 }
 
 // ===================== Character drawing helpers =====================
+// facial hair (uses your hair color; the wizard beard is always snowy white)
+function drawBeard(c, L, fx){ const b=L.beard; if(!b || b==='none') return; const ex=fx*3, col=b==='wizard'?'#ecebe6':L.hair, dk=shade(col,.75);
+  const stache=(w)=>{ c.fillStyle=col; c.beginPath(); c.ellipse(ex-2.3,-36.4,2.8*w,1.4,.25,0,7); c.ellipse(ex+2.3,-36.4,2.8*w,1.4,-.25,0,7); c.fill(); };
+  const jaw=(drop,wide)=>{ c.fillStyle=col; c.beginPath(); c.moveTo(-8.6,-41); c.quadraticCurveTo(-wide,-33+drop*.3,ex,-31+drop); c.quadraticCurveTo(wide,-33+drop*.3,8.6,-41); c.lineTo(6.5,-38); c.quadraticCurveTo(ex,-33.2,-6.5,-38); c.closePath(); c.fill(); c.strokeStyle=dk; c.lineWidth=.8; c.stroke(); };
+  if(b==='stubble'){ c.save(); c.globalAlpha=.35; c.fillStyle=col; c.beginPath(); c.ellipse(ex*.6,-33.6,6.6,3.4,0,0,7); c.fill(); c.restore(); }
+  else if(b==='mustache') stache(1);
+  else if(b==='goatee'){ stache(.85); c.fillStyle=col; c.beginPath(); c.roundRect(ex-2.2,-34.6,4.4,4.6,2); c.fill(); }
+  else if(b==='handlebar'){ stache(1); c.strokeStyle=col; c.lineWidth=1.6; c.lineCap='round'; for(const sd of [-1,1]){ c.beginPath(); c.moveTo(ex+sd*4.5,-36.3); c.quadraticCurveTo(ex+sd*8,-36,ex+sd*7.5,-39.5); c.stroke(); } }
+  else if(b==='chops'){ c.fillStyle=col; for(const sd of [-1,1]){ c.beginPath(); c.moveTo(sd*8.8,-42); c.quadraticCurveTo(sd*9.4,-34,sd*4.5,-35.5); c.lineTo(sd*6.5,-41); c.closePath(); c.fill(); } stache(.9); }
+  else if(b==='beard'){ jaw(0,9.4); stache(1); }
+  else if(b==='bushy'){ jaw(4,12); c.fillStyle=col; for(const [x,y,r] of [[-6,-32,3.4],[0,-28.5,4],[6,-32,3.4],[-3,-29.5,3],[3,-29.5,3]]){ c.beginPath(); c.arc(x+ex*.5,y,r,0,7); c.fill(); } stache(1.15); }
+  else if(b==='wizard'){ jaw(0,9.4); c.fillStyle=col; c.beginPath(); c.moveTo(-7,-35); c.quadraticCurveTo(ex-3,-18,ex+1,-8); c.quadraticCurveTo(ex+4,-20,7,-35); c.closePath(); c.fill(); c.strokeStyle=dk; c.lineWidth=.8; c.stroke(); stache(1.1); } }
 function drawHat(c, L, fx, fy){
   const col=L.hatCol, h=L.hat;
   if(h==='none') return;
@@ -3227,6 +3260,7 @@ function stationHTML(kind){
     return `<h1>🧢 Clothes ${money()}</h1>${H2('🧢 Hats')}${G(HATS.filter(h=>!h.secret||S.owned.hats.includes(h.id)).map(h=>{ const own=S.owned.hats.includes(h.id);
         return ownRow(h.n, own?'You own this':'A new hat', own?eqBtn('hat:'+h.id, L.hat===h.id):buyBtn('hat:'+h.id,h.p), own); }).join(''))}
       ${H2('👕 Outfits')}${G(OUTFITS.map(o=>{ const own=S.owned.outfits.includes(o.id); return ownRow(o.n, own?'You own this':'Fishing clothes', own?eqBtn('outfit:'+o.id, L.outfit===o.id):buyBtn('outfit:'+o.id,o.p), own); }).join(''))}
+      ${H2('🧔 Facial Hair')}${G(BEARDS.map(bd=>{ const own=S.owned.beards.includes(bd.id); return ownRow(bd.n, own?'You own this':'Grow it instantly!', own?eqBtn('beard:'+bd.id, (L.beard||'none')===bd.id):buyBtn('beard:'+bd.id,bd.p), own); }).join(''))}
       ${H2('😎 Extras')}${G(ownRow('😎 Sunglasses', 'Look cool on the water', S.owned.shades?`<button data-look="shades:${L.shades?0:1}" class="alt">${L.shades?'✔ On':'Wear'}</button>`:buyBtn('shades:1',80), S.owned.shades))}
       ${H2('👟 Shoes')}${G(tierRows(SHOES,S.shoes,'shoes',it=>it.d))}<p style="font-size:13px">Change colors and your hair in the <b>wardrobe</b> at your cabin.</p>${closeP()}`; }
   if(kind==='guns') return `<h1>🔫 Guns & Traps ${money()}</h1>${H2('🔫 Guns <small style="font-weight:600">(own as many as you want · press G or 2 to switch)</small>')}${G(GUNS.map((it,i)=>({it,i})).sort((a,b)=>a.it.p-b.it.p).map(({it,i})=>{ const own=S.guns.includes(i); return ownRow(it.n, it.d+` · uses ${AMMO[gunAmmo(i)].n.toLowerCase()}`, own?eqBtn('gun:'+i, S.gun===i):buyBtn('gun:'+i,it.p), own); }).join(''))}
@@ -3248,6 +3282,7 @@ function stationHTML(kind){
       <b>Hair style</b><div>${HAIR_STYLES.map(h=>`<button data-look="style:${h}" class="${L.style===h?'':'alt'}">${h}</button>`).join(' ')}</div>
       <b>Shirt</b><div>${sw('shirt',C.shirt)}</div><b>Pants</b><div>${sw('pants',C.pants)}</div><b>Hat color</b><div>${sw('hatCol',C.shirt)}</div><b>Rod color</b><div>${sw('rod',C.rod)}</div></div></div>
       ${H2('🧢 Your hats')}<div>${HATS.filter(h=>S.owned.hats.includes(h.id)).map(h=>`<button data-eq="hat:${h.id}" class="${L.hat===h.id?'':'alt'}">${h.n}</button>`).join(' ')}</div>
+      ${H2('🧔 Your facial hair')}<div>${BEARDS.filter(bd=>S.owned.beards.includes(bd.id)).map(bd=>`<button data-eq="beard:${bd.id}" class="${(L.beard||'none')===bd.id?'':'alt'}">${bd.n}</button>`).join(' ')}</div>
       ${H2('👕 Your outfits')}<div>${OUTFITS.filter(o=>S.owned.outfits.includes(o.id)).map(o=>`<button data-eq="outfit:${o.id}" class="${L.outfit===o.id?'':'alt'}">${o.n}</button>`).join(' ')}</div>
       ${S.owned.shades?`<p><button data-look="shades:${L.shades?0:1}" class="alt">😎 Sunglasses: ${L.shades?'On':'Off'}</button></p>`:''}<p style="font-size:13px">Buy more hats & outfits at the shop's clothes rack.</p>${closeP()}`; }
   if(kind==='tacklebox') return `<h1>🧰 Tackle Box</h1>${gearSummary()}<p style="margin:4px 0 10px">Pick what's on your line. Different fish want different gear! Watch the fish shadows: if a fish looks and swims away, try another lure.</p>
@@ -3276,6 +3311,7 @@ function buyOrEquip(b){
   else if(kind==='item'){ const it=TACKLE_ITEMS.find(x=>x.id===id)||OUTDOOR.find(x=>x.id===id); if(!pay(it.p)) return; S.gear[id]=true; toast(`You got the ${it.e} ${it.n}!`); }
   else if(kind==='up'){ const nx=BOAT_UPS[id][S.boatUp[id]+1]; if(!nx||!pay(nx.p)) return; S.boatUp[id]++; toast(`🔧 Installed: ${nx.n}!`); }
   else if(kind==='hat'){ const h=HATS.find(x=>x.id===id); if(buying){ if(!pay(h.p)) return; S.owned.hats.push(id); } S.look.hat=id; FP.lake=null; }
+  else if(kind==='beard'){ const bd=BEARDS.find(x=>x.id===id); if(buying){ if(!pay(bd.p)) return; S.owned.beards.push(id); toast(`🧔 You got the ${bd.n}!`); } S.look.beard=id; FP.lake=null; }
   else if(kind==='outfit'){ const o=OUTFITS.find(x=>x.id===id); if(buying){ if(!pay(o.p)) return; S.owned.outfits.push(id); } S.look.outfit=id; FP.lake=null; }
   else if(kind==='shades'){ if(!pay(80)) return; S.owned.shades=true; S.look.shades=true; }
   else if(kind==='gun'){ const i=+id; if(buying){ if(!pay(GUNS[i].p)) return; S.guns.push(i); S.ammo[gunAmmo(i)]=(S.ammo[gunAmmo(i)]||0)+AMMO[gunAmmo(i)].qty; toast(`You got the ${GUNS[i].n}! It comes with a box of ${AMMO[gunAmmo(i)].n.toLowerCase()}`); } S.gun=i; tool='gun'; if(i===0) scopeOff(); }
@@ -4608,7 +4644,7 @@ function perfTick(dt){
   perfS.wait-=dt; if(perfS.wait>0) return;
   perfS.t+=dt; perfS.n++; if(perfS.t<4) return;
   const fps=perfS.n/perfS.t; perfS.t=0; perfS.n=0;
-  if(fps<48){ perfS.lvl++; perfS.wait=3; window.dprCap=perfS.lvl===1?1.5:1; FP.lite=true; if(perfS.lvl>=2) FP.cubeT=1e9; resize(); }
+  if(fps<48){ perfS.lvl++; perfS.wait=3; window.dprCap=perfS.lvl===1?1.5:1; FP.lite=true; if(FP.models) for(const m of FP.models.values()) m.traverse(o=>{ o.castShadow=false; }); if(perfS.lvl>=2) FP.cubeT=1e9; resize(); }
 }
 
 // ===================== Fish Frenzy, catch streaks & jumping fish =====================
@@ -4857,10 +4893,10 @@ function trackNow(){
   if(tracking){ tracking=null; toast('🐾 You stopped tracking'); return; }
   const life=(iceOn()||LK.id==='frozen')?150:60; let best=null, bd=260;
   const alive=o=>o===bigfoot||deer.includes(o)||game.includes(o)||beasts.includes(o);
-  for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide && alive(p.obj) && !(p.obj._trackedAt && performance.now()-p.obj._trackedAt<60000)){ bd=d; best=p; } }
+  let near=null; for(const p of tracks){ const d=Math.hypot(p.x-P.x,p.y-P.y); if(d<bd && !p.obj.dead && !p.obj.hide && alive(p.obj) && !(p.obj._trackedAt && performance.now()-p.obj._trackedAt<60000)){ if(Math.hypot(p.obj.x-P.x,p.obj.y-P.y)<250){ near=p; continue; } bd=d; best=p; } }
+  if(!best && near){ toast(`👀 The ${(near.obj===bigfoot?'bigfoot':(near.obj._pr||{name:'animal'}).name).toLowerCase()} is right here! Find tracks that lead somewhere farther away`); return; }
   if(!best){ toast('🐾 No fresh tracks right here. Walk around fields and woods and look at the ground!'); tone(300,.1,'square',.04); return; }
   const o=best.obj, pr=o===bigfoot?{name:'BIGFOOT'}:o._pr||{name:'animal'}, far=Math.hypot(o.x-P.x,o.y-P.y), dir=['east','south-east','south','south-west','west','north-west','north','north-east'][Math.round(((Math.atan2(o.y-P.y,o.x-P.x)+6.283)%6.283)/0.785)%8];
-  if(far<250){ toast(`👀 The ${pr.name.toLowerCase()} is right here! Find tracks that lead somewhere farther away`); return; }
   tracking={obj:o, name:pr.name, t:45, far}; tone(520,.08,'triangle',.08); tone(700,.12,'triangle',.08,.08); const nm=pr.name.toLowerCase(), an=/^[aeiou]/.test(nm)?'An':'A';
   toast(`🐾 ${best.type==='big'?'GIANT footprints':best.type==='hoof'?'Hoof prints':best.type==='bird'?'Bird tracks':'Paw prints'}! ${an} ${nm} went ${dir}${best.t<15?' just now':''}. ${FP.on?'Head '+dir+'!':'Follow the glowing tracks!'}`); }
 function drawPrint(c,p,glow){ c.save(); c.translate(p.x+Math.cos(p.a+1.57)*4*p.side, p.y+Math.sin(p.a+1.57)*4*p.side); c.rotate(p.a); const s=p.sz*1.4;
@@ -5066,16 +5102,16 @@ function buildPet(id){ if(id==='bunny') return buildRabbit('#f2eee6',true,.9); i
   if(id==='dragon'){ const g=buildBird('#4ac85a','#3aa84a','#f4f0e0',1.2); g.add(part(CONE(),'#4ac85a',-12,0,0,2,9,2)); g.children[g.children.length-1].rotation.z=1.57; return g; }
   const col=PET_COL[id]||'#8a8a8a', cat=id==='cat'||id==='fox'; return buildQuad({L:20,H:8,B:9,neck:4,headL:8,neckA:.5,col,dk:shade(col,.7),tailCol:id==='fox'?'#ffffff':col,belly:id==='fox'?'#f4f0e8':col}); }
 function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.modelScene=FP.scene; } const M=FP.models, VX=drone?drone.x:P.x, VY=drone?drone.y:P.y, used=new Set();
-  const place=(o,key,mk,elev,face,moving,anim)=>{ if(Math.hypot(o.x-VX,o.y-VY)>(FP.lite?1500:2400)) return; let m=M.get(o); if(!m){ m=mk(); if(!m) return; FP.scene.add(m); M.set(o,m); } used.add(o);
+  const place=(o,key,mk,elev,face,moving,anim)=>{ if(Math.hypot(o.x-VX,o.y-VY)>(FP.lite?1150:2400)) return; let m=M.get(o); if(!m){ m=mk(); if(!m) return; FP.scene.add(m); M.set(o,m); } used.add(o);
     const bob=moving?Math.abs(Math.sin(anim))*1.6:0; m.position.set(o.x, hillAt(o.x,o.y)+elev+bob, o.y); m.rotation.y=-face; const U=m.userData;
     if(U.legs) U.legs.forEach((lg,i)=>{ lg.rotation.z = moving ? Math.sin(anim+(lg.userData.ph!=null?lg.userData.ph:i*Math.PI))*.55 : 0; });
     if(U.arms) U.arms.forEach((ar,i)=>{ ar.rotation.z = moving ? Math.sin(anim+i*Math.PI)*.5 : 0; });
     if(U.nk && !moving) U.nk.rotation.y=Math.sin(t*.7+o.x*.01)*.25;
     if(U.hop && moving) m.position.y+=Math.abs(Math.sin(anim*.9))*U.hop; if(U.ears) U.ears.forEach((e,i)=>e.rotation.z=.25+(moving?Math.sin(anim)*.3:Math.sin(t*2+i)*.06));
     if(U.wings) U.wings.forEach((w,i)=>w.rotation.x=(i?1:-1)*Math.sin(t*(key==='owl'?6:14)+o.x)*.6); if(U.tail && U.tail.rotation) U.tail.rotation.y=Math.sin(t*(moving?8:2)+o.x)*.25;
-    if(U.fan) U.fan.scale.setScalar(moving?.6:1); if(U.waddle && moving) m.rotation.x=Math.sin(anim*1.4)*.18; if(U.jaw) U.jaw.rotation.z=-Math.max(0,Math.sin(t*1.3+o.x))*.3; };
+    if(U.fan) U.fan.scale.setScalar(moving?.6:1); if(U.waddle){ m.rotation.order='YXZ'; m.rotation.x=moving?Math.sin(anim*1.4)*.18:0; } m.rotation.z=o.trapped>0?Math.sin(t*30)*.06:0; if(U.jaw) U.jaw.rotation.z=-Math.max(0,Math.sin(t*1.3+o.x))*.3; };
   const ang=(o)=>{ const m=Math.hypot(o.vx||0,o.vy||0)>3; return m?Math.atan2(o.vy,o.vx):((o.face||1)>0?0:Math.PI); };
-  for(const d of deer) if(!d.dead){ const q=quadSpec(d,'deer'); place(d,'deer',()=>{ const g=buildQuad(q); g.scale.setScalar(q.s); return g; },0,ang(d),!!(d.vx||d.vy),d.anim||0); }
+  for(const d of deer) if(!d.dead){ place(d,'deer',()=>{ const q=quadSpec(d,'deer'), g=buildQuad(q); g.scale.setScalar(q.s); return g; },0,ang(d),!!(d.vx||d.vy),d.anim||0); }
   for(const a of game) if(!a.hide && !a.climb && !a.dead){ const q=quadSpec(a,'game'), G=GAME[a.kind], mv=Math.hypot(a.vx,a.vy)>8;
     const mk = q ? ()=>buildQuad(q) : G.look==='rabbit' ? ()=>buildRabbit(G.col,G.bigEars||a.kind==='jackrabbit'||a.kind==='hare',a.kind==='jackrabbit'?1.15:1) : G.look==='squirrel' ? ()=>buildSquirrel(G.col) : G.look==='pdog' ? ()=>buildPdog(G.col) : G.look==='turkey' ? ()=>buildTurkey(G.col) : null;
     if(mk) place(a,'game',mk,0,ang(a),mv,a.anim||0); }
@@ -5085,7 +5121,11 @@ function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.mode
   if(bigfoot) place(bigfoot,'bigfoot',buildBigfoot,0,ang(bigfoot),true,bigfoot.anim||0);
   if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree){ m._c3=m._c3||{}; m._c3.x=m.x; m._c3.y=m.y; m._c3.face=m.face; place(m._c3,'monkey',()=>buildMonkey(m.c),(m.tree.r||30)*1.15+(m.lift||0),m.face>0?0:Math.PI,false,0); }
     for(const b of toucans) place(b,'toucan',()=>buildBird('#151515','#151515','#ff9a1a',1.2),90,0,false,0); }
-  if(S.pet && !P.inBoat && !P.room){ if(pet._id!==S.pet && M.has(pet)){ FP.scene.remove(M.get(pet)); M.delete(pet); } pet._id=S.pet; const fl=petFlies(); place(pet,'pet',()=>buildPet(S.pet),fl?42+Math.sin(t*4)*3:0,(pet.face||1)>0?0:Math.PI,!!pet.moving,(pet.anim||0)*1.2); }
+  if(S.pet && !P.inBoat && !P.room){ if(pet._id!==S.pet && M.has(pet)){ FP.scene.remove(M.get(pet)); M.delete(pet); } pet._id=S.pet; const fl=petFlies(); if(pet._lx!=null && Math.hypot(pet.x-pet._lx,pet.y-pet._ly)>.3) pet._fa=Math.atan2(pet.y-pet._ly,pet.x-pet._lx); pet._lx=pet.x; pet._ly=pet.y;
+    place(pet,'pet',()=>buildPet(S.pet),fl?42+Math.sin(t*4)*3:0,pet._fa!=null?pet._fa:(pet.face||1)>0?0:Math.PI,!!pet.moving,(pet.anim||0)*1.2); }
+  if(!LK.dark && !LK.space) updateBirds(t, VX-700, VY-700, 1400, 1400);
+  for(const b of birds){ const m0=M.get(b); if(m0 && m0.userData.k!==b.k){ FP.scene.remove(m0); M.delete(b); } } // a bird came back as a different kind
+  for(const b of birds) if(b.k && (b.vis||b.dead)) place(b,'bird'+b.k.n,()=>{ const g=buildBird(b.k.col,shade(b.k.col,.8),'#ffa020',b.k.big?2.2:1.4); g.userData.k=b.k; return g; },b.dead?Math.max(0,120*(1-b.fallT*b.fallT))+2:120+Math.sin(t*2+b.ph)*4,b.dead?b.fallT*2:0,false,0);
   if(!isNight()) for(const d of ducks) if(!d.dead) place(d,'duck',buildDuck,1.5+Math.sin(d.bob||0)*.4,ang(d),false,0);
   for(const n of npcs) place(n,'person',()=>buildPerson(n),0,Math.atan2(n.fy||0,n.fx||1),!!n.walking,(n.anim||0)*9);
   for(const [o,m] of M) if(!used.has(o)){ FP.scene.remove(m); M.delete(o); } }
@@ -5108,9 +5148,10 @@ function drawWheel(){ const cv=document.getElementById('wheelCv'); if(!cv) retur
   g.fillStyle='#d8202a'; g.beginPath(); g.moveTo(cx+R-6,cy); g.lineTo(cx+R+14,cy-12); g.lineTo(cx+R+14,cy+12); g.closePath(); g.fill(); g.strokeStyle='#fff'; g.lineWidth=2; g.stroke(); }
 function spinWheel(){ if(!wheelReady() || wheelSpin) return; S.wheelDay=dayKey(); S.st.spins=(S.st.spins||0)+1; save();
   let tot=WHEEL.reduce((a,w)=>a+w.w,0), r=Math.random()*tot, k=0; for(;k<WHEEL.length;k++){ r-=WHEEL[k].w; if(r<=0) break; } k=Math.min(k,WHEEL.length-1);
+  const m0=S.money, what=WHEEL[k].f(); S.st.earned+=Math.max(0,S.money-m0); save(); // the banner waits for the wheel to stop
   const n=WHEEL.length, mid=(k+.5)/n*6.2832, target=6.2832*6 - mid + (Math.random()-.5)*(6.2832/n)*.6, start=wheelAng%6.2832, t0=performance.now(), dur=4200; let lastTick=-1;
   wheelSpin=true; const step=now=>{ const u=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-u,3); wheelAng=start+(target-start)*e; drawWheel(); const tick=Math.floor((wheelAng)/(6.2832/n)); if(tick!==lastTick){ lastTick=tick; tone(900,.03,'square',.04); }
-    if(u<1 && panel==='wheel') requestAnimationFrame(step); else { wheelSpin=null; const what=WHEEL[k].f(); S.st.earned+=0; banner('🎡','PRIZE WHEEL!',`You won ${what}`, k===7?'#ffffff':'#ffd54a'); [523,659,784,1046].forEach((f,i)=>tone(f,.15,'triangle',.12,i*.08)); save(); if(panel==='wheel') renderPanel(); } };
+    if(u<1 && panel==='wheel') requestAnimationFrame(step); else { wheelSpin=null; banner('🎡','PRIZE WHEEL!',`You won ${what}`, k===7?'#ffffff':'#ffd54a'); [523,659,784,1046].forEach((f,i)=>tone(f,.15,'triangle',.12,i*.08)); save(); if(panel==='wheel') renderPanel(); } };
   requestAnimationFrame(step); }
 
 // ---------- Update ----------
@@ -5951,6 +5992,7 @@ function drawPlayer(t){
   c.beginPath(); c.arc(0,-40,9,0,7); c.fill(); c.strokeStyle='rgba(120,60,30,.35)'; c.lineWidth=1; c.stroke(); drawHair(c,LL,fy);
   if(fy > -.5){ c.fillStyle='rgba(255,120,120,.35)'; c.beginPath(); c.arc(-5+fx*3,-37,1.8,0,7); c.arc(5+fx*3,-37,1.8,0,7); c.fill(); }
   if(fy > -.5) drawFace(c, face, fx, t);
+  if(fy > -.5) drawBeard(c, LL, fx);
   drawHat(c,LL,fx,fy);
   if(LL.shades && fy>-.5){ c.fillStyle='#111'; c.beginPath(); c.roundRect(-7+fx*3,-43.5,6,3.5,1.5); c.roundRect(1+fx*3,-43.5,6,3.5,1.5); c.fill(); c.fillRect(-1+fx*3,-42.5,2,1); }
   if((type==='catch'||type==='cheer') && A.data && A.data.i!=null){ const f=FISH[A.data.i]; c.save(); c.translate(0,-64); drawSpecies(f,0,0,Math.min(48,30*f.s),t,A.data.vr); c.restore(); }
@@ -6820,10 +6862,11 @@ let last = performance.now();
 function loop(now){
   const dt = Math.min(.05, (now-last)/1000); last = now;
   if(innerWidth!==VW || innerHeight!==VH) resize(); // catches size changes that don't fire a resize event
-  if(started && !panel) update(dt);
-  if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
-  requestAnimationFrame(loop); // ask for the next frame first, so one drawing bug can never freeze the game
-  try{ draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud(); }catch(e){ ctx.setTransform(1,0,0,1,0,0); if(!window.__drawErr){ window.__drawErr=e; console.error(e); } }
+  requestAnimationFrame(loop); // ask for the next frame first, so one bug can never freeze the game
+  try{ if(started && !panel) update(dt);
+    if(shakeT>0) shakeT-=dt; tickMoney(dt); updateMusic(dt); perfTick(dt);
+    draw(now/1000); drawShootStar(); drawGuide(now/1000); drawBanner(); updateHud();
+  }catch(e){ ctx=cv.getContext('2d'); if(ctx.reset) ctx.reset(); else { for(let i=0;i<40;i++) ctx.restore(); ctx.setTransform(1,0,0,1,0,0); } if(!window.__drawErr){ window.__drawErr=e; console.error(e); } }
 }
 requestAnimationFrame(loop);
 document.getElementById('fishTotal').textContent = FISH.length;
