@@ -727,6 +727,7 @@ const MISSIONS = [
   {id:'trophybuck', n:'Hunt a Trophy Buck',     r:1500,  e:'🏆', p:()=>[S.st.trophyBucks||0,1]},
   {id:'temple', n:'Find the Lost Jungle Temple', r:3000, e:'🛕', p:()=>[S.templeFound?1:0,1]},
   {id:'song1', n:'Listen to Singing Sam\'s whole song', r:300, e:'🎸', p:()=>[S.st.songs||0,1]},
+  {id:'wheel7', n:'Spin the Prize Wheel 7 times', r:1000, e:'🎡', p:()=>[S.st.spins||0,7]},
   {id:'secret1', n:'Find a secret spot',        r:300,   e:'⭐', p:()=>[secretsTotal(),1]},
   {id:'secret10', n:'Find 10 secret spots',     r:4000,  e:'🌟', p:()=>[secretsTotal(),10]},
   {id:'bigfoot', n:'Get a photo of Bigfoot',    r:2000,  e:'👣', p:()=>[S.st.bigfoot||0,1]},
@@ -2033,7 +2034,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${wheelReady()?'<div class="sellrow"><span>🎡 <b>Your free daily spin is ready!</b></span><button data-wheel>Spin the Prize Wheel</button></div>':''}${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -2066,7 +2067,7 @@ function cabinHTML(){
   <button data-sleep>🛏️ Sleep until morning</button></div>
   <p style="text-align:right;margin:16px 0 0"><button class="close" data-close>Close (E)</button></p>`;
 }
-function renderPanel(){ box.innerHTML = '<button class="close xbtn" data-close aria-label="Close">✕</button>' + (panel==='shop' ? stationHTML('counter') : panel==='cabin' ? cabinHTML() : panel==='missions' ? missionsHTML() : panel==='story' ? storyHTML() : stationHTML(panel)); }
+function renderPanel(){ box.innerHTML = '<button class="close xbtn" data-close aria-label="Close">✕</button>' + (panel==='shop' ? stationHTML('counter') : panel==='cabin' ? cabinHTML() : panel==='missions' ? missionsHTML() : panel==='story' ? storyHTML() : stationHTML(panel)); if(panel==='wheel') drawWheel(); }
 box.addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b || b.disabled) return;
   if(b.hasAttribute('data-close')){ closePanel(); return; }
@@ -2074,6 +2075,8 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
   if(b.hasAttribute('data-usedig')){ if(S.items.digmap>0 && useDigMap()){ S.items.digmap--; closePanel(); } else renderPanel(); return; }
+  if(b.hasAttribute('data-spin')){ spinWheel(); return; }
+  if(b.hasAttribute('data-wheel')){ panel='wheel'; renderPanel(); box.scrollTop=0; return; }
   if(b.hasAttribute('data-derby')){ closePanel(); startDerby(); return; }
   if(b.hasAttribute('data-race')){ closePanel(); startRace(); return; }
   if(b.hasAttribute('data-modecycle')){ if(S.fish.length){ toast('🎒 Sell the fish in your bag first, then you can change the mode'); return; } const order=['easy','medium','hard'], m=order[(order.indexOf(S.mode||'medium')+1)%3]; setMode(m); toast(`${MODES[m].e} ${MODES[m].n} mode: ${MODES[m].d}`); renderPanel(); return; }
@@ -3255,6 +3258,7 @@ function stationHTML(kind){
     ${H2('🎆 Fireworks')}${G(ownRow('🎆 Box of 5 Fireworks', `Press F to launch one! You have ${S.items.fireworks||0}`, buyBtn('fw:5',50), false)+ownRow('🎇 Mega Pack of 20 Fireworks', 'A whole fireworks show!', buyBtn('fw:20',150), false))}
     ${H2('🥤 Snacks')}${G(ownRow('🥤 Energy Drink', 'Drink it right now: run super fast for 45 seconds!', `<button data-drink ${S.money<15?'disabled':''}>$15</button>`))}
     <p style="font-size:13px">Calls: press <b>C</b> (or tap <b>📣</b>). Hide in a blind first so animals come closer!</p>${closeP()}`;
+  if(kind==='wheel') return wheelHTML();
   if(kind==='bed'){ const night=hour()>=18||hour()<6; return `<h1>🛏️ Bed</h1><div class="sellrow"><span>${night?'It\'s late. Sleep until morning?':'Take a nap and skip to the next morning.'}</span><button data-sleep>🛏️ Sleep until morning</button></div>${closeP()}`; }
   if(kind==='note') return `<h1>🍾 A message in a bottle!</h1><p style="font-size:18px;line-height:1.5;background:#f4ead0;color:#4a3418;padding:16px;border-radius:12px;font-family:Georgia,serif">${noteText}</p><p>+$50 · Read it again on the Mission Board in your cabin.</p>${closeP()}`;
   return '';
@@ -4945,6 +4949,86 @@ function drawTemple(c,T,t){ c.save(); c.translate(T.x,T.y); c.fillStyle='rgba(0,
 function drawJungle(t){ if(LK.id!=='jungle') return; const T=jungleTemple(); if(T && Math.hypot(T.x-P.x,T.y-P.y)<1800) drawTemple(ctx,T,t); }
 function drawJungleTop(t){ if(LK.id!=='jungle') return; for(const m of monkeys) if(m.tree) drawMonkey(ctx,m,t); for(const b of toucans) drawToucan(ctx,b,t); }
 
+// ===================== First person: real 3D animals and people (instead of flat cut-outs) =====================
+const G3={}; function g3(k,mk){ return G3[k]||(G3[k]=mk()); }
+function fpMat(col){ FP.mats=FP.mats||new Map(); let m=FP.mats.get(col); if(!m){ m=new THREE.MeshLambertMaterial({color:new THREE.Color(col).convertSRGBToLinear(), flatShading:true}); FP.mats.set(col,m); } return m; }
+function part(geo,col,x,y,z,sx=1,sy=1,sz=1){ const m=new THREE.Mesh(geo,fpMat(col)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow=true; return m; }
+const SPH=()=>g3('sph',()=>new THREE.SphereGeometry(1,12,9)), CYL=()=>g3('cyl',()=>new THREE.CylinderGeometry(1,1,1,8)), CONE=()=>g3('cone',()=>new THREE.ConeGeometry(1,1,7)), BOX=()=>g3('box',()=>new THREE.BoxGeometry(1,1,1));
+// four-legged animal, facing +x. spec: L body length, H leg height, B body height, neck, headL, neckA (lean), col, dk, antlers, horns, hump
+function buildQuad(q){ const g=new THREE.Group(), {L,H,B,col,dk}=q;
+  const body=part(SPH(),col,0,H+B*.5,0,L*.5,B*.5,B*.44); g.add(body); if(q.hump) g.add(part(SPH(),dk,L*.18,H+B*.95,0,L*.28,B*.4,B*.4));
+  g.add(part(SPH(),q.belly||col,0,H+B*.32,0,L*.4,B*.28,B*.36));
+  const legs=[]; for(const [lx,lz,ph] of [[L*.3,B*.2,0],[L*.3,-B*.2,Math.PI],[-L*.3,B*.2,Math.PI],[-L*.3,-B*.2,0]]){ const pv=new THREE.Group(); pv.position.set(lx,H+B*.25,lz); const lw=Math.max(1.3,B*.1);
+    pv.add(part(CYL(),dk,0,-(H+B*.25)/2,0,lw,H+B*.25,lw)); pv.add(part(BOX(),'#1c1610',lw*.3,-(H+B*.25)+1,0,lw*2.2,2,lw*2)); pv.userData.ph=ph; g.add(pv); legs.push(pv); }
+  const nk=new THREE.Group(); nk.position.set(L*.4,H+B*.65,0); nk.rotation.z=-q.neckA; nk.add(part(CYL(),col,0,q.neck/2,0,B*.17,q.neck,B*.17));
+  const hd=q.headL; nk.add(part(SPH(),col,hd*.35,q.neck+hd*.1,0,hd*.62,hd*.34,hd*.3)); nk.add(part(SPH(),q.nose||dk,hd*.9,q.neck,0,hd*.2,hd*.18,hd*.2));
+  for(const sd of [-1,1]){ const ear=part(CONE(),col,-hd*.05,q.neck+hd*.42,sd*hd*.24,hd*.13,hd*.38,hd*.07); ear.rotation.x=sd*.5; nk.add(ear); nk.add(part(SPH(),'#111111',hd*.55,q.neck+hd*.2,sd*hd*.24,hd*.07,hd*.07,hd*.07)); }
+  if(q.antlers){ const A=q.antlers; for(const sd of [-1,1]){ const base=new THREE.Group(); base.position.set(0,q.neck+hd*.42,sd*hd*.2); base.rotation.x=sd*.5; nk.add(base);
+      base.add(part(CYL(),'#eadfc4',0,A*.5,0,1.1,A,1.1)); for(let i=1;i<=(q.tines||3);i++){ const tn=part(CYL(),'#eadfc4',A*.12,A*(.25+i*.22),0,.9,A*.35,.9); tn.rotation.z=-.7; base.add(tn); } } }
+  if(q.horns){ for(const sd of [-1,1]){ const h=part(CONE(),'#d8d0b8',0,q.neck+hd*.45,sd*hd*.22,hd*.1,hd*.5,hd*.1); h.rotation.x=sd*.35; h.rotation.z=-.4; nk.add(h); } }
+  g.add(nk); const tail=part(SPH(),q.tailCol||col,-L*.52,H+B*.72,0,Math.max(2,B*.16),Math.max(2,B*.14),Math.max(2,B*.12)); g.add(tail);
+  g.userData={legs,nk,tail,H}; return g; }
+function buildDuck(){ const D=LK.duck, g=new THREE.Group(); g.add(part(SPH(),D.body,0,4,0,9,5,6)); g.add(part(SPH(),D.wing,-1,5.5,0,6,3,6.4)); g.add(part(SPH(),D.head,7,10,0,3.6,3.6,3.4));
+  const bk=part(CONE(),D.beak,11,9.5,0,1.3,4,1.6); bk.rotation.z=-Math.PI/2; g.add(bk); g.add(part(SPH(),D.body,-8,6,0,3,2,3)); return g; }
+function hatMesh(g,n){ const h=n.hat, c=n.hatCol||'#6a5a3a', y=56;
+  if(h==='cap'||h==='trucker'||h==='camohat'){ g.add(part(SPH(),c,0,y,0,6.8,3.6,6.8)); g.add(part(BOX(),c,5,y-1.6,0,7,1,6)); }
+  else if(h==='cowboy'||h==='explorer'||h==='straw'||h==='sun'||h==='bucket'){ const cc=h==='cowboy'?'#8a5a2a':h==='straw'||h==='sun'?'#e8c870':c; g.add(part(CYL(),cc,0,y-1.5,0,h==='bucket'?8.5:11,1.2,h==='bucket'?8.5:11)); g.add(part(CYL(),cc,0,y+1.5,0,6,5,6)); }
+  else if(h==='beanie'){ g.add(part(SPH(),c,0,y-.5,0,7,5,7)); g.add(part(SPH(),'#ffffff',0,y+4.5,0,1.8,1.8,1.8)); }
+  else if(h==='captain'){ g.add(part(CYL(),'#ffffff',0,y,0,7,4,7)); g.add(part(BOX(),'#1a1a2a',5,y-1.8,0,6,1,6)); } }
+function buildPerson(n){ const g=new THREE.Group(), legs=[], arms=[];
+  for(const sd of [-1,1]){ const pv=new THREE.Group(); pv.position.set(0,24,sd*3.4); pv.add(part(CYL(),n.pants||'#3a4a6a',0,-12,0,2.6,24,2.6)); pv.add(part(BOX(),'#2a2018',1.5,-23.5,0,6,2.4,3.6)); g.add(pv); legs.push(pv); }
+  g.add(part(CYL(),n.shirt||'#c0392b',0,34,0,6.5,20,5)); g.add(part(SPH(),n.shirt||'#c0392b',0,44,0,6.6,2.6,5.2));
+  for(const sd of [-1,1]){ const pv=new THREE.Group(); pv.position.set(0,43,sd*7.8); pv.add(part(CYL(),n.shirt||'#c0392b',0,-8,0,1.9,16,1.9)); pv.add(part(SPH(),n.skin||'#f2c9a0',0,-16.5,0,2.2,2.2,2.2)); g.add(pv); arms.push(pv); }
+  g.add(part(CYL(),n.skin||'#f2c9a0',0,46.5,0,2.2,3,2.2)); g.add(part(SPH(),n.skin||'#f2c9a0',0,52.5,0,6.2,6.6,6));
+  for(const sd of [-1,1]) g.add(part(SPH(),'#1a1a1a',5.4,53.5,sd*2.2,.8,.9,.8));
+  if(n.hat==='none'||!n.hat) g.add(part(SPH(),n.hair||'#3a2412',-.8,55.5,0,6.4,4.6,6.2)); else hatMesh(g,n);
+  if(n.beard) g.add(part(SPH(),n.hair||'#ccc',4.6,48.5,0,3,3.2,4.6));
+  let rod=null; if(!n.walker){ rod=part(CYL(),'#7a4a22',14,44,0,.5,34,.5); rod.rotation.z=-.9; g.add(rod); }
+  if(n.singer){ const gt=part(SPH(),'#a8642a',5,31,0,3,5,5.5); g.add(gt); g.add(part(BOX(),'#6a4022',6,40,0,1.2,14,1.6)); }
+  g.userData={legs,arms,rod}; return g; }
+function quadSpec(o,kind){
+  if(kind==='deer'){ const col=o.gold?'#e8b830':o.buck?LK.deer.buck:LK.deer.col; return {L:42,H:19,B:18,neck:15,headL:13,neckA:.4,col,dk:shade(col,.65),belly:'#efe4d0',tailCol:'#f4f0e8',antlers:o.trophy?26:o.buck?16:0,tines:o.trophy?Math.round((o.pts||10)/3):2,s:o.trophy?1.2:1}; }
+  if(kind==='game'){ const g=GAME[o.kind], L=g.look; if(!['javelina','goat','bison','pronghorn','moose','elk','boar','fox','wolf','cat','bear'].includes(L)) return null;
+    const col=g.col, w=g.w, h=g.h; return {L:w*2.1+8, H:h*(L==='javelina'||L==='boar'?.32:L==='bison'?.42:.5), B:h*(L==='bison'?.7:.5)+3, neck:h*(L==='javelina'||L==='boar'?.1:.34), headL:h*.36+4, neckA:L==='bison'||L==='javelina'?1.1:.5, col, dk:shade(col,.62), hump:L==='bison', horns:L==='goat'||L==='bison'||L==='pronghorn', antlers:(L==='elk'||L==='moose')&&o.bull?18:0, tines:4, s:1}; }
+  const b=BEAST[o.kind], L=b.look; if(L==='gator'||L==='crab') return null;
+  return {L:b.bw*2.4, H:b.leg*.95, B:b.bh*1.8, neck:b.head*.45, headL:b.head*1.5, neckA:L==='bear'?1.15:.8, col:b.col, dk:shade(b.col,.65), s:1, tailCol:L==='wolf'?shade(b.col,1.2):b.col}; }
+function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.modelScene=FP.scene; } const M=FP.models, VX=drone?drone.x:P.x, VY=drone?drone.y:P.y, used=new Set();
+  const place=(o,key,mk,elev,face,moving,anim)=>{ if(Math.hypot(o.x-VX,o.y-VY)>2400) return; let m=M.get(o); if(!m){ m=mk(); if(!m) return; FP.scene.add(m); M.set(o,m); } used.add(o);
+    const bob=moving?Math.abs(Math.sin(anim))*1.6:0; m.position.set(o.x, hillAt(o.x,o.y)+elev+bob, o.y); m.rotation.y=-face; const U=m.userData;
+    if(U.legs) U.legs.forEach((lg,i)=>{ lg.rotation.z = moving ? Math.sin(anim+(lg.userData.ph!=null?lg.userData.ph:i*Math.PI))*.55 : 0; });
+    if(U.arms) U.arms.forEach((ar,i)=>{ ar.rotation.z = moving ? Math.sin(anim+i*Math.PI)*.5 : 0; });
+    if(U.nk && !moving) U.nk.rotation.y=Math.sin(t*.7+o.x*.01)*.25; if(U.tail) U.tail.position.y=U.H+ (U.tail.position.y-U.H)*1 + Math.sin(t*6)*.05; };
+  const ang=(o)=>{ const m=Math.hypot(o.vx||0,o.vy||0)>3; return m?Math.atan2(o.vy,o.vx):((o.face||1)>0?0:Math.PI); };
+  for(const d of deer) if(!d.dead){ const q=quadSpec(d,'deer'); place(d,'deer',()=>{ const g=buildQuad(q); g.scale.setScalar(q.s); return g; },0,ang(d),!!(d.vx||d.vy),d.anim||0); }
+  for(const a of game) if(!a.hide && !a.climb && !a.dead){ const q=quadSpec(a,'game'); if(q) place(a,'game',()=>buildQuad(q),0,ang(a),Math.hypot(a.vx,a.vy)>8,a.anim||0); }
+  for(const b of beasts) if(!b.dead){ const q=quadSpec(b,'beast'); if(q) place(b,'beast',()=>buildQuad(q),0,ang(b),!!(b.vx||b.vy),b.anim||0); }
+  if(!isNight()) for(const d of ducks) if(!d.dead) place(d,'duck',buildDuck,1.5+Math.sin(d.bob||0)*.4,ang(d),false,0);
+  for(const n of npcs) place(n,'person',()=>buildPerson(n),0,Math.atan2(n.fy||0,n.fx||1),!!n.walking,(n.anim||0)*9);
+  for(const [o,m] of M) if(!used.has(o)){ FP.scene.remove(m); M.delete(o); } }
+function fp3D(o,kind){ return kind==='deer' || (kind==='game' && !o.climb && quadSpec(o,'game')) || (kind==='beast' && quadSpec(o,'beast')); }
+
+// ===================== Daily Prize Wheel: one free spin every day =====================
+const WHEEL=[ {t:'$100',c:'#ffd23f',w:20,f:()=>{ S.money+=100; return '$100'; }}, {t:'🎆 ×10',c:'#ff7a5a',w:14,f:()=>{ S.items.fireworks=(S.items.fireworks||0)+10; return '10 fireworks'; }},
+  {t:'$250',c:'#7ad04a',w:16,f:()=>{ S.money+=250; return '$250'; }}, {t:'⭐ 200 XP',c:'#c8a0ff',w:14,f:()=>{ addXP(200); return '200 XP'; }},
+  {t:'$500',c:'#5ad0ff',w:10,f:()=>{ S.money+=500; return '$500'; }}, {t:'🎣 Lures',c:'#ff8af0',w:12,f:()=>{ const L=LURES.filter(l=>!l.nat && !lureForever(l.id) && l.p>=200); const l=L[Math.floor(Math.random()*L.length)]; if(!S.lures.includes(l.id)) S.lures.push(l.id); S.lureN[l.id]=(S.lureN[l.id]||0)+LURE_PACK*2; return `${LURE_PACK*2} ${l.e} ${l.n}`; }},
+  {t:'🎁 Box',c:'#ffb03a',w:10,f:()=>{ openMystery(); return 'a Mystery Box!'; }}, {t:'💎 $1000',c:'#ffffff',w:4,f:()=>{ S.money+=1000; return 'the $1,000 JACKPOT!'; }} ];
+var wheelAng=0, wheelSpin=null;
+function wheelReady(){ return S.wheelDay!==dayKey(); }
+function wheelHTML(){ return `<h1>🎡 Daily Prize Wheel</h1><p style="margin:4px 0 8px">One free spin every day! Come back tomorrow for another.</p>
+  <div style="display:flex;justify-content:center"><canvas id="wheelCv" width="320" height="320" style="position:static;display:block;inset:auto;width:300px;max-width:80vw;height:auto;z-index:auto"></canvas></div>
+  <p style="text-align:center;margin:10px 0">${wheelReady()?'<button data-spin style="font-size:20px;padding:10px 30px">SPIN! 🎡</button>':'<b>You already spun today. Come back tomorrow! 🌙</b>'}</p>${closeP()}`; }
+function drawWheel(){ const cv=document.getElementById('wheelCv'); if(!cv) return; const g=cv.getContext('2d'), R=150, cx=160, cy=160, n=WHEEL.length; g.clearRect(0,0,320,320);
+  for(let i=0;i<n;i++){ const a0=wheelAng+i/n*6.2832, a1=a0+6.2832/n; g.fillStyle=WHEEL[i].c; g.beginPath(); g.moveTo(cx,cy); g.arc(cx,cy,R,a0,a1); g.closePath(); g.fill(); g.strokeStyle='#5a3a10'; g.lineWidth=2; g.stroke();
+    g.save(); g.translate(cx,cy); g.rotate(a0+3.1416/n); g.fillStyle='#2a1a08'; g.font=`800 17px ${FONT}`; g.textAlign='right'; g.textBaseline='middle'; g.fillText(WHEEL[i].t,R-12,0); g.restore(); }
+  g.fillStyle='#5a3a10'; g.beginPath(); g.arc(cx,cy,16,0,7); g.fill(); g.fillStyle='#ffd23f'; g.beginPath(); g.arc(cx,cy,9,0,7); g.fill();
+  g.fillStyle='#d8202a'; g.beginPath(); g.moveTo(cx+R-6,cy); g.lineTo(cx+R+14,cy-12); g.lineTo(cx+R+14,cy+12); g.closePath(); g.fill(); g.strokeStyle='#fff'; g.lineWidth=2; g.stroke(); }
+function spinWheel(){ if(!wheelReady() || wheelSpin) return; S.wheelDay=dayKey(); S.st.spins=(S.st.spins||0)+1; save();
+  let tot=WHEEL.reduce((a,w)=>a+w.w,0), r=Math.random()*tot, k=0; for(;k<WHEEL.length;k++){ r-=WHEEL[k].w; if(r<=0) break; } k=Math.min(k,WHEEL.length-1);
+  const n=WHEEL.length, mid=(k+.5)/n*6.2832, target=6.2832*6 - mid + (Math.random()-.5)*(6.2832/n)*.6, start=wheelAng%6.2832, t0=performance.now(), dur=4200; let lastTick=-1;
+  wheelSpin=true; const step=now=>{ const u=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-u,3); wheelAng=start+(target-start)*e; drawWheel(); const tick=Math.floor((wheelAng)/(6.2832/n)); if(tick!==lastTick){ lastTick=tick; tone(900,.03,'square',.04); }
+    if(u<1 && panel==='wheel') requestAnimationFrame(step); else { wheelSpin=null; const what=WHEEL[k].f(); S.st.earned+=0; banner('🎡','PRIZE WHEEL!',`You won ${what}`, k===7?'#ffffff':'#ffd54a'); [523,659,784,1046].forEach((f,i)=>tone(f,.15,'triangle',.12,i*.08)); save(); if(panel==='wheel') renderPanel(); } };
+  requestAnimationFrame(step); }
+
 // ---------- Update ----------
 function update(dt){
   updateJungle(dt);
@@ -6498,11 +6582,9 @@ function fpFrame(t){
   for(const s3 of FP.sprites) s3.mat.color.setScalar(lit(s3.x,s3.z));
   for(const e of FP.ents.values()) e.used=false;
   const VX=drone?drone.x:P.x, VY=drone?drone.y:P.y; // what's around the camera
-  if(!isNight()) for(const d of ducks) fpEnt(d, 60,44,30,30, 0, ()=>drawDuck(d), lit(d.x,d.y));
-  for(const d of deer) d.trophy ? fpEnt(d,150,130,73,120, 0, ()=>drawDeer(d), lit(d.x,d.y)) : fpEnt(d,120,100,58,92, 0, ()=>drawDeer(d), lit(d.x,d.y));
-  for(const a of game) if(!a.hide && Math.hypot(a.x-VX,a.y-VY)<2600){ const g=GAME[a.kind], w=Math.round(g.w*3.4+50), h=Math.round(g.h*1.6+50); fpEnt(a,w,h,w/2,h-14, a.climb?a.climb+8:0, ()=>drawGame(a,t), lit(a.x,a.y)); }
-  for(const b of beasts) fpEnt(b,140,120,70,108, 0, ()=>drawBeast(b), lit(b.x,b.y));
-  for(const nn of npcs) fpEnt(nn,100,110,50,96, 0, ()=>drawPerson(nn,t,true), lit(nn.x,nn.y));
+  fpModels(t); // deer, big animals, ducks and people are real 3D models now
+  for(const a of game) if(!a.hide && !fp3D(a,'game') && Math.hypot(a.x-VX,a.y-VY)<2600){ const g=GAME[a.kind], w=Math.round(g.w*3.4+50), h=Math.round(g.h*1.6+50); fpEnt(a,w,h,w/2,h-14, a.climb?a.climb+8:0, ()=>drawGame(a,t), lit(a.x,a.y)); }
+  for(const b of beasts) if(!fp3D(b,'beast')) fpEnt(b,140,120,70,108, 0, ()=>drawBeast(b), lit(b.x,b.y));
   for(const o of owls) fpEnt(o, 60,90,30,30, 55, ()=>drawOwl(o), 1);
   for(const tr of trapsHere()) fpEnt(tr, 60,70,30,50, tr.type==='fish'?1.5:0, ()=>drawTrapOne(tr,t), lit(tr.x,tr.y));
   GEO.treasures.forEach((tr,k)=>{ if(!tr.water && Math.hypot(tr.x-VX,tr.y-VY)<1400) fpEnt(tr,60,60,30,46,0,()=>drawChest(tr,k,t),lit(tr.x,tr.y)); });
@@ -6734,7 +6816,7 @@ document.querySelectorAll('#modePick button').forEach(b=>b.addEventListener('cli
 showModePick();
 document.getElementById('playBtn').addEventListener('click', ()=>{ try{ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); } }catch(e){}
   ac(); document.getElementById('start').hidden=true;
-  const go=()=>{ started=true; setTimeout(dailyGift,2500); setTimeout(()=>{ const Q=ensureQuests(); if(!Q.bonus) toast(`📅 Today's quests: ${Q.list.map(questName).join(' · ')} (${touchMode?'tap 🏆':'press M'})`); },6500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
+  const go=()=>{ started=true; setTimeout(dailyGift,2500); setTimeout(()=>{ if(wheelReady()) toast(`🎡 Your free Prize Wheel spin is ready! (${touchMode?'tap 🏆':'press M'})`); },11000); setTimeout(()=>{ const Q=ensureQuests(); if(!Q.bonus) toast(`📅 Today's quests: ${Q.list.map(questName).join(' · ')} (${touchMode?'tap 🏆':'press M'})`); },6500); toast(touchMode ? 'Walk to the lake and tap Cast to fish! 🎣' : 'Walk to the lake and press SPACE to fish! 🎣'); };
   if(!S.introSeen) playIntro(go); else go();
 });
 </script>
