@@ -531,6 +531,8 @@ const RODS = [
   {n:'Lightning Rod',  p:25000, d:'⚡ Zaps fish tired super fast · more trophy fish'},
   {n:'Galaxy Rod',     p:50000, d:'🌌 Made of star metal · legendary fish come to you'},
   {n:'Rainbow Rod',    p:100000, d:'🌈 The best rod ever made · trophies everywhere'},
+  {n:'Dragon Rod',     p:200000, d:'🐉 Breathes fire · casts across the lake'},
+  {n:'Infinity Rod',   p:500000, d:'♾️ The most powerful rod in the universe'},
 ];
 const castReach = () => 120 + Math.min(S.rod,6)*55 + Math.max(0,S.rod-6)*25;   // how far a full-power cast goes
 const FOODS = [
@@ -546,6 +548,12 @@ const FOODS = [
   {id:'burger',   n:'Cheeseburger',  e:'🍔', p:50, h:70},
   {id:'candy',    n:'Candy Bar',     e:'🍬', p:8,  h:10},
   {id:'popcorn',  n:'Popcorn',       e:'🍿', p:15, h:18},
+  {id:'pancakes', n:'Pancakes',      e:'🥞', p:40, h:55},
+  {id:'watermelon',n:'Watermelon',   e:'🍉', p:18, h:22},
+  {id:'spaghetti',n:'Spaghetti',     e:'🍝', p:55, h:75},
+  {id:'cupcake',  n:'Cupcake',       e:'🧁', p:22, h:28},
+  {id:'shrimpfry',n:'Fried Shrimp',  e:'🍤', p:50, h:65},
+  {id:'smoothie', n:'Super Smoothie',e:'🥤', p:120,h:100, boost:20},
   {id:'smoothie', n:'Berry Smoothie',e:'🍓', p:90, h:50, boost:20},
   {id:'stew',     n:'Hunter\'s Stew', e:'🍲', p:120, h:100},
 ];
@@ -584,6 +592,10 @@ const GUNS = [
   {n:'Muzzleloader',  p:2200, dmg:10,  cd:2.2, spd:1400, range:900, pel:1, spread:0,   len:46, stock:1, smoke:1, d:'Old-time gun · slow, smoky & HUGE damage'},
   {n:'Semi-Auto Rifle', p:3500, dmg:3, cd:.18, spd:1700, range:880, pel:1, spread:.015, len:38, stock:1, d:'Shoots super fast'},
   {n:'Laser Blaster', p:8000, dmg:4,   cd:.25, spd:2200, range:1000, pel:1, spread:0,  len:30, laser:1, d:'Pew pew! A space gun from the future'},
+  {n:'Golden Revolver', p:2500, dmg:4.5, cd:.45, spd:1150, range:600, pel:1, spread:.015, len:24, d:'Shiny gold six-shooter · strong & fast'},
+  {n:'Pump Shotgun',  p:1500, dmg:1.7, cd:.65, spd:880, range:460, pel:8, spread:.24, len:36, stock:1, d:'Pump it! Shoots 8 pellets'},
+  {n:'Elephant Gun',  p:6000, dmg:14, cd:2.4, spd:1500, range:1000, pel:1, spread:0, len:48, stock:1, smoke:1, d:'The biggest gun · drops bison & moose fast'},
+  {n:'Bubble Blaster',p:4000, dmg:2,  cd:.12, spd:1200, range:700, pel:1, spread:.05, len:26, laser:1, d:'Shoots super fast laser bubbles!'},
 ];
 const SHOES = [
   {n:'Flip Flops',    p:0,   s:170, d:'Slow walking'},
@@ -591,6 +603,8 @@ const SHOES = [
   {n:'Running Shoes', p:300, s:290, d:'Zoom around!'},
   {n:'Hiking Boots',  p:900, s:320, d:'Tough boots for long hikes · even faster'},
   {n:'Rocket Sneakers', p:3000, s:360, d:'Little rockets on your heels! The fastest shoes'},
+  {n:'Speed Skates',  p:6000, s:390, d:'Zoom zoom! Roller skates with flames'},
+  {n:'Jet Boots',     p:12000, s:420, d:'🚀 Real jets! The fastest feet ever'},
 ];
 const BOATS = [
   {n:'No Boat',   p:0,    s:0,   c:'#000', d:'Walk only'},
@@ -2433,6 +2447,8 @@ const REELS=[
   {n:'Mythic Reel',      p:20000, spd:2.8, cap:1200, d:'Very fast · 1,200 yards'},
   {n:'Lightning Reel',   p:30000, spd:3.2, cap:1600, d:'⚡ Reels like lightning · 1,600 yards'},
   {n:'Galaxy Reel',      p:60000, spd:3.7, cap:2200, d:'🌌 The fastest reel in the universe · 2,200 yards'},
+  {n:'Dragon Reel',      p:120000, spd:4.2, cap:3000, d:'🐉 Roars when it spins · 3,000 yards'},
+  {n:'Infinity Reel',    p:300000, spd:5, cap:5000, d:'♾️ Reels in anything · 5,000 yards'},
 ];
 const LINES=[
   {n:'6 lb Mono',          p:0,    lb:6,   d:'Thin and weak'},
@@ -2470,6 +2486,16 @@ const LURES=[
   {id:'nightcrawler', n:'Nightcrawlers', e:'🪱', p:60,  m:.88, nat:1, as:['worm'], d:'Big juicy worms · fish bite faster'},
   {id:'leech',    n:'Leeches',       e:'〰️', p:90,    m:.82, nat:1, as:['worm','minnow'], d:'Walleye & perch love them'},
   {id:'crawfish', n:'Live Crawfish', e:'🦞', p:140,   m:.8,  nat:1, as:['jig','minnow','cutbait'], d:'Smallmouth bass & catfish candy'},
+  {id:'buzzbait', n:'Buzzbait',      e:'🌀', p:220,   m:.74, mud:1, as:['spinner','frog'], d:'Buzzes across the top · bass go crazy for it'},
+  {id:'rattletrap',n:'Rattle Trap',  e:'🔔', p:240,   m:.74, mud:1, as:['crank','spinner'], d:'Rattles loud · great in muddy water'},
+  {id:'swimbait', n:'Swimbait',      e:'🐠', p:380,   m:.72, as:['crank','minnow','spoon'], d:'Looks just like a real fish · big bass & pike'},
+  {id:'nedrig',   n:'Ned Rig',       e:'🪱', p:160,   m:.78, as:['worm','jig'], d:'Tiny and sneaky · every bass eats it'},
+  {id:'popper',   n:'Popper',        e:'💥', p:190,   m:.78, as:['frog'], d:'Pop! Pop! Topwater fun by the lily pads'},
+  {id:'inline',   n:'Inline Spinner',e:'💫', p:170,   m:.76, as:['spinner','spoon','fly'], d:'Trout, bass & panfish all love the flash'},
+  {id:'glowgrub', n:'Glow Grub',     e:'🟢', p:650,   m:.72, mud:1, as:['glow','worm'], d:'A glowing worm · night fishing & deep water'},
+  {id:'squidjig', n:'Squid Jig',     e:'🦑', p:450,   m:.74, as:['cutbait','shrimp','spoon'], d:'Ocean fish & big catfish'},
+  {id:'bucktail', n:'Bucktail Jig',  e:'🪶', p:260,   m:.76, as:['jig','spoon'], d:'Hop it along the bottom · walleye & smallmouth'},
+  {id:'rainbowfly',n:'Rainbow Fly',  e:'🌈', p:500,   m:.7,  mud:-1, as:['fly'], d:'The prettiest fly ever · trout can\'t resist'},
   {id:'shrimp',   n:'Shrimp',        e:'🦐', p:120,   m:.8,  nat:1, as:['cutbait','worm'], d:'Saltwater fish & catfish'},
   {id:'liver',    n:'Chicken Liver', e:'🍗', p:70,    m:.82, nat:1, mud:1, as:['cutbait'], d:'Catfish can\'t resist it'},
   {id:'dough',    n:'Dough Bait',    e:'🍞', p:40,    m:.85, nat:1, as:['worm'], d:'Carp, koi & goldfish love bread'},
@@ -2512,10 +2538,15 @@ const OUTDOOR=[
 // ===================== Clothes =====================
 const HATS=[
   {id:'cap',n:'Ball Cap',p:0},{id:'none',n:'No Hat',p:0},{id:'beanie',n:'Beanie',p:50},{id:'bucket',n:'Bucket Hat',p:60},
-  {id:'cowboy',n:'Cowboy Hat',p:150},{id:'captain',n:'Captain Hat',p:400},{id:'trucker',n:'Trucker Cap',p:40},{id:'straw',n:'Straw Hat',p:70},{id:'camohat',n:'Camo Hat',p:90},{id:'pirate',n:'Pirate Hat',p:350},{id:'hardhat',n:'Hard Hat',p:60},{id:'viking',n:'Viking Helmet',p:300},{id:'wizard',n:'Wizard Hat',p:250},{id:'santa',n:'Santa Hat',p:120},{id:'fishhat',n:'Silly Fish Hat',p:220},{id:'party',n:'Party Hat',p:45},{id:'antlers',n:'Antler Headband',p:160},{id:'propeller',n:'Propeller Beanie',p:180},{id:'explorer',n:'Explorer Hat',p:0,secret:1},{id:'crown',n:'Golden Crown',p:0,secret:1},{id:'mayor',n:'Mayor Top Hat',p:0,secret:1}];
+  {id:'cowboy',n:'Cowboy Hat',p:150},{id:'captain',n:'Captain Hat',p:400},{id:'trucker',n:'Trucker Cap',p:40},{id:'straw',n:'Straw Hat',p:70},{id:'camohat',n:'Camo Hat',p:90},{id:'pirate',n:'Pirate Hat',p:350},{id:'hardhat',n:'Hard Hat',p:60},{id:'viking',n:'Viking Helmet',p:300},{id:'wizard',n:'Wizard Hat',p:250},{id:'santa',n:'Santa Hat',p:120},{id:'fishhat',n:'Silly Fish Hat',p:220},{id:'party',n:'Party Hat',p:45},{id:'antlers',n:'Antler Headband',p:160},{id:'propeller',n:'Propeller Beanie',p:180},{id:'explorer',n:'Explorer Hat',p:0,secret:1},{id:'crown',n:'Golden Crown',p:0,secret:1},{id:'mayor',n:'Mayor Top Hat',p:0,secret:1},
+  {id:'goldcap',n:'Solid Gold Cap',p:500,base:'cap',col:'#ffd23f'},{id:'neoncap',n:'Neon Green Cap',p:120,base:'cap',col:'#5aff5a'},{id:'pinkbeanie',n:'Bubblegum Beanie',p:90,base:'beanie',col:'#ff5ad0'},{id:'blackbeanie',n:'Ninja Beanie',p:60,base:'beanie',col:'#222228'},
+  {id:'galaxybucket',n:'Galaxy Bucket Hat',p:200,base:'bucket',col:'#5a3aaa'},{id:'limebucket',n:'Lime Bucket Hat',p:80,base:'bucket',col:'#8ad83a'},{id:'firetrucker',n:'Fire Trucker Cap',p:70,base:'trucker',col:'#e8343a'},{id:'icetrucker',n:'Ice Trucker Cap',p:70,base:'trucker',col:'#5ad0ff'},
+  {id:'goldprop',n:'Golden Propeller Hat',p:400,base:'propeller',col:'#ffd23f'},{id:'rodeo',n:'Pink Rodeo Hat',p:250,base:'cowboy',col:'#ff5ad0'}];
 const OUTFITS=[{id:'tee',n:'T-Shirt',p:0},{id:'hoodie',n:'Hoodie',p:120},{id:'vest',n:'Fishing Vest',p:150},{id:'rain',n:'Rain Jacket',p:200},
   {id:'waders',n:'Waders',p:300},{id:'jersey',n:'Pro Fishing Jersey',p:500},{id:'camo',n:'Camo Hunting Suit (animals see you less)',p:250},{id:'overalls',n:'Overalls',p:100},{id:'orange',n:'Blaze Orange Vest',p:80},
-  {id:'ghillie',n:'Ghillie Suit (animals see you WAY less)',p:900},{id:'hawaiian',n:'Hawaiian Shirt',p:110},{id:'cape',n:'Superhero Cape',p:400},{id:'space',n:'Space Suit',p:1500}];
+  {id:'ghillie',n:'Ghillie Suit (animals see you WAY less)',p:900},{id:'hawaiian',n:'Hawaiian Shirt',p:110},{id:'cape',n:'Superhero Cape',p:400},{id:'space',n:'Space Suit',p:1500},
+  {id:'sharktee',n:'Shark Shirt',p:90,col:'#3a7bd5',logo:'🦈'},{id:'deertee',n:'Deer Hunter Tee',p:90,col:'#6a5a3a',logo:'🦌'},{id:'goldjersey',n:'Gold Champion Jersey',p:800,col:'#ffd23f',logo:'🏆'},
+  {id:'galaxyhood',n:'Galaxy Hoodie',p:350,col:'#3a2a7a',logo:'⭐'},{id:'flannel',n:'Lumberjack Flannel',p:150,col:'#c0392b',logo:'🪓'},{id:'rainbowtee',n:'Rainbow Shirt',p:200,col:'#ff5ad0',logo:'🌈'}];
 const LOOK_COLORS={skin:['#ffe0c4','#f2c9a0','#d9a47a','#b07850','#8a5a3a','#5a3a24'], hair:['#2a1a10','#5a3a1a','#a0703a','#e8c878','#c04a2a','#e8e8e8','#5a7ad0'],
   shirt:['#d33a2c','#3a7bd5','#2e9a54','#e0a020','#8a4ad0','#e05a8a','#1fa0a0','#333a44','#f4f4f4','#ff7a1a'], pants:['#2b4c7e','#3a3a3a','#6a5a3a','#4a6a3a','#7a2a2a','#c8b890'],
   rod:['#7a4a22','#222222','#d33a2c','#3a7bd5','#2e9a54','#ffd23f','#ff7ac8','#c0c8d0']};
@@ -3076,7 +3107,7 @@ function drawVHouseRoom(c,t){ const st=vStyle(), R=ROOMS.vhouse, rugC=VROOF[(P.v
   c.fillStyle='#6a4422'; c.fillRect(120,30,110,80); c.fillStyle='#bfe0f4'; c.fillRect(128,38,94,64); c.fillStyle='#4a9a40'; c.beginPath(); c.moveTo(128,102); c.lineTo(160,62); c.lineTo(190,90); c.lineTo(222,66); c.lineTo(222,102); c.fill(); c.fillStyle='#ffd23f'; c.beginPath(); c.arc(200,52,8,0,7); c.fill();
   c.fillStyle='#b8642a'; c.fillRect(214,200,26,24); c.fillStyle='#3a8a3a'; for(const [x,y,r] of [[227,190,12],[216,182,9],[238,182,9],[227,172,8]]){ c.beginPath(); c.arc(x,y,r,0,7); c.fill(); }
   c.fillStyle='#5a3418'; c.fillRect(442,180,4,40); c.fillStyle=`rgba(255,220,140,${.85+Math.sin(t*3)*.05})`; c.beginPath(); c.moveTo(430,182); c.lineTo(458,182); c.lineTo(452,166); c.lineTo(436,166); c.closePath(); c.fill();
-  c.font='34px '+FONT; c.textAlign='center'; c.textBaseline='middle'; vDecor().forEach((e,k)=>{ const [x,y]=VDECOR_SPOTS[k]; if(k!==2) c.fillText(e,x+(k===0?60:0),y); }); c.fillText(vDecor()[2],160,150); c.textBaseline='alphabetic';
+  c.font='34px '+FONT; c.fillStyle='#000'; c.textAlign='center'; c.textBaseline='middle'; vDecor().forEach((e,k)=>{ const [x,y]=VDECOR_SPOTS[k]; if(k!==2) c.fillText(e,x+(k===0?60:0),y); }); c.fillText(vDecor()[2],160,150); c.textBaseline='alphabetic';
   c.fillStyle='#8a5a3a'; c.fillRect(40,290,150,180); c.fillStyle=VCOLS[P.vplot%6]; c.fillRect(46,330,138,136); c.fillStyle='#fff'; c.beginPath(); c.roundRect(56,300,118,34,10); c.fill();
   c.fillStyle='#7a7a80'; c.fillRect(300,20,100,130); c.fillStyle='#2a1a10'; c.fillRect(320,70,60,80); c.fillStyle=`rgba(255,${150+Math.sin(t*9)*40},40,.95)`; c.beginPath(); c.moveTo(330,150); c.quadraticCurveTo(350,95+Math.sin(t*7)*6,370,150); c.fill();
   c.fillStyle='#9a6a3a'; c.fillRect(500,300,150,90); c.fillStyle='#fff'; c.beginPath(); c.arc(575,330,14,0,7); c.fill(); c.fillStyle='#c8642a'; c.beginPath(); c.arc(575,330,9,0,7); c.fill();
@@ -3203,7 +3234,7 @@ function drawRoom(t){
   const day=!isNight(); for(const wx of (P.room==='shop'?[180,770]:P.room==='vhouse'?[90,500]:[300,800])){ if(P.room==='cabin') continue;
     c.fillStyle=day?'#9fd4ff':'#1a2a5a'; c.fillRect(wx,40,90,70); c.strokeStyle='#4a2a14'; c.lineWidth=6; c.strokeRect(wx,40,90,70); c.beginPath(); c.moveTo(wx+45,40); c.lineTo(wx+45,110); c.moveTo(wx,75); c.lineTo(wx+90,75); c.stroke(); }
   const st=roomStationNear();
-  if(P.room==='shop') drawShopRoom(c,t); else if(P.room==='vhouse') drawVHouseRoom(c,t); else drawCabinRoom(c,t);
+  if(P.room==='shop') drawShopRoom(c,t); else if(P.room==='vhouse') drawVHouseRoom(c,t); else { drawCabinRoom(c,t); drawSpotDecor(c,t); }
   // sign labels over each station
   for(const s of R.stations){ if(s.id==='door'||s.wide) continue; const hi=st===s;
     const fs=Math.max(14,11/k); c.font=`800 ${hi?fs*1.2:fs}px ${FONT}`; c.textAlign='center'; const tx=s.x+s.w/2, ty=s.y-8;
@@ -3299,6 +3330,7 @@ function drawBeard(c, L, fx){ const b=L.beard; if(!b || b==='none') return; cons
   else if(b==='bushy'){ jaw(4,12); c.fillStyle=col; for(const [x,y,r] of [[-6,-32,3.4],[0,-28.5,4],[6,-32,3.4],[-3,-29.5,3],[3,-29.5,3]]){ c.beginPath(); c.arc(x+ex*.5,y,r,0,7); c.fill(); } stache(1.15); }
   else if(b==='wizard'){ jaw(0,9.4); c.fillStyle=col; c.beginPath(); c.moveTo(-7,-35); c.quadraticCurveTo(ex-3,-18,ex+1,-8); c.quadraticCurveTo(ex+4,-20,7,-35); c.closePath(); c.fill(); c.strokeStyle=dk; c.lineWidth=.8; c.stroke(); stache(1.1); } }
 function drawHat(c, L, fx, fy){
+  { const HH=HATS.find(x=>x.id===L.hat); if(HH && HH.base) L=Object.assign({},L,{hat:HH.base, hatCol:HH.col}); } // color versions of the classic hats
   const col=L.hatCol, h=L.hat;
   if(h==='none') return;
   if(h==='cap'){ c.fillStyle=shade(col,.7); c.beginPath(); c.ellipse(fx*8,-46,9,3.5,0,0,7); c.fill(); c.fillStyle=col; c.beginPath(); c.arc(0,-47,8.5,Math.PI,0); c.fill(); c.fillStyle='rgba(255,255,255,.3)'; c.beginPath(); c.arc(-2.5,-51,2.2,0,7); c.fill(); }
@@ -3331,7 +3363,7 @@ function drawHair(c, L, fy){
   if(fy<-.5 && L.style!=='long'){ c.beginPath(); c.arc(0,-40,9.4,0,7); c.fill(); }
 }
 function drawOutfit(c, L, fx, fy){
-  const o=L.outfit;
+  const o=L.outfit; { const OF=OUTFITS.find(x=>x.id===o); if(OF && OF.logo && fy>-.5){ c.font=`9px ${FONT}`; c.textAlign='center'; c.textBaseline='middle'; c.fillText(OF.logo, fx*2, -23); c.textBaseline='alphabetic'; } }
   if(o==='camo'){ const cl=['#3a4a24','#6a5a34','#2a3418']; for(let i=0;i<7;i++){ c.fillStyle=cl[i%3]; c.beginPath(); c.ellipse(-7+(i*5)%14,-29+(i*7)%15,3.5,2,i,0,7); c.fill(); } }
   if(o==='overalls'){ c.fillStyle='#3a5a9a'; c.fillRect(-8,-24,16,12); c.fillRect(-7,-32,3,9); c.fillRect(4,-32,3,9); c.fillStyle='#d8a020'; c.fillRect(-6,-24,2,2); c.fillRect(4,-24,2,2); }
   if(o==='orange'){ c.fillStyle='#ff6a1a'; c.beginPath(); c.roundRect(-10,-32,8,18,3); c.roundRect(2,-32,8,18,3); c.fill(); c.fillStyle='rgba(255,255,255,.5)'; c.fillRect(-10,-24,20,2); }
@@ -3346,7 +3378,7 @@ function drawOutfit(c, L, fx, fy){
   if(o==='space'){ c.fillStyle='#c8ccd8'; c.fillRect(-6,-28,12,7); c.fillStyle='#3a7bd5'; c.fillRect(-4,-27,3,3); c.fillStyle='#e8302a'; c.fillRect(1,-27,3,3); }
   if(o==='waders'){ c.strokeStyle='#3a5a3a'; c.lineWidth=2.5; c.beginPath(); c.moveTo(-6,-32); c.lineTo(-5,-18); c.moveTo(6,-32); c.lineTo(5,-18); c.stroke(); c.fillStyle='#3a5a3a'; c.fillRect(-10,-20,20,8); }
 }
-function outfitShirt(L){ return L.outfit==='rain' ? '#f2c230' : L.outfit==='camo' ? '#5a6a34' : L.outfit==='ghillie' ? '#4a5a2a' : L.outfit==='hawaiian' ? '#1fa0c0' : L.outfit==='space' ? '#f0f0f4' : L.shirt; }
+function outfitShirt(L){ const OF=OUTFITS.find(o=>o.id===L.outfit); if(OF && OF.col) return OF.col; return L.outfit==='rain' ? '#f2c230' : L.outfit==='camo' ? '#5a6a34' : L.outfit==='ghillie' ? '#4a5a2a' : L.outfit==='hawaiian' ? '#1fa0c0' : L.outfit==='space' ? '#f0f0f4' : L.shirt; }
 function outfitPants(L){ return L.outfit==='waders' ? '#3a5a3a' : L.outfit==='camo' ? '#4a5a2c' : L.outfit==='ghillie' ? '#3a4a22' : L.outfit==='overalls' ? '#3a5a9a' : L.outfit==='space' ? '#e4e4ec' : L.pants; }
 // a little picture of you for the wardrobe
 function lookPreview(){
@@ -3968,7 +4000,7 @@ const AMMO = {
   b223:  {n:'.223 Bullets',     e:'🟨', p:60, qty:60},
   cells: {n:'Laser Cells',      e:'⚡', p:80, qty:40},
 };
-const GUN_AMMO=['stones','b9','shells','rifle','b22','arrows','bolts','b357','shells','b3030','ball','b223','cells'];
+const GUN_AMMO=['stones','b9','shells','rifle','b22','arrows','bolts','b357','shells','b3030','ball','b223','cells','b357','shells','rifle','cells'];
 function gunAmmo(i){ return GUN_AMMO[i]; }
 function nextGun(){ // cycles through the guns you own
   const own=(S.guns||[]).slice().sort((x,y)=>GUNS[x].p-GUNS[y].p); if(!own.length){ toast('Buy a gun at the shop first! 🔫'); return; }
@@ -4539,7 +4571,10 @@ const PET_COL={dog:'#b8864a', goldie:'#e0a848', cat:'#8a8a8a', bunny:'#f2eee6', 
 const DECOR={ aquarium:{n:'Fish Tank', e:'🐠', p:600, d:'Shows off little fish in your cabin'}, tv:{n:'Big TV', e:'📺', p:400, d:'Watch fishing shows'}, arcade:{n:'Arcade Machine', e:'🕹️', p:900, d:'Beep boop!'},
   rug:{n:'Bear Rug', e:'🐻', p:300, d:'A cozy rug by the fire'}, plant:{n:'Potted Plants', e:'🪴', p:120, d:'Some green for your cabin'}, lamp:{n:'Lava Lamp', e:'🔮', p:200, d:'Groovy glowing light'},
   jukebox:{n:'Jukebox', e:'🎵', p:700, d:'Flashing lights & music notes'}, books:{n:'Bookshelf', e:'📚', p:250, d:'Fishing books and hunting stories'}, disco:{n:'Disco Ball', e:'🪩', p:500, d:'Sparkly spinning party ball!'}, gnome:{n:'Garden Gnome', e:'🧙', p:80, d:'A funny little gnome friend'},
-  hottub:{n:'Hot Tub', e:'🛁', p:1500, d:'Bubbly warm water in your cabin!'}, telescope:{n:'Telescope', e:'🔭', p:600, d:'Look at the stars from your cabin'} };
+  hottub:{n:'Hot Tub', e:'🛁', p:1500, d:'Bubbly warm water in your cabin!'}, telescope:{n:'Telescope', e:'🔭', p:600, d:'Look at the stars from your cabin'},
+  xmas:{n:'Christmas Tree', e:'🎄', p:350, d:'Twinkly tree for your cabin', spot:[150,215]}, dino:{n:'Toy Dinosaur', e:'🦖', p:250, d:'RAWR! A big toy T-Rex', spot:[260,215]}, ufomodel:{n:'UFO Model', e:'🛸', p:450, d:'A model of the UFO you saw', spot:[700,205]},
+  trophy:{n:'Giant Trophy', e:'🏆', p:800, d:'World\'s Best Fisher!', spot:[850,215]}, guitar:{n:'Electric Guitar', e:'🎸', p:500, d:'Rock out in your cabin', spot:[950,215]}, teddy:{n:'Giant Teddy Bear', e:'🧸', p:300, d:'A huge fluffy teddy bear', spot:[680,610]},
+  pinata:{n:'Piñata', e:'🪅', p:150, d:'A party piñata hanging up', spot:[580,250]}, rocket:{n:'Rocket Model', e:'🚀', p:650, d:'Ready for the Moon!', spot:[900,620]} };
 S.pets=S.pets||[]; S.decor=S.decor||[]; S.items.fireworks=S.items.fireworks||0;
 var pet={x:0,y:0,set:false,t:0,bark:0}, fworks=[];
 function updatePet(dt){
@@ -4586,8 +4621,11 @@ function launchFirework(){
 function updateFireworks(dt){ for(const f of fworks){ f.t-=dt; f.h+=dt*320; if(Math.random()<.6) parts.push({x:f.x,y:f.y-f.h,vx:(Math.random()-.5)*20,vy:20,t:.4,col:'#ffcc66',sz:2});
   if(f.t<=0){ noise(.5,.5,300); flash=Math.max(flash,.12); for(let i=0;i<60;i++){ const a=Math.random()*6.283, sp=80+Math.random()*180; parts.push({x:f.x,y:f.y-f.h,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-60,t:1.2+Math.random()*.6,col:i%3?f.col:'#ffffff',sz:3}); } S.st.fireworks=(S.st.fireworks||0)+1; } }
   fworks=fworks.filter(f=>f.t>0); }
+function drawSpotDecor(c,t){ const has=k=>S.decor.includes(k);
+  c.save(); c.globalAlpha=1; c.globalCompositeOperation='source-over'; c.textAlign='center'; c.textBaseline='middle'; for(const [k,dc] of Object.entries(DECOR)) if(dc.spot && has(k)){ const [x,y]=dc.spot; c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x,y+22,22,7,0,0,7); c.fill(); c.font=`44px ${FONT}`; c.fillStyle='#000'; c.fillText(dc.e,x,y+Math.sin(t*2+x)*(k==='pinata'||k==='ufomodel'?3:0)); } c.restore(); }
 function drawCabinDecor(c,t){
   const has=k=>S.decor.includes(k);
+
   if(has('jukebox')){ c.fillStyle='#8a2a2a'; c.beginPath(); c.roundRect(1004,460,56,96,[26,26,4,4]); c.fill(); c.fillStyle=`hsl(${(t*90)%360},80%,60%)`; c.beginPath(); c.roundRect(1012,470,40,28,[18,18,2,2]); c.fill(); c.fillStyle='#ffd23f'; c.fillRect(1012,506,40,18); c.fillStyle='#3a1a1a'; for(let i=0;i<4;i++) c.fillRect(1015+i*9,530,6,18);
     c.fillStyle='#fff'; c.font=`16px ${FONT}`; c.textAlign='center'; for(let i=0;i<2;i++){ const p=(t*.6+i*.5)%1; c.globalAlpha=1-p; c.fillText(i?'♫':'♪',1032+Math.sin(t*2+i*3)*16,456-p*50); } c.globalAlpha=1; }
   if(has('books')){ c.fillStyle='#5a3418'; c.fillRect(300,560,100,96); c.fillStyle='#3a2210'; for(const y of [590,622]) c.fillRect(300,y,100,4); const bc=['#d33a2c','#3a7bd5','#2e9a54','#e0a020','#8a4ad0','#e8e0c8'];
