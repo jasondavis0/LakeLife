@@ -934,6 +934,7 @@ function drawMinimap(){
   const dot=(px,py,col,r=3)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x+px*k,y+py*k,r,0,7); ctx.fill(); };
   dot(SHOP.x,SHOP.y,'#e53935',4); dot(CABIN.x,CABIN.y,'#2e9a54',4);
   { ctx.textAlign='center'; ctx.textBaseline='middle'; for(const V of villages()){ ctx.font=`${V.kind==='village'?12:9}px ${FONT}`; ctx.fillText(V.kind==='village'?'🏘️':'🏡',x+V.x*k,y+V.y*k); } ctx.textBaseline='alphabetic'; }
+  { const ap=airstrip(); if(ap){ ctx.font=`11px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✈️',x+ap.x*k,y+ap.y*k); ctx.textBaseline='alphabetic'; } const T=skyTarget(); if(T) dot(T.x,T.y,T.col,4); }
   if(drone){ for(const a of game) dot(a.x,a.y,'#ffe680',1.6); for(const d of deer) dot(d.x,d.y,'#ffe680',1.6); for(const b of beasts) dot(b.x,b.y,'#ff4040',2.2); }
   for(const bl of GEO.blinds){ ctx.fillStyle='#d8b46a'; ctx.fillRect(x+bl.x*k-2,y+bl.y*k-2,4,4); }
   if(S.boat>0) dot(boat.x,boat.y,'#ffd54a',3);
@@ -944,7 +945,7 @@ function drawMinimap(){
   if(LK.id==='jungle' && S.templeFound){ const T=jungleTemple(); if(T){ ctx.font=`11px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛕',x+T.x*k,y+T.y*k); ctx.textBaseline='alphabetic'; } }
   { const sg=secretsGot(); for(const sp of secretsHere()) if(sg.includes(sp.k)){ ctx.fillStyle='#ffe14d'; ctx.font=`10px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⭐',x+sp.x*k,y+sp.y*k); ctx.textBaseline='alphabetic'; } }
   if(drone){ const X=x+drone.x*k, Y=y+drone.y*k; ctx.save(); ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(90,208,255,.9)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x+P.x*k,y+P.y*k); ctx.lineTo(X,Y); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='rgba(18,28,48,.7)'; ctx.beginPath(); ctx.arc(X,Y,9,0,7); ctx.fill(); ctx.strokeStyle='#5ad0ff'; ctx.lineWidth=2; ctx.stroke(); ctx.font=`12px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛸',X,Y+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
+    ctx.fillStyle='rgba(18,28,48,.7)'; ctx.beginPath(); ctx.arc(X,Y,9,0,7); ctx.fill(); ctx.strokeStyle='#5ad0ff'; ctx.lineWidth=2; ctx.stroke(); ctx.font=`12px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(drone.plane?'✈️':'🛸',X,Y+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
   if(S.dig && S.dig.lake===LK.id){ const X=x+S.dig.x*k, Y=y+S.dig.y*k; ctx.strokeStyle='#ff3030'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(X-4,Y-4); ctx.lineTo(X+4,Y+4); ctx.moveTo(X+4,Y-4); ctx.lineTo(X-4,Y+4); ctx.stroke(); }
   for(const p of GEO.ponds) if(((S.secrets||{})[LK.id+'_pond'])) dot(p.x,p.y,'#9af0ff',3);
   // you
@@ -1060,6 +1061,7 @@ function buildWorld(){
     for(const t of trees) if(blobVal(I,t.x,t.y)<1){ const gg=b.createRadialGradient(t.x,t.y,0,t.x,t.y,t.r*1.5); gg.addColorStop(0,'rgba(0,0,0,.22)'); gg.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=gg; b.fillRect(t.x-t.r*2,t.y-t.r*2,t.r*4,t.r*4); } }
   if(!iceOn()) for(const pd of GEO.pads){ b.fillStyle=T.pad; b.beginPath(); b.arc(pd.x,pd.y,pd.r,.4,6.0); b.lineTo(pd.x,pd.y); b.fill(); if(pd.flower){ b.fillStyle=T.padFlower; b.beginPath(); b.arc(pd.x+3,pd.y-2,4,0,7); b.fill(); } }
   DOCKS.forEach((d,di)=>dockBuilt(di)?paintDockBg(b,d):paintBrokenDock(b,d));
+  { const ap=airstrip(); if(ap) paintAirstrip(b,ap,!!S.runway); }
   // wooden bridges over the river and creek
   for(const br of GEO.bridges){ b.save(); b.translate(br.x,br.y); b.rotate(br.ang);
     b.fillStyle='rgba(0,0,0,.28)'; b.fillRect(-br.wid/2+6,-br.len/2+6,br.wid,br.len);
@@ -1493,6 +1495,7 @@ var npcSpots=[];
 function updateNPCs(dt){
   for(const n of npcs){
     n.t-=dt; n.anim+=dt;
+    if(n.still){ const d=Math.hypot(n.x-P.x,n.y-P.y), near=d<90; if(near&&!n.near) n.tip++; n.near=near; if(near){ n.fx=(P.x-n.x)/(d||1); n.fy=(P.y-n.y)/(d||1); } continue; }
     if(n.roam){ roamUpdate(n,dt); continue; }
     if(n.villager){ villagerUpdate(n,dt); continue; }
     if(n.singer){ n.walking=false; const d=Math.hypot(n.x-P.x,n.y-P.y); n.near=d<(MUS.sing?320:150); if(d<300){ n.fx=P.x-n.x; n.fy=P.y-n.y; const l=Math.hypot(n.fx,n.fy)||1; n.fx/=l; n.fy/=l; } continue; }
@@ -1535,7 +1538,7 @@ function resetCreatures(){
   for(let i=0;i<8;i++) spawnDeer();
   for(const [kind] of LK.beasts) spawnBeast(kind);
   if(LK.cave && weather.type!=='clear' && weather.type!=='fog'){ weather.type='clear'; weather.t=60; } if(LK.cave) weather.wind=0;
-  makeNPCs(); S.ride=null; P.air=0; if(typeof veh!=='undefined' && veh) veh.x=-1;
+  makeNPCs(); addGrandpa(); S.ride=null; P.air=0; if(typeof veh!=='undefined' && veh) veh.x=-1;
   gameInit=true; // the new animals show up on the first frame
 }
 resetCreatures();
@@ -1622,7 +1625,7 @@ function setTool(t){
   tool = t;
 }
 function toggleBoat(){
-  if(P.room) return;
+  if(P.room || flying() || P.chute) return;
   if(S.ride && !P.inBoat) toggleRide();
   if(P.blind){ toast(`Get out of the ${blindName(P.blind)} first (${touchMode?'tap 🏠':'press E'})`); return; }
   if(P.inBoat){
@@ -1673,9 +1676,11 @@ function buildDock(i){ const need=DOCK_WOOD[i]; if(S.wood<need){ toast(`🪵 You
   addXP(50); const m=Math.round(150*MODE().pay); S.money+=m; S.st.earned+=m; setTimeout(()=>banner('⚓','DOCK BUILT!',`Walk out and fish off the end! The ranger paid you $${m}`,'#9fe3ff'),800); save(); }
 function useKey(){
   if(P.room){ roomUse(); return; }
+  if(flying()){ planeJump(); return; }
   if(P.blind){ leaveBlind(); return; }
   const tk=nearTreasure(); if(tk>=0){ openTreasure(tk); return; }
   const bl=nearBlind(); if(bl && !P.inBoat){ enterBlind(bl); return; }
+  const ap=nearAir(); if(ap){ useAir(ap); return; }
   const pr=nearProp(); if(pr && !P.inBoat && propLabel(pr)){ useProp(pr); return; }
   const vp=nearPlot(); if(vp && plotLabel(vp)){ usePlot(vp); return; }
   const ds=nearDockSite(); if(ds>=0){ buildDock(ds); return; }
@@ -1861,6 +1866,7 @@ function landFish(i){
 }
 function action(fromTouch){
   if(P.room){ roomUse(); return; }
+  if(flying()){ planeLand(); return; }
   if(drone){ toast(`🛸 Bring your drone back first (${touchMode?'tap 🛸':'press Y'})`); return; }
   if(S.ride && tool==='rod'){ toast(`Hop off your ${VEH[S.ride].n} to fish (${touchMode?'tap 🏍️':'press R'})`); return; }
   if(tool==='gun'){ shoot(fromTouch); return; }
@@ -1985,7 +1991,7 @@ addEventListener('keydown', e=>{
   if(k==='3') setTool(tool==='axe'?'rod':'axe');
   if(k==='2' || k==='g'){ if(tool==='gun') nextGun(); else setTool('gun'); }
   if(k==='q' && !(drone&&FP.on)) setTool(tool==='rod'?'gun':'rod');
-  if(k==='e' && !(drone&&FP.on)) useKey();
+  if(k==='e' && !(drone&&FP.on&&!drone.plane)) useKey();
   if(k==='b') toggleBoat();
   if(k==='r') toggleRide();
   if(k==='x') toggleScope();
@@ -2141,7 +2147,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You found Grandpa\'s Golden Lure!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${wheelReady()?'<div class="sellrow"><span>🎡 <b>Your free daily spin is ready!</b></span><button data-wheel>Spin the Prize Wheel</button></div>':''}${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You saved the lake and found Grandpa!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${wheelReady()?'<div class="sellrow"><span>🎡 <b>Your free daily spin is ready!</b></span><button data-wheel>Spin the Prize Wheel</button></div>':''}${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -2180,6 +2186,7 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-close')){ closePanel(); return; }
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
+  if(b.hasAttribute('data-fly')){ const m=b.getAttribute('data-fly'); closePanel(); startFlight(m); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
   if(b.hasAttribute('data-usedig')){ if(S.items.digmap>0 && useDigMap()){ S.items.digmap--; closePanel(); } else renderPanel(); return; }
   if(b.hasAttribute('data-spin')){ spinWheel(); return; }
@@ -3425,6 +3432,7 @@ const H2=(t)=>`<h2>${t}</h2>`, G=(rows)=>`<div class="grid">${rows}</div>`, clos
 const money=()=>`<span class="money">$${S.money.toLocaleString()}</span>`;
 function gearSummary(){ return `<div class="sellrow"><span>Now using: 🎣 ${RODS[S.rod].n} · ⚙️ ${REELS[S.reel].n} · 🧵 ${LINES[S.line].n} · 🪝 ${HOOKS[S.hook].n} · ${curLure().e} ${curLure().n}${S.gear.wire&&S.wireOn?' · 〰️ Wire leader':''}</span></div>`; }
 function stationHTML(kind){
+  if(kind==='hangar') return hangarHTML();
   if(kind==='counter'){
     const counts={}; let total=0; for(const i of S.fish){ counts[i]=(counts[i]||0)+1; total+=fishPay(i); }
     const list=Object.keys(counts).map(i=>`${counts[i]}× ${FISH[i].n}`).join(', ') || 'No fish yet. Go catch some!';
@@ -3514,6 +3522,7 @@ function buyOrEquip(b){
   else if(kind==='mystery'){ if(!pay(400)) return; openMystery(); }
   else if(kind==='fw' && id==='20'){ if(!pay(150)) return; S.items.fireworks=(S.items.fireworks||0)+20; toast('🎇 +20 fireworks! Time for a show!'); }
   else if(kind==='fw'){ if(!pay(50)) return; S.items.fireworks=(S.items.fireworks||0)+5; toast('🎆 +5 fireworks! Press F (or tap 🎆) to launch'); }
+  else if(kind==='plane'){ if(!buyPlane(id,pay)) return; }
   else if(kind==='drone'){ const i=+id; if(!pay(DRONES[i].p)) return; S.drone=i; toast(`🛸 You got the ${DRONES[i].n}! Go outside and press ${touchMode?'🛸':'Y'} to fly it`); }
   else if(kind==='scope'){ const i=+id; if(buying){ if(!pay(SCOPES[i].p)) return; if(!S.scopes.includes(i)) S.scopes.push(i); toast(`🔭 You got the ${SCOPES[i].n}! ${SCOPES[i].best}. Press ${touchMode?'🎯':'X'} with a gun out to aim`); } S.scope=i; if(scopeOn) resize(); }
   else if(kind==='ammo'){ const a=AMMO[id]; if(!pay(a.p)) return; S.ammo[id]=(S.ammo[id]||0)+a.qty; toast(`${a.e} +${a.qty} ${a.n.toLowerCase()}`); }
@@ -4176,9 +4185,12 @@ function genProps(G, r){
   // lookout towers you can climb (they work like a blind, but way up high)
   const towerN = id==='mountain'?2 : ['home','frozen','prairie','swamp','canyon'].includes(id)?1 : 0;
   for(let k=0,t=0;k<towerN && t<200;t++){ const x=200+r()*(WW-400), y=200+r()*(WH-400); if(!ok(x,y,40)) continue; G.blinds.push({x,y,kind:'tower',look:Math.atan2(LAKE.y-y,LAKE.x-x)}); k++; }
+  // the runway has its own dice, so everything else in the world stays where it was
+  if(!LK.cave){ let sd=(LAKES.indexOf(LK)+1)*7919+13; const r2=()=>{ sd=(sd*16807)%2147483647; return (sd%100000)/100000; }; for(let t=0;t<4000;t++){ const a=r2()*6.283, d=1100+r2()*(1200+t*2), x=START.x+Math.cos(a)*d, y=START.y+Math.sin(a)*d*.75; if(ok(x,y,430)){ G.props.push({kind:'airstrip',x,y,rad:430}); break; } } }
 }
 function propBlocks(p,x,y,pad=0){
   const dx=x-p.x, dy=y-p.y;
+  if(p.kind==='airstrip') return (dx>-300-pad && dx<-100+pad && dy>-215-pad && dy<-125+pad) || Math.hypot(dx-120,dy+135)<22+pad;
   if(p.kind==='barn') return (Math.abs(dx)<70+pad && dy>-60-pad && dy<10+pad) || Math.hypot(dx-92,dy+10)<26+pad;
   if(p.kind==='camp') return Math.hypot(dx+52,dy+12)<30+pad || Math.hypot(dx,dy)<12+pad;
   if(p.kind==='lighthouse') return Math.hypot(dx,dy)<34+pad;
@@ -4212,6 +4224,7 @@ function useProp(p){
 // ----- drawing -----
 function drawProp(p, t){
   if(p.kind==='village'||p.kind==='hamlet') return; // drawn piece by piece in drawVillage
+  if(p.kind==='airstrip'){ drawAirstrip(p,t); return; }
   if(p.kind==='ramp'){ drawRamp(p); return; }
   const c=ctx, sn=season(), snow=(sn==='winter'&&LK.freezes)||LK.id==='frozen'; c.save(); c.translate(p.x,p.y);
   const sh=(w,h,ox=0)=>{ c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(ox+SUN.dx*w*.3,2,w*SUN.len,h,0,0,7); c.fill(); };
@@ -4363,6 +4376,7 @@ function vehCargo(){ return vehOwned().reduce((m,id)=>Math.max(m,VEH[id].cargo),
 function parkVehicleNear(x,y){ for(let d=40; d<600; d+=20) for(let k=0;k<12;k++){ const a=k/12*6.283, vx=x+Math.cos(a)*d, vy=y+Math.sin(a)*d; if(!blocked(vx,vy) && !inLake(vx,vy,1.15)){ veh.x=vx; veh.y=vy; return true; } } return false; }
 function nearVehicle(){ return S.vehSel && !S.ride && veh.x>0 && Math.hypot(veh.x-P.x,veh.y-P.y)<70; }
 function toggleRide(){
+  if(flying()||P.chute) return;
   if(P.room || P.blind){ toast(`Get out of the ${P.room?'building':blindName(P.blind)} first`); return; }
   if(S.ride){ // hop off and leave it parked here
     const id=S.ride; S.ride=null; veh.x=P.x; veh.y=P.y; veh.id=id; veh.face=P.fx<0?-1:1; P.air=0;
@@ -4527,6 +4541,7 @@ const DRONES=[{n:'No drone'},{n:'Mini Drone', p:800, spd:380, bat:45, d:'Fly ove
 S.drone=S.drone||0; S.dseen=S.dseen||{};
 let drone=null, droneBuzz=0;
 function toggleDrone(){
+  if(flying()){ planeLand(); return; }
   if(drone){ drone.back=true; toast('🛸 Drone coming back...'); return; }
   if(!S.drone){ toast('🛸 Buy a drone at the shop\'s Outdoor Gear shelf!'); return; }
   scopeOff();
@@ -4538,7 +4553,7 @@ function toggleDrone(){
   else toast(`🛸 Drone launched! ${touchMode?'Steer with the joystick · tap 👁️ to see through its camera · tap 🛸 to bring it back':'Fly with WASD · press V to see through its camera · Y brings it back'}. Watch your battery!`);
 }
 function updateDrone(dt){
-  if(!drone) return; const D=DRONES[S.drone];
+  if(!drone) return; if(drone.plane){ updatePlane(dt); return; } const D=DRONES[S.drone];
   drone.h=Math.min(1,drone.h+dt*1.5); drone.bat-=dt;
   if(drone.bat<=0 && !drone.back){ drone.back=true; toast('🔋 Battery low! Your drone is flying home'); }
   let dx=joy.x, dy=joy.y; if(keys['w']||keys['arrowup']) dy--; if(keys['s']||keys['arrowdown']) dy++; if(keys['a']||keys['arrowleft']) dx--; if(keys['d']||keys['arrowright']) dx++;
@@ -4551,9 +4566,9 @@ function updateDrone(dt){
   const seen=(S.dseen[LK.id]=S.dseen[LK.id]||[]);
   GEO.treasures.forEach((tr,k)=>{ if(!treasureFound(k) && !seen.includes(k) && Math.hypot(tr.x-drone.x,tr.y-drone.y)<380){ seen.push(k); float(tr.x,tr.y-40,'💰 Treasure spotted!','#ffd54a'); tone(1200,.1,'triangle',.08); toast('🛸 Your drone spotted a treasure chest! It\'s marked on your map'); save(); } });
 }
-function landDrone(){ if(!drone) return; const fb=drone.fpBack; drone=null; if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; } window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb && !FP.on) fpToggle(); }
+function landDrone(){ if(!drone) return; if(drone.plane){ airHome(); return; } const fb=drone.fpBack; drone=null; if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; } window.droneZoom=false; resize(); tone(500,.2,'sawtooth',.04,0,200); toast('🛸 Drone landed safely'); if(fb && !FP.on) fpToggle(); }
 function drawDrone(t){
-  if(!drone) return; const c=ctx, h=drone.h*70, D=DRONES[S.drone];
+  if(!drone || drone.plane) return; const c=ctx, h=drone.h*70, D=DRONES[S.drone];
   c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(drone.x+h*.3,drone.y+4,16,6,0,0,7); c.fill();
   if(S.drone>1 && nightAmt()>.2){ const g=c.createRadialGradient(drone.x,drone.y,0,drone.x,drone.y,160); g.addColorStop(0,'rgba(255,255,220,.25)'); g.addColorStop(1,'rgba(255,255,220,0)'); c.fillStyle=g; c.beginPath(); c.arc(drone.x,drone.y,160,0,7); c.fill(); }
   c.save(); c.translate(drone.x,drone.y-h); c.strokeStyle='#333'; c.lineWidth=3; c.beginPath(); c.moveTo(-14,-6); c.lineTo(14,6); c.moveTo(14,-6); c.lineTo(-14,6); c.stroke();
@@ -4563,11 +4578,156 @@ function drawDrone(t){
   c.restore();
 }
 function drawDroneHud(){
-  if(!drone) return; const D=DRONES[S.drone], w=180, x=VW/2-w/2, y=touchMode?60:16, k=Math.max(0,drone.bat/D.bat);
+  if(!drone) return; if(drone.plane){ drawFlightHud(); return; } const D=DRONES[S.drone], w=180, x=VW/2-w/2, y=touchMode?60:16, k=Math.max(0,drone.bat/D.bat);
   ctx.fillStyle='rgba(0,0,0,.6)'; ctx.beginPath(); ctx.roundRect(x-8,y-6,w+16,38,10); ctx.fill();
   ctx.fillStyle='#fff'; ctx.font=`800 13px ${FONT}`; ctx.textAlign='center'; ctx.fillText(`🛸 ${D.n} · ${drone.back?'flying home':'battery '+Math.ceil(drone.bat)+'s'}`, VW/2, y+9);
   ctx.fillStyle='#333'; ctx.fillRect(x,y+16,w,8); ctx.fillStyle=k>.4?'#4caf50':k>.2?'#ffb300':'#ff3b30'; ctx.fillRect(x,y+16,w*k,8);
 }
+
+// ===================== Runway & airplanes =====================
+var PLANES=[
+  {id:'goldie', n:'Goldie', e:'🛩️', p:0, spd:560, turn:2.2, col:'#ffd23f', d:'Grandpa\'s old yellow plane · comes with a free duck nest'},
+  {id:'bush', n:'Bush Plane', e:'🛩️', p:6000, spd:680, turn:2.5, col:'#e0503a', d:'A tough little plane · faster than Goldie'},
+  {id:'stunt', n:'Stunt Biplane', e:'✈️', p:12000, spd:760, turn:3.6, col:'#3a7bd5', bi:1, smoke:1, d:'Turns super fast and leaves rainbow smoke!'},
+  {id:'spy', n:'Spy Plane', e:'✈️', p:20000, spd:820, turn:2.6, col:'#2a2f3a', spy:1, d:'Spots treasure chests from twice as far away'},
+  {id:'jet', n:'Fighter Jet', e:'✈️', p:45000, spd:1150, turn:2.6, col:'#7a8a9a', jet:1, d:'Very, very fast!'},
+  {id:'rocket', n:'Rocket Jet', e:'🚀', p:120000, spd:1700, turn:2.8, col:'#ff4a5a', jet:1, flame:1, d:'The fastest thing in any world'},
+];
+var AIR_WOOD=20, AIR_COST=300, sky=null, traffic=null, trafficT=25;
+function planeSpec(id){ return PLANES.find(p=>p.id===id)||PLANES[0]; }
+function myPlanes(){ return S.planes||(S.planes=[]); }
+function airstrip(){ return (GEO.props||[]).find(p=>p.kind==='airstrip')||null; }
+function flying(){ return !!(drone&&drone.plane); }
+function nearAir(){ const p=airstrip(); if(!p || P.inBoat || P.blind || P.room || drone) return null; return Math.hypot(P.x-(p.x-200),P.y-(p.y-85))<130?p:null; }
+function airLabel(){ const b=touchMode?'Tap ✈️':'Press E'; return S.runway?`✈️ ${b} to open the hangar`:`🔨 ${b} to fix the runway (${AIR_WOOD} 🪵 + $${AIR_COST})${VW<640?'':" · you get Grandpa's plane!"}`; }
+function paintAirstrip(b,p,fixed){ b.save(); b.translate(p.x,p.y);
+  b.fillStyle='#7c7c78'; b.fillRect(-335,-135,270,92); b.fillStyle='#868682'; b.fillRect(-335,-135,270,4);
+  b.fillStyle='#2e2e32'; b.fillRect(-404,-49,808,98); b.fillStyle=fixed?'#44444a':'#55554f'; b.fillRect(-400,-45,800,90);
+  if(fixed){ b.fillStyle='#fff'; for(let x=-300;x<300;x+=70) b.fillRect(x,-3,40,6); b.fillRect(-396,-42,792,3); b.fillRect(-396,39,792,3);
+    for(const sx of [-1,1]) for(let y=-34;y<=26;y+=12) b.fillRect(sx<0?-388:348,y,40,6);
+    b.fillStyle='#ffd23f'; for(let x=-335;x<-66;x+=30) b.fillRect(x,-92,18,3); }
+  else { let sd=p.x|0; const r=()=>{ sd=(sd*16807+11)%2147483647; return (sd%1000)/1000; };
+    b.strokeStyle='#26262a'; b.lineWidth=3; for(let k=0;k<26;k++){ let x=-390+r()*780, y=-40+r()*80; b.beginPath(); b.moveTo(x,y); for(let j=0;j<4;j++){ x+=(r()-.3)*50; y+=(r()-.5)*26; b.lineTo(x,Math.max(-44,Math.min(44,y))); } b.stroke(); }
+    b.fillStyle='rgba(84,140,60,.8)'; for(let k=0;k<50;k++){ b.beginPath(); b.ellipse(-390+r()*780,-42+r()*84,8+r()*22,4+r()*9,0,0,7); b.fill(); } }
+  b.restore(); }
+function useAir(p){
+  if(S.runway){ openPanel('hangar'); return; }
+  if(S.wood<AIR_WOOD){ toast(`🪵 You need ${AIR_WOOD} wood to fix the runway (you have ${S.wood}). Chop some trees!`); tone(300,.1,'square',.04); return; }
+  if(S.money<AIR_COST){ toast(`💰 You need $${AIR_COST} to fix the runway`); tone(300,.1,'square',.04); return; }
+  S.wood-=AIR_WOOD; S.money-=AIR_COST; S.runway=true; if(!myPlanes().includes('goldie')) S.planes.push('goldie'); S.planeSel=S.planeSel||'goldie';
+  const b=bg.getContext('2d'); b.save(); b.setTransform(BGS,0,0,BGS,0,0); paintAirstrip(b,p,true); b.restore(); FP.lake=null;
+  for(let k=0;k<6;k++) setTimeout(()=>{ tone(220+k*50,.06,'square',.07); noise(.04,.2,1500); burst(p.x-300+k*120,p.y,'#c8c8c8',10,100); },k*120);
+  addXP(80); setTimeout(()=>banner('✈️','RUNWAY FIXED!','Grandpa\'s plane GOLDIE is yours! Every world has a runway now','#ffd54a'),700); save(); }
+function hangarHTML(){ const me=planeSpec(S.planeSel), lk=LAKES.filter(l=>S.lakes.includes(l.id) && !l.cave && l.id!==LK.id), own=myPlanes();
+  return `<h1>✈️ Hangar ${money()}</h1><p><button data-fly="free">🛫 Take off in ${me.n}</button> <button data-fly="rings" class="alt">⭕ Ring Race</button>${storyId()==='race'?' <button data-fly="snagg">😈 Race Mr. Snagg!</button>':''}</p>
+    ${lk.length?H2('🌍 Fly to another world')+`<div>${lk.map(l=>`<button data-fly="w:${l.id}" class="alt">✈️ ${l.n}</button>`).join(' ')}</div>`:'<p style="font-size:14px">Buy more worlds at the shop and you can fly to them from here!</p>'}
+    ${H2('🛩️ Your planes')}${G(PLANES.map(pl=>{ const has=own.includes(pl.id); return ownRow(`${pl.e} ${pl.n}`, pl.d, has?(S.planeSel===pl.id?'<span class="tag">✔ Flying this</span>':`<button data-buy="plane:${pl.id}" class="alt">Fly this</button>`):buyBtn('plane:'+pl.id,pl.p), has); }).join(''))}${closeP()}`; }
+function buyPlane(id,pay){ const pl=planeSpec(id); if(!myPlanes().includes(id)){ if(!pay(pl.p)) return false; S.planes.push(id); toast(`${pl.e} You got the ${pl.n}!`); } S.planeSel=id; FP.lake=null; return true; }
+function skyCourse(p,n){ const pts=[]; let x=p.x+500, y=p.y, a=(Math.random()-.5)*.8; for(let k=0;k<n;k++){ a+=(Math.random()-.5)*1.5; x+=Math.cos(a)*950; y+=Math.sin(a)*950; if(x<500||x>WW-500){ a=Math.PI-a; x=Math.max(500,Math.min(WW-500,x)); } if(y<500||y>WH-500){ a=-a; y=Math.max(500,Math.min(WH-500,y)); } pts.push({x,y}); } return pts; }
+function startFlight(mode='free'){ const p=airstrip(); if(!p || !S.runway) return; if(S.ride) toggleRide(); if(drone) landDrone(); scopeOff(); fishing={state:'none'}; const pl=planeSpec(S.planeSel);
+  P.x=p.x-200; P.y=p.y-60; drone={plane:pl.id, pl, x:p.x-350, y:p.y, a:0, h:0, v:0, ph:'roll', st:0, alt:.5, bank:0, t:0, bat:1, back:false};
+  sky=null; if(mode==='rings'||mode==='snagg'){ const pts=skyCourse(p,mode==='snagg'?10:8); sky={pts, k:0, t:pts.length*950/pl.spd*2+6, mode, rv:mode==='snagg'?{x:p.x-350,y:p.y+70,k:0,a:0,spd:pl.spd*.84}:null}; }
+  else if(mode.startsWith('w:')) drone.dest=mode.slice(2);
+  window.droneZoom=true; resize(); if(FP.on){ FP.yaw=0; FP.pitch=-.08; } tone(70,.8,'sawtooth',.07,0,240);
+  toast(`🛫 ${pl.n} is taking off! ${touchMode?'Joystick steers · tap 🛬 Land to come down · tap 🪂 to jump':'WASD steers · SPACE lands · E jumps out with a parachute'}`); }
+function planeLand(){ const D=drone; if(!flying()) return; if(D.ph!=='fly'){ toast('🛫 Wait until you\'re up in the air'); return; } if(D.dest){ toast('🌍 Hold on, you\'re on your way!'); return; } if(!airstrip()){ planeJump(); return; } D.ph='land'; D.st=0; sky=null; toast('🛬 Autopilot on! Heading for the runway...'); tone(700,.15,'sine',.06,0,400); }
+function airHome(){ drone=null; sky=null; window.droneZoom=false; resize(); if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; } }
+function endFlight(){ const p=airstrip(); airHome(); if(p){ P.x=p.x-200; P.y=p.y-60; P.fx=0; P.fy=1; } unstick(); S.st.flights=(S.st.flights||0)+1; addXP(30); tone(300,.25,'sawtooth',.05,0,120); toast('🛬 Nice landing! Your plane is back at the hangar'); addGrandpa(); save(); }
+function planeJump(){ const D=drone; if(!flying()) return; if(D.ph!=='fly'){ toast('🪂 Get up in the air first!'); return; } if(D.dest){ toast('🌍 Stay in your seat, you\'re on your way!'); return; } const x0=D.x, y0=D.y, good=(x,y)=>!blocked(x,y) && !inLake(x,y,1.05) && !onIsland(x,y,10); let x=x0, y=y0;
+  if(!good(x,y)){ let hit=false; for(let r=40;r<4000 && !hit;r+=40) for(let k=0;k<20;k++){ const a=k/20*6.283, qx=x0+Math.cos(a)*r, qy=y0+Math.sin(a)*r; if(good(qx,qy)){ x=qx; y=qy; hit=true; break; } } if(hit) toast('🌬️ The wind blew your parachute to dry land!'); }
+  airHome(); P.inBoat=false; P.x=x; P.y=y; P.chute={t:2.4,T:2.4}; S.st.jumps=(S.st.jumps||0)+1; tone(900,.5,'sine',.06,0,300); toast('🪂 Geronimooo! Your plane flew itself back to the hangar'); save(); }
+function skyTarget(){ if(sky && sky.k<sky.pts.length){ const q=sky.pts[sky.k]; return {x:q.x,y:q.y,col:'#ffd23f',r:150}; } if(storyId()==='rescue' && LK.id==='home') return {x:WW-1100,y:1000,col:'#ff3030',r:230,sos:true}; return null; }
+function skyDone(win){ const s=sky; sky=null; if(!s) return; if(win){ if(s.mode==='snagg'){ S.st.snaggBeat=1; banner('🏁','YOU BEAT MR. SNAGG!','"Curses! Foiled by a duck plane!"','#ffd54a'); SFX.trophy(); } else { const first=S.ringDay!==dayKey(); S.ringDay=dayKey(); const m=Math.round((first?600:120)*MODE().pay); S.money+=m; S.st.earned+=m; banner('⭕','RING RACE WON!',`+$${m.toLocaleString()}${first?' · best prize of the day!':''}`,'#ffd54a'); SFX.cash(); } addXP(60); }
+  else { tone(200,.4,'sawtooth',.06,0,90); toast(s.mode==='snagg'?'😈 Mr. Snagg won! "Ha ha! Try again, tiny pilot!" Land and race him again at the hangar':'⏱️ Out of time! Try the Ring Race again from the hangar'); } save(); }
+function updatePlane(dt){ const D=drone, pl=D.pl; D.t+=dt;
+  droneBuzz-=dt; if(droneBuzz<=0){ droneBuzz=.15; tone((pl.jet?210:95)+D.v*.04+Math.random()*8,.17,pl.jet?'sawtooth':'square',.011); }
+  let ix=joy.x, iy=joy.y; if(keys['w']||keys['arrowup']) iy--; if(keys['s']||keys['arrowdown']) iy++; if(keys['a']||keys['arrowleft']) ix--; if(keys['d']||keys['arrowright']) ix++;
+  const p=airstrip();
+  if(D.ph==='roll'){ D.v=Math.min(pl.spd,D.v+Math.max(320,pl.spd*.6)*dt); if(D.v>Math.min(pl.spd,520)*.62) D.h=Math.min(1,D.h+dt*.9); if(D.h>=.55) D.ph='fly'; if(FP.on) FP.yaw=0; }
+  else if(D.ph==='fly'){ D.h=Math.min(1,D.h+dt*.6); D.v+=(pl.spd-D.v)*Math.min(1,dt*2);
+    let da=0; const out=D.x<260||D.y<260||D.x>WW-260||D.y>WH-260;
+    if(out){ da=wrapA(Math.atan2(WH/2-D.y,WW/2-D.x)-D.a); if(!D.edge){ D.edge=true; toast('🌍 That\'s the edge of the world! Turning back...'); } D.a+=Math.max(-pl.turn*dt*1.5,Math.min(pl.turn*dt*1.5,da)); if(FP.on) FP.yaw=D.a; }
+    else { D.edge=false; if(FP.on){ const old=D.a; D.a=FP.yaw; da=wrapA(D.a-old)/Math.max(dt,.001)*.3; D.alt=Math.max(0,Math.min(1,D.alt-iy*dt*.7)); } else if(Math.hypot(ix,iy)>.15){ da=wrapA(Math.atan2(iy,ix)-D.a); D.a+=Math.max(-pl.turn*dt,Math.min(pl.turn*dt,da)); } }
+    D.bank+=(Math.max(-.6,Math.min(.6,da*.55))-D.bank)*Math.min(1,dt*5);
+    if(D.dest && D.t>4){ const id=D.dest; D.dest=null; flash=1; S.st.flown=(S.st.flown||0)+1; travel(id); const q=airstrip(); if(q){ P.x=q.x-200; P.y=q.y-60; D.x=Math.max(300,q.x-2200); D.y=Math.max(300,Math.min(WH-300,q.y+350)); D.a=0; if(FP.on) FP.yaw=0; D.ph='land'; D.st=0; } else { airHome(); unstick(); } return; } }
+  else if(D.ph==='land' && p){ const v=Math.min(pl.spd,520);
+    if(D.st===0){ const ax=p.x-780, ay=p.y, l=Math.hypot(ax-D.x,ay-D.y); D.v+=(v-D.v)*Math.min(1,dt*2); const da=wrapA(Math.atan2(ay-D.y,ax-D.x)-D.a); D.a+=Math.max(-3.6*dt,Math.min(3.6*dt,da)); D.bank+=(Math.max(-.5,Math.min(.5,da))-D.bank)*Math.min(1,dt*4); if(l<170) D.st=1; }
+    else if(D.st===1){ D.bank*=1-Math.min(1,dt*4); D.a+=wrapA(0-D.a)*Math.min(1,dt*5); D.y+=(p.y-D.y)*Math.min(1,dt*3); D.h=Math.max(0,Math.min(1,(p.x-320-D.x)/440)); D.v+=(280-D.v)*Math.min(1,dt*1.2); if(D.h<=0){ D.st=2; tone(160,.2,'sawtooth',.06); burst(D.x,D.y,'#ddd',10,80); } }
+    else { D.a*=.9; D.y+=(p.y-D.y)*Math.min(1,dt*3); D.v=Math.max(0,D.v-300*dt); if(D.v<40 || D.x>p.x+360){ endFlight(); return; } }
+    if(FP.on){ FP.yaw=D.a; FP.pitch=-.1; } }
+  D.x=Math.max(30,Math.min(WW-30,D.x+Math.cos(D.a)*D.v*dt)); D.y=Math.max(30,Math.min(WH-30,D.y+Math.sin(D.a)*D.v*dt));
+  if(pl.smoke && D.h>.5 && Math.random()<dt*30) parts.push({x:D.x-Math.cos(D.a)*40,y:D.y-Math.sin(D.a)*40-50,vx:0,vy:0,t:1.3,col:`hsl(${(D.t*160)%360},90%,62%)`,sz:9,nofp:true});
+  if(pl.flame && Math.random()<dt*40) parts.push({x:D.x-Math.cos(D.a)*46,y:D.y-Math.sin(D.a)*46-D.h*50,vx:-Math.cos(D.a)*60,vy:-Math.sin(D.a)*60,t:.4,col:Math.random()<.5?'#ffb030':'#ff5030',sz:7,nofp:true});
+  // rings and the S.O.S.
+  const T=skyTarget(); if(T && D.ph==='fly' && Math.hypot(T.x-D.x,T.y-D.y)<T.r){
+    if(T.sos){ S.st.grandpa=1; S.st.grandpaDay=dayKey(); banner('🆘','YOU FOUND GRANDPA!','Autopilot is flying you both home!','#ff8a8a'); SFX.trophy(); D.ph='land'; D.st=0; save(); }
+    else { sky.k++; tone(700+sky.k*70,.14,'triangle',.1); float(D.x,D.y-70,`⭕ ${sky.k}/${sky.pts.length}`,'#ffd23f'); if(sky.k>=sky.pts.length) skyDone(true); } }
+  if(sky){ sky.t-=dt; if(sky.t<=0) skyDone(false); else if(sky.rv && D.ph==='fly'){ const R=sky.rv, q=sky.pts[R.k]; if(q){ const a=Math.atan2(q.y-R.y,q.x-R.x); R.a=a; R.x+=Math.cos(a)*R.spd*dt; R.y+=Math.sin(a)*R.spd*dt; if(Math.hypot(q.x-R.x,q.y-R.y)<60){ R.k++; if(R.k>=sky.pts.length) skyDone(false); } } } }
+  // spotting from the sky
+  const seen=(S.dseen[LK.id]=S.dseen[LK.id]||[]), rng=pl.spy?900:450; GEO.treasures.forEach((tr,k)=>{ if(!treasureFound(k) && !seen.includes(k) && Math.hypot(tr.x-D.x,tr.y-D.y)<rng){ seen.push(k); tone(1200,.1,'triangle',.08); toast('✈️ You spotted a treasure chest from the air! It\'s on your map'); save(); } }); }
+function updateAir(dt){ if(P.chute){ P.chute.t-=dt; if(P.chute.t<=0){ P.chute=null; burst(P.x,P.y,'#d8c8a0',12,90); tone(180,.12,'square',.06); toast('🪂 You landed! Nice jump'); } }
+  if(traffic){ traffic.x+=Math.cos(traffic.a)*traffic.v*dt; traffic.y+=Math.sin(traffic.a)*traffic.v*dt; traffic.t-=dt; if(traffic.t<=0) traffic=null; }
+  else if(!P.room && !LK.cave && !LK.space && (trafficT-=dt)<=0){ trafficT=45+Math.random()*50; const a=Math.random()*6.283, d=1400; traffic={x:P.x-Math.cos(a)*d,y:P.y-Math.sin(a)*d+(Math.random()-.5)*300,a,v:430,t:7,banner:S.story>3&&!S.st.snaggBeat,pl:{col:['#f4f4ec','#3a7bd5','#e0503a'][Math.floor(Math.random()*3)]}}; tone(110,1.6,'sawtooth',.012,0,70); } }
+function drawPlaneTop(c,x,y,a,pl,h,t,bank=0){ const lift=h*60, s=1.25+h*.55;
+  c.save(); c.translate(x+h*90,y+h*120); c.rotate(a); c.scale(s*.9,s*.9); c.fillStyle='rgba(0,0,0,.26)'; c.beginPath(); c.ellipse(0,0,38,8,0,0,7); c.fill(); c.fillRect(-8,-46*Math.cos(bank),16,92*Math.cos(bank)); c.restore();
+  c.save(); c.translate(x,y-lift); c.rotate(a); c.scale(s,s); const col=pl.col, dk=shade(col,.72), wy=46*Math.cos(bank);
+  c.fillStyle=dk; if(pl.jet){ c.beginPath(); c.moveTo(10,0); c.lineTo(-18,wy*.85); c.lineTo(-26,wy*.85); c.lineTo(-14,0); c.lineTo(-26,-wy*.85); c.lineTo(-18,-wy*.85); c.closePath(); c.fill(); } else { c.beginPath(); c.roundRect(-6,-wy,17,wy*2,5); c.fill(); if(pl.bi){ c.globalAlpha=.75; c.fillStyle=shade(col,1.2); c.beginPath(); c.roundRect(2,-wy*.9,14,wy*1.8,5); c.fill(); c.globalAlpha=1; } }
+  c.fillStyle=dk; c.beginPath(); c.moveTo(-30,0); c.lineTo(-40,-15); c.lineTo(-34,-15); c.lineTo(-22,0); c.lineTo(-34,15); c.lineTo(-40,15); c.closePath(); c.fill();
+  c.fillStyle=col; c.beginPath(); c.moveTo(pl.jet?46:36,0); c.quadraticCurveTo(16,-10,-34,-3); c.lineTo(-34,3); c.quadraticCurveTo(16,10,pl.jet?46:36,0); c.fill();
+  c.fillStyle='rgba(120,200,240,.95)'; c.beginPath(); c.ellipse(13,0,9,5,0,0,7); c.fill(); if(h>0 && pl===((drone&&drone.pl)||0)){ c.fillStyle='#e8b890'; c.beginPath(); c.arc(11,0,3,0,7); c.fill(); }
+  if(!pl.jet){ c.fillStyle='rgba(220,220,230,.55)'; c.beginPath(); c.ellipse(38,0,3,18+Math.sin(t*50)*2,0,0,7); c.fill(); c.fillStyle='#333'; c.beginPath(); c.arc(37,0,3,0,7); c.fill(); }
+  c.restore(); }
+function drawFlight(t){ const c=ctx;
+  if(sky) sky.pts.forEach((q,i)=>{ if(i<sky.k) return; const cur=i===sky.k; c.save(); c.translate(q.x,q.y-60); c.strokeStyle=cur?'#ffd23f':'rgba(255,255,255,.4)'; c.lineWidth=cur?14:7; c.beginPath(); c.ellipse(0,0,120+(cur?Math.sin(t*5)*8:0),120+(cur?Math.sin(t*5)*8:0),0,0,7); c.stroke(); c.restore(); });
+  const T=skyTarget(); if(T&&T.sos){ c.save(); c.translate(T.x,T.y-60); c.strokeStyle='#ff3030'; c.lineWidth=16; c.beginPath(); c.arc(0,0,190+Math.sin(t*5)*12,0,7); c.stroke(); c.font=`800 46px ${FONT}`; c.textAlign='center'; c.fillStyle='#fff'; c.fillText('🆘',0,16); c.restore(); }
+  if(sky&&sky.rv) drawPlaneTop(c,sky.rv.x,sky.rv.y,sky.rv.a,{col:'#8a2ad0',jet:1},1,t);
+  if(flying()) drawPlaneTop(c,drone.x,drone.y,drone.a,drone.pl,drone.h,t,drone.bank); }
+function drawTraffic(t){ if(!traffic) return; const c=ctx, T=traffic; if(T.banner){ c.save(); c.translate(T.x,T.y-60); c.rotate(T.a); c.fillStyle='#8a2ad0'; const flip=Math.abs(wrapA(T.a))>Math.PI/2; c.fillRect(-300,-16,220,32); c.strokeStyle='#fff'; c.lineWidth=1.5; c.beginPath(); c.moveTo(-80,0); c.lineTo(-34,0); c.stroke(); c.translate(-190,0); if(flip) c.rotate(Math.PI); c.fillStyle='#fff'; c.font=`800 17px ${FONT}`; c.textAlign='center'; c.fillText('SNAGG WORLD SOON!',0,6); c.restore(); } drawPlaneTop(c,T.x,T.y,T.a,T.pl,1,t); }
+function drawAirstrip(p,t){ const c=ctx, hx=p.x-200, hy=p.y-125;
+  c.fillStyle='rgba(0,0,0,.2)'; c.fillRect(hx-104,hy-4,216,12);
+  c.fillStyle='#9aa2aa'; c.beginPath(); c.moveTo(hx-100,hy); c.lineTo(hx-100,hy-52); c.quadraticCurveTo(hx,hy-104,hx+100,hy-52); c.lineTo(hx+100,hy); c.closePath(); c.fill();
+  c.strokeStyle='#7a828a'; c.lineWidth=2; for(let x=-80;x<=80;x+=20){ c.beginPath(); c.moveTo(hx+x,hy); c.lineTo(hx+x,hy-52-(1-(x/100)*(x/100))*26); c.stroke(); }
+  c.fillStyle=S.runway?'#2a2a30':'#5a5048'; c.fillRect(hx-72,hy-56,144,56); c.fillStyle='#fff'; c.font=`800 15px ${FONT}`; c.textAlign='center'; c.fillText(S.runway?'HANGAR':'CLOSED',hx,hy-62);
+  const tx=p.x+120, ty=p.y-125; c.fillStyle='#6a6a70'; c.fillRect(tx-7,ty-90,14,90); c.fillStyle='#d8d8dc'; c.beginPath(); c.roundRect(tx-24,ty-118,48,30,5); c.fill(); c.fillStyle='#6ac0e8'; c.fillRect(tx-20,ty-112,40,13); c.fillStyle='#e04030'; c.fillRect(tx-1,ty-136,2,18); if(Math.floor(t*2)%2){ c.beginPath(); c.arc(tx,ty-138,4,0,7); c.fill(); }
+  const sx=p.x+230, sy=p.y-70; c.fillStyle='#777'; c.fillRect(sx-1.5,sy-56,3,56); c.fillStyle='#ff7a1a'; c.beginPath(); c.moveTo(sx,sy-56); c.lineTo(sx+30,sy-50+Math.sin(t*5)*3); c.lineTo(sx,sy-44); c.fill();
+  if(!S.runway){ c.fillStyle='#6a7a5a'; c.beginPath(); c.ellipse(p.x-200,p.y-85,58,26,0,0,7); c.fill(); c.fillStyle='#fff'; c.font=`800 12px ${FONT}`; c.fillText('Goldie',p.x-200,p.y-81); }
+  else if(!flying()) drawPlaneTop(c,p.x-200,p.y-90,Math.PI,planeSpec(S.planeSel),0,0); }
+function addGrandpa(){ if(LK.id!=='home' || !S.st.grandpa || npcs.some(n=>n.grandpa)) return; npcs.push({x:CABIN.x+120,y:CABIN.y+95,fx:0,fy:1,name:'Grandpa Joe',shirt:'#7a5a3a',pants:'#3a4a6a',skin:'#e0b08a',hair:'#e8e8e8',hat:'bucket',hatCol:'#5a7a4a',beard:true,state:'idle',t:0,anim:0,tip:0,still:true,grandpa:true,lines:['Kiddo! Got any fish stories for me?','That duck still follows me around.','Best view in the world, right from this chair.','Mr. Snagg broke another plate. I love it.','You\'re the best angler I ever saw. Don\'t tell Pete.']}); }
+function drawSnaggSign(){ const c=ctx, x=SHOP.x+190, y=SHOP.y+85; c.fillStyle='#6a4a2a'; c.fillRect(x-30,y-40,5,40); c.fillRect(x+25,y-40,5,40); c.fillStyle='#8a2ad0'; c.beginPath(); c.roundRect(x-48,y-74,96,44,5); c.fill(); c.fillStyle='#ffd23f'; c.font=`800 12px ${FONT}`; c.textAlign='center'; c.fillText('SNAGG WORLD',x,y-55); c.fillStyle='#fff'; c.font=`700 10px ${FONT}`; c.fillText('Coming soon!',x,y-40); }
+function drawPlayerAir(t){ if(P.chute){ const h=P.chute.t/P.chute.T*260, sy=P.y; P.y=sy-h; try{ drawPlayer(t); } finally{ P.y=sy; } const c=ctx; c.save(); c.translate(P.x,sy-h-60+Math.sin(t*3)*2); c.strokeStyle='#eee'; c.lineWidth=1.5; c.beginPath(); c.moveTo(-34,0); c.lineTo(-7,44); c.moveTo(34,0); c.lineTo(7,44); c.stroke(); for(let i=0;i<6;i++){ c.fillStyle=i%2?'#ff4a5a':'#ffd23f'; c.beginPath(); c.moveTo(-36+i*12,0); c.quadraticCurveTo(-30+i*11,-34,-24+i*12,0); c.closePath(); c.fill(); c.fillRect(-36+i*12,-16,12,16); } c.restore(); c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(P.x,sy,16,5,0,0,7); c.fill(); } else drawPlayer(t); }
+function drawFlightHud(){ const D=drone, pl=D.pl, T=skyTarget(), y=touchMode?(VW<720?VH-262:60):16, w=270; ctx.fillStyle='rgba(0,0,0,.6)'; ctx.beginPath(); ctx.roundRect(VW/2-w/2,y-6,w,sky?46:30,10); ctx.fill(); ctx.fillStyle='#fff'; ctx.font=`800 13px ${FONT}`; ctx.textAlign='center';
+  ctx.fillText(`${pl.e} ${pl.n} · ${D.ph==='roll'?'taking off!':D.ph==='land'?'autopilot landing':D.dest?'flying to a new world...':Math.round(D.v*.3)+' mph'}`,VW/2,y+13); if(sky) ctx.fillText(`⭕ Ring ${sky.k+1}/${sky.pts.length} · ${Math.ceil(sky.t)}s${sky.rv?` · Snagg ${sky.rv.k}/${sky.pts.length}`:''}`,VW/2,y+31);
+  if(T && D.ph==='fly'){ const a=Math.atan2(T.y-D.y,T.x-D.x)-(FP.on?D.a+Math.PI/2:0), R=Math.min(VW,VH)*.34, cx=VW/2+Math.cos(a)*R, cy=VH/2+Math.sin(a)*R; ctx.save(); ctx.translate(cx,cy); ctx.rotate(a); ctx.fillStyle=T.col; ctx.strokeStyle='#000'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(26,0); ctx.lineTo(-14,-18); ctx.lineTo(-6,0); ctx.lineTo(-14,18); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); } }
+// the inside of whatever you're riding in, for first person
+function rideSteer(){ let s=joy.x; if(keys['a']||keys['arrowleft']) s--; if(keys['d']||keys['arrowright']) s++; return Math.max(-1,Math.min(1,s)); }
+function hands(c,x,y,r){ c.fillStyle=LOOK().skin; c.beginPath(); c.ellipse(x,y,r,r*.8,0,0,7); c.fill(); c.strokeStyle='rgba(0,0,0,.25)'; c.lineWidth=1.5; c.stroke(); }
+function drawRideView(W,H,t){ const c=ctx, id=S.ride, V=VEH[id], s=rideSteer(), u=Math.min(W,H)/100, bob=P.moving?Math.sin(t*16)*u*.35:0; c.save(); c.translate(0,bob); c.lineCap='round';
+  if(id==='horse'){ const nod=P.moving?Math.sin(t*10)*u*1.4:0, cx=W/2+s*u*5; c.fillStyle=V.col; c.beginPath(); c.moveTo(cx-u*21,H+u*2); c.quadraticCurveTo(cx-u*12,H-u*22,cx-u*6,H-u*36+nod); c.lineTo(cx+u*6,H-u*36+nod); c.quadraticCurveTo(cx+u*12,H-u*22,cx+u*21,H+u*2); c.fill();
+    c.fillStyle=shade(V.col,.8); for(const k of [-1,1]){ c.beginPath(); c.moveTo(cx+k*u*7,H-u*35+nod); c.lineTo(cx+k*u*9,H-u*45+nod); c.lineTo(cx+k*u*2.5,H-u*37+nod); c.fill(); }
+    c.fillStyle='#3a2414'; c.beginPath(); c.moveTo(cx-u*3,H+u*2); c.quadraticCurveTo(cx-u*3.5,H-u*20,cx-u*2,H-u*38+nod); c.lineTo(cx+u*2,H-u*38+nod); c.quadraticCurveTo(cx+u*3.5,H-u*20,cx+u*3,H+u*2); c.fill();
+    c.strokeStyle='#5a2a1a'; c.lineWidth=u*.8; for(const k of [-1,1]){ c.beginPath(); c.moveTo(cx+k*u*6,H-u*30+nod); c.quadraticCurveTo(cx+k*u*16,H-u*12,cx+k*u*14,H-u*4); c.stroke(); hands(c,cx+k*u*14,H-u*4,u*3); } c.restore(); return; }
+  if(id==='bike'||id==='atv'||id==='sled'){ const cx=W/2, cy=H-u*17; c.fillStyle=V.col; c.beginPath(); c.moveTo(cx-u*24,H+u*2); c.quadraticCurveTo(cx-u*16,H-u*15,cx-u*7,H-u*19); c.lineTo(cx+u*7,H-u*19); c.quadraticCurveTo(cx+u*16,H-u*15,cx+u*24,H+u*2); c.fill(); c.fillStyle='rgba(255,255,255,.22)'; c.beginPath(); c.ellipse(cx,H-u*10,u*5,u*7,0,0,7); c.fill();
+    if(id==='sled'){ c.fillStyle='rgba(160,210,240,.45)'; c.beginPath(); c.moveTo(cx-u*16,cy-u*2); c.lineTo(cx-u*10,cy-u*18); c.lineTo(cx+u*10,cy-u*18); c.lineTo(cx+u*16,cy-u*2); c.fill(); }
+    c.save(); c.translate(cx,cy); c.rotate(s*.28); c.strokeStyle='#222'; c.lineWidth=u*1.5; c.beginPath(); c.moveTo(-u*23,-u*3); c.quadraticCurveTo(0,u*2,u*23,-u*3); c.stroke(); c.fillStyle='#111'; c.beginPath(); c.roundRect(-u*5,-u*3,u*10,u*6,u); c.fill(); c.fillStyle='#e8f4e0'; c.beginPath(); c.arc(0,0,u*2.2,0,7); c.fill(); c.strokeStyle='#d33'; c.lineWidth=u*.4; c.beginPath(); c.moveTo(0,0); c.lineTo(u*1.5,-u*(P.moving?1.3:.2)); c.stroke(); hands(c,-u*21,-u*3,u*3.2); hands(c,u*21,-u*3,u*3.2); c.restore(); c.restore(); return; }
+  // cars: dashboard, wheel, windshield frame
+  const dash=H-u*(id==='monster'?30:24), dk=shade(V.col,.6); c.strokeStyle=shade(V.col,.75); c.lineWidth=u*2.6;
+  c.beginPath(); c.moveTo(-u,dash); c.lineTo(u*14,u*1); c.moveTo(W+u,dash); c.lineTo(W-u*14,u*1); c.stroke(); c.fillStyle=V.col; c.fillRect(0,0,W,u*5); c.fillStyle='rgba(0,0,0,.2)'; c.fillRect(0,u*4,W,u);
+  if(id==='monster'){ c.fillStyle=V.col; c.beginPath(); c.moveTo(W*.14,dash); c.lineTo(W*.3,dash-u*7); c.lineTo(W*.7,dash-u*7); c.lineTo(W*.86,dash); c.fill(); }
+  c.fillStyle=dk; c.fillRect(0,dash,W,H-dash+u*3); c.fillStyle='rgba(255,255,255,.1)'; c.fillRect(0,dash,W,u); c.fillStyle='#14181c'; c.beginPath(); c.roundRect(W/2+u*16,dash+u*3,u*14,u*7,u); c.fill(); c.fillStyle='#50e870'; c.font=`800 ${u*3}px ${FONT}`; c.textAlign='center'; c.fillText(P.moving?Math.round(V.s*.1)+' mph':'0 mph',W/2+u*23,dash+u*7.8);
+  c.save(); c.translate(W/2-u*8,H-u*7); c.rotate(s*.9); c.strokeStyle='#1c1c1c'; c.lineWidth=u*2.2; c.beginPath(); c.arc(0,0,u*13,0,7); c.stroke(); c.lineWidth=u*1.6; c.beginPath(); c.moveTo(-u*13,0); c.lineTo(u*13,0); c.moveTo(0,0); c.lineTo(0,u*13); c.stroke(); c.fillStyle='#333'; c.beginPath(); c.arc(0,0,u*3.2,0,7); c.fill(); hands(c,-u*13,-u*2,u*3); hands(c,u*13,-u*2,u*3); c.restore(); c.restore(); }
+function drawCockpit(W,H,t){ const D=drone, pl=D.pl, c=ctx, u=Math.min(W,H)/100, dash=H-u*24; c.save();
+  if(!pl.jet){ c.fillStyle=pl.col; c.beginPath(); c.moveTo(W/2-u*30,dash+u); c.quadraticCurveTo(W/2,dash-u*12,W/2+u*30,dash+u); c.fill(); c.fillStyle='rgba(235,235,240,.28)'; c.beginPath(); c.ellipse(W/2,dash-u*9,u*26,u*26*(.92+.08*Math.sin(t*40)),0,0,7); c.fill(); c.fillStyle='#222'; c.beginPath(); c.arc(W/2,dash-u*9,u*2.4,0,7); c.fill(); }
+  else { c.strokeStyle='rgba(90,255,140,.85)'; c.lineWidth=2; c.beginPath(); c.arc(W/2,H*.42,u*7,0,7); c.moveTo(W/2-u*14,H*.42); c.lineTo(W/2-u*7,H*.42); c.moveTo(W/2+u*7,H*.42); c.lineTo(W/2+u*14,H*.42); c.stroke(); }
+  c.strokeStyle=shade(pl.col,.6); c.lineWidth=u*2.2; c.beginPath(); c.moveTo(0,dash); c.lineTo(W*.17,0); c.moveTo(W,dash); c.lineTo(W*.83,0); c.stroke();
+  c.fillStyle='#22262c'; c.fillRect(0,dash,W,H-dash); c.fillStyle=pl.col; c.fillRect(0,dash,W,u*1.4);
+  const dial=(x,lab,val)=>{ c.fillStyle='#0e1014'; c.beginPath(); c.arc(x,dash+u*11,u*7,0,7); c.fill(); c.strokeStyle='#8a8f98'; c.lineWidth=u*.5; c.stroke(); const a=-2.4+val*4.8; c.strokeStyle='#ffd23f'; c.lineWidth=u*.7; c.beginPath(); c.moveTo(x,dash+u*11); c.lineTo(x+Math.sin(a)*u*5.5,dash+u*11-Math.cos(a)*u*5.5); c.stroke(); c.fillStyle='#ccd'; c.font=`800 ${u*2}px ${FONT}`; c.textAlign='center'; c.fillText(lab,x,dash+u*20.5); };
+  dial(W/2-u*20,'SPEED',Math.min(1,D.v/1700)); dial(W/2+u*20,'HEIGHT',D.h*(.3+D.alt*.7));
+  c.save(); c.translate(W/2,dash+u*11); c.rotate(-D.bank); c.strokeStyle='#1c1c1c'; c.lineWidth=u*2; c.beginPath(); c.arc(0,u*4,u*9,Math.PI,0); c.stroke(); hands(c,-u*9,u*4,u*2.6); hands(c,u*9,u*4,u*2.6); c.restore(); c.restore(); }
+function buildPlane3D(col){ const g=new THREE.Group(), m=new THREE.MeshLambertMaterial({color:lin(col)}), dk=new THREE.MeshLambertMaterial({color:lin(shade(col,.7))}), add=(geo,mat,x,y,z)=>{ const o=new THREE.Mesh(geo,mat); o.position.set(x,y,z); o.castShadow=true; g.add(o); return o; };
+  add(new THREE.BoxGeometry(80,14,14),m,0,0,0); add(new THREE.BoxGeometry(22,3,110),dk,6,4,0); add(new THREE.BoxGeometry(14,3,44),dk,-36,5,0); add(new THREE.BoxGeometry(14,18,3),dk,-36,12,0); add(new THREE.BoxGeometry(16,8,10),new THREE.MeshLambertMaterial({color:lin('#78c8f0')}),12,9,0); return g; }
+function fpSkyBuild(sc){ FP.skyPlane=buildPlane3D('#f4f4ec'); FP.skyPlane.visible=false; sc.add(FP.skyPlane); FP.ringM=[0,1].map(()=>{ const m=new THREE.Mesh(new THREE.TorusGeometry(1,.07,8,32), new THREE.MeshBasicMaterial({color:0xffd23f})); m.visible=false; sc.add(m); return m; }); }
+function fpSky(t){ if(!FP.ringM) return; const T=flying()?skyTarget():null, y=FP.cam.position.y, a=flying()?drone.a:0; FP.ringM.forEach((m,i)=>{ let q=i===0?T:(sky&&sky.pts[sky.k+1]); if(q&&i&&Math.hypot(q.x-FP.cam.position.x,q.y-FP.cam.position.z)<420) q=null; m.visible=!!q; if(q){ m.position.set(q.x,y,q.y); m.rotation.y=Math.PI/2-a; const r=q.r||150; m.scale.set(r,r,r); m.material.color.set(i===0?(T.col):'#ffffff'); } });
+  const o=(sky&&sky.rv)||traffic; FP.skyPlane.visible=!!o; if(o){ FP.skyPlane.position.set(o.x,(sky&&sky.rv?y:hillAt(o.x,o.y)+620),o.y); FP.skyPlane.rotation.y=-o.a; } }
 
 // ===================== Pets, cabin decorations & fireworks =====================
 const PETS={ dog:{n:'Puppy Dog', e:'🐕', p:500, d:'Follows you everywhere and barks when danger is near'}, cat:{n:'Kitty Cat', e:'🐈', p:400, d:'A cuddly cat that follows you around'}, parrot:{n:'Parrot', e:'🦜', p:800, d:'Flies around your head and squawks!'},
@@ -4710,56 +4870,68 @@ function fpCover(sc, br){
     sc.add(m); return; }
 }
 
-// ===================== Story: Grandpa's Golden Lure =====================
+// ===================== Story: The Snagg Affair (Grandpa's Golden Lure) =====================
+var SPK={g:{e:'👴',n:'Grandpa Joe (letter)',c:'#f4ead0'}, gj:{e:'👴',n:'Grandpa Joe',c:'#f4ead0'}, p:{e:'🧔',n:'Old Pete',c:'#dcefd8'}, s:{e:'🤵',n:'Mr. Snagg',c:'#ecdcf6'}, v:{e:'🧑‍🌾',n:'A villager',c:'#dbeaf8'}, l:{e:'🌊',n:'The Lake Spirit',c:'#d4f2f4'}, n:{e:'📖',n:'',c:'#f0ece2'}};
+function storyHouses(){ return Object.values(S.village||{}).reduce((a,l)=>a+l.length,0); }
 const STORY=[
-  {t:'Welcome Home', goal:'Catch 3 fish and sell them at the shop',
-   say:'Dear kiddo,<br><br>I\'m getting too old to fish every day, so this cabin and this lake are yours now. Go catch a few fish and sell them at the shop. Old Pete pays good money!<br><br>Love, Grandpa Joe 👴',
-   ok:()=>S.st.fish>=3 && S.st.earned>0, cash:100},
-  {t:'Gear Up', goal:'Buy a better fishing rod or a new lure',
-   say:'Great job! A real angler needs real gear. Walk into the shop and get yourself a better rod or a new lure. Different fish like different lures!',
-   ok:()=>S.rod>=1 || S.lures.length>1, cash:150},
-  {t:'Grandpa\'s Secret', goal:'Open a treasure chest',
-   say:'Here\'s a secret: when I was young I hid treasure chests all over these woods. Go find one! Look in the corners of the map, on islands and by the bridges.',
-   ok:()=>S.st.chests>=1, cash:200},
-  {t:'The Big One', goal:'Catch a giant golden TROPHY fish',
-   say:'Now for a real test. About 1 in 30 fish is a HUGE trophy fish. Catch one and hang it on your cabin wall, just like I did!',
-   ok:()=>S.st.trophy>=1, cash:400},
-  {t:'Into the Wild', goal:'Hunt an animal from a blind or deer stand',
-   say:'Fishing isn\'t all there is out here. My old deer stands are by the fields. Hide in one, stay quiet, and the animals will come right to you.',
-   ok:()=>(S.st.blindHunt||0)>=1, cash:400},
-  {t:'Beyond the Lake', goal:'Buy and travel to a brand new lake',
-   say:'I\'ve fished lakes all over the world: frozen ones, spooky swamps, even one made of lava! Save up and buy a new lake at the shop\'s cash register.',
-   ok:()=>S.lakes.length>=2, cash:600},
-  {t:'Messages in Bottles', goal:'Find and read 2 messages in bottles',
-   say:'Long ago I threw messages in bottles into the lakes. They hold clues about the LEGENDARY fish. Take a boat and find them floating on the water!',
-   ok:()=>S.st.bottles>=2, cash:600},
-  {t:'Legends Are Real', goal:'Catch a legendary fish',
-   say:'Now you know the clues. Legendary fish are real! Giant Bass, Golden Catfish, Albino Muskie... Use the right lure in the right spot, and be patient.',
-   ok:()=>S.st.legend>=1, cash:2000},
-  {t:'Old Mossback', goal:'Defeat Old Mossback in the secret pond (Home Lake)',
-   say:'Now I can tell you the truth. Fifty years ago a giant bass called OLD MOSSBACK snapped my line and swam off with my lucky GOLDEN LURE. He lives in the secret pond in the woods. Find the Golden Frog in the island treasure and use it on him!',
-   ok:()=>!!S.bosses['Old Mossback'], cash:5000},
-  {t:'The Lake Spirit', goal:'Defeat 3 different boss fish',
-   say:'You beat Old Mossback! But the Golden Lure wasn\'t in his mouth... he must have traded it to the other boss fish! Defeat 3 different bosses and the Lake Spirit will give it back.',
-   ok:()=>Object.keys(S.bosses).length>=3, cash:25000, end:true},
+  {id:'welcome', t:'Welcome Home', goal:'Catch 3 fish and sell them at the shop', cash:100, ok:()=>S.st.fish>=3 && S.st.earned>0,
+   lines:[['g','Dear kiddo, I\'m getting too old to fish every day, so this cabin and this lake are yours now.'],['g','Catch a few fish and sell them at the shop. Old Pete pays good money, and he only cheats at checkers.'],['g','I\'m off on one last adventure. I\'ll write soon! Love, Grandpa Joe']]},
+  {id:'gear', t:'Gear Up', goal:'Buy a better fishing rod or a new lure', cash:150, ok:()=>S.rod>=1 || S.lures.length>1,
+   lines:[['p','So you\'re Joe\'s grandkid! You\'ve got his ears. Poor kid.'],['p','That old rod won\'t do. Get a better rod or a new lure from my shelves. Different fish like different lures!']]},
+  {id:'secret', t:'Grandpa\'s Secret', goal:'Open a treasure chest', cash:200, ok:()=>S.st.chests>=1,
+   lines:[['g','Kiddo! Greetings from somewhere with terrible coffee. Here\'s a secret: when I was young I hid treasure chests all over these woods.'],['g','Look in the corners of the map, on islands and by the bridges. You might need that money soon. I have a bad feeling, and it isn\'t the coffee.']]},
+  {id:'snagg', t:'The Man in the Shiny Suit', goal:'Build a house in the village (chop trees for wood)', cash:400, ok:()=>storyHouses()>=1,
+   lines:[['n','A long purple car pulls up. A man in a very shiny suit steps out and looks at your lake like it\'s a sandwich.'],['s','Hello, tiny fisherman! I am Mr. Horace P. Snagg, and this whole lake will soon be SNAGG WORLD: the largest parking lot on Earth!'],['s','No people live here, so nobody can stop me. Ha ha ha! Ha! Ahem. Ha.'],['p','That slippery eel! But he\'s right about one thing. If folks LIVED here, he couldn\'t touch it. Go build a house in the village!']]},
+  {id:'bigone', t:'The Big One', goal:'Catch a giant golden TROPHY fish', cash:400, ok:()=>S.st.trophy>=1,
+   lines:[['s','One little house? How adorable. I bet you can\'t even catch a real fish. My goldfish is bigger than anything in this puddle.'],['p','Don\'t let him rattle you. About 1 in 30 fish is a HUGE trophy fish. Catch one and hang it on the cabin wall. That\'ll show him!']]},
+  {id:'wild', t:'Into the Wild', goal:'Hunt an animal from a blind or deer stand', cash:400, ok:()=>(S.st.blindHunt||0)>=1,
+   lines:[['g','Kiddo, this may be my last letter for a while. I\'ve found something strange, and somebody is following me. If you hunt, use my old deer stands by the fields. Stay quiet and watch.'],['g','That\'s good advice for more than hunting. Keep your eyes open.']]},
+  {id:'neighbors', t:'A Real Town', goal:'Build 3 houses for villagers', cash:800, ok:()=>storyHouses()>=3,
+   lines:[['p','Weeks have gone by and no more letters from Joe. It\'s not like him. He never misses a chance to complain about coffee.'],['v','Mr. Snagg\'s men are measuring our fields with tiny flags! If we had three houses we could call ourselves a real town, and a town can tell him NO.'],['s','Three houses? Ha! You\'ll run out of trees first.'],['p','Trees grow back, you big shiny goose.']]},
+  {id:'runway', t:'The Old Runway', goal:'Fix the old runway (20 wood + $300)', cash:800, ok:()=>!!S.runway,
+   lines:[['s','Curses! A real town! This isn\'t over, small person.'],['p','Kid, sit down. I wasn\'t supposed to tell you. Joe didn\'t go on a fishing trip. He flew off to find out what Snagg is really after, and he hasn\'t come back.'],['p','There\'s an old runway out past the woods, with a hangar and his spare plane, GOLDIE. Look for ✈️ on your map. Fix it up with 20 wood, and she\'s yours.']]},
+  {id:'firstflight', t:'First Flight', goal:'Take off in a plane and land it again', cash:1000, ok:()=>(S.st.flights||0)>=1,
+   lines:[['p','She flies! Oh, she\'s beautiful. Mostly. There\'s a little duck nest in the wing.'],['p','Steer with the joystick or WASD. When you want to come down, press Land and she\'ll find the runway all by herself. There\'s a parachute too, for when you feel brave.'],['p','Joe always said you can\'t find anything from the ground. Go on, kid. Get up there!']]},
+  {id:'bottles', t:'Messages in Bottles', goal:'Find and read 2 messages in bottles', cash:600, ok:()=>S.st.bottles>=2,
+   lines:[['p','I found this in Joe\'s flight log: "Left the clues in the bottles, where Snagg won\'t look. He hates getting his shoes wet."'],['p','Take a boat and find them floating on the water!']]},
+  {id:'beyond', t:'Beyond the Lake', goal:'Buy a new world at the shop', cash:800, ok:()=>S.lakes.length>=2,
+   lines:[['g','(From the bottle) If you\'re reading this, Snagg is after the GOLDEN LURE. It\'s the heart of these lakes. Whoever holds it can drain every drop of water in every world.'],['g','I hid its trail far away. Buy a new world at the shop\'s cash register, and you can fly there from your hangar!']]},
+  {id:'legends', t:'Legends Are Real', goal:'Catch a legendary fish', cash:2000, ok:()=>S.st.legend>=1,
+   lines:[['g','(From the second bottle) The legendary fish guard the trail. Giant Bass, Golden Catfish, Albino Muskie. They\'re all real!'],['g','Use the right lure in the right spot, and be patient. And kiddo, if you see a man in a shiny suit, don\'t lend him your pen. He never gives them back.']]},
+  {id:'mossback', t:'Old Mossback', goal:'Defeat Old Mossback in the secret pond (Home Lake)', cash:5000, ok:()=>!!S.bosses['Old Mossback'],
+   lines:[['p','Time you heard the truth. Fifty years ago a giant bass named OLD MOSSBACK snapped Joe\'s line and swam off with the GOLDEN LURE.'],['p','He lives in the secret pond in the woods. Find the Golden Frog in the island treasure and use it on him. Hurry, kid! Snagg just bought a very large net.']]},
+  {id:'spirit', t:'The Lake Spirit', goal:'Defeat 3 different boss fish', cash:25000, end:true, ok:()=>Object.keys(S.bosses).length>=3,
+   lines:[['n','Old Mossback spits out a rusty old boot. No lure. Then the water starts to glow.'],['l','Young angler. The Golden Lure was given to me long ago. Defeat three of the great boss fish and prove you would never drain my waters.'],['s','(through binoculars, from a bush) Yes! YES! Do all the hard work for me, tiny fisherman!']]},
+  {id:'race', t:'Snagg\'s Sky Race', goal:'Beat Mr. Snagg in a race (open your hangar)', cash:10000, ok:()=>!!S.st.snaggBeat,
+   lines:[['l','You have earned the Golden Lure. Keep it safe.'],['s','Ha ha! Hand it over! I have Grandpa Joe\'s flight log, and I know where he crashed! Beat me in a race through the sky and I\'ll tell you. Lose, and the lure is MINE!'],['p','He\'s a cheat, but he\'s a slow cheat. Open your hangar and press Race Mr. Snagg. Fly through every ring before he does!']]},
+  {id:'rescue', t:'S.O.S.', goal:'Fly over Home Lake and find the red S.O.S. ring', cash:50000, final:true, ok:()=>!!S.st.grandpa,
+   lines:[['s','No! My beautiful purple plane! Beaten by a child in a duck-infested antique!'],['s','Fine, a deal is a deal. Your grandfather landed in the far north-east corner of Home Lake. I, um, may have borrowed his fuel. Sorry. Please don\'t tell my mother.'],['p','The far corner! He\'s been out there this whole time! Get to Home Lake, get in the air, and follow the arrow to the red ring. Go get him, kid!']]},
 ];
+STORY.forEach(c=>{ c.say=c.lines.map(l=>(SPK[l[0]].n?SPK[l[0]].n.replace(' (letter)','')+' says: ':'')+l[1]).join(' '); });
 S.story=S.story||0;
+if(S.storyV!==2){ try{ // the story got longer: keep your place, and don't pay twice for chapters you already finished
+  const oldIds=['welcome','gear','secret','bigone','wild','beyond','bottles','legends','mossback','spirit']; S.storyPaid=oldIds.slice(0,Math.min(S.story,10));
+  let i=0; while(i<STORY.length && STORY[i].ok()) i++; S.story=i; }catch(e){ S.story=0; S.storyPaid=[]; } S.storyV=2; }
 let storyQueue=false;
 function storyChapter(){ return STORY[Math.min(S.story,STORY.length-1)]; }
+function storyId(){ return S.story<STORY.length?STORY[S.story].id:'done'; }
 function checkStory(){
   if(!S.storySeen){ S.storySeen=true; storyQueue=true; save(); }
   let done=0, cash=0, last=null; // (players who already did a lot finish several chapters at once)
-  while(S.story<STORY.length && STORY[S.story].ok()){ const ch=STORY[S.story]; cash+=ch.cash; S.story++; done++; last=ch;
-    if(ch.end){ if(!S.lures.includes('grandpa')) S.lures.push('grandpa'); S.lure='grandpa'; if(!S.owned.hats.includes('crown')) S.owned.hats.push('crown'); } }
-  if(done){ S.money+=cash; S.st.earned+=cash; SFX.trophy(); flash=.2; banner('📖','CHAPTER DONE!',`${last.t} · +$${cash.toLocaleString()}`,'#ffb0e0'); toast(done>1?`📖 ${done} story chapters done! +$${cash.toLocaleString()}`:`📖 Chapter done: ${last.t}! +$${cash.toLocaleString()}`); storyQueue=true; save(); }
-  if(storyQueue && !panel && fishing.state==='none' && !P.room){ storyQueue=false; openPanel('story'); }
+  while(S.story<STORY.length && STORY[S.story].ok()){ const ch=STORY[S.story]; if(!(S.storyPaid||[]).includes(ch.id)) cash+=ch.cash; S.story++; done++; last=ch;
+    if(ch.end){ if(!S.lures.includes('grandpa')) S.lures.push('grandpa'); S.lure='grandpa'; if(!S.owned.hats.includes('crown')) S.owned.hats.push('crown'); }
+    if(ch.final){ S.planes=S.planes||['goldie']; if(!S.planes.includes('rocket')) S.planes.push('rocket'); S.items.fireworks=(S.items.fireworks||0)+20; } }
+  if(done){ S.money+=cash; S.st.earned+=cash; SFX.trophy(); flash=.2; banner('📖','CHAPTER DONE!',`${last.t}${cash?` · +$${cash.toLocaleString()}`:''}`,'#ffb0e0'); toast(done>1?`📖 ${done} story chapters done!${cash?` +$${cash.toLocaleString()}`:''}`:`📖 Chapter done: ${last.t}!${cash?` +$${cash.toLocaleString()}`:''}`); storyQueue=true; save(); }
+  if(storyQueue && !panel && fishing.state==='none' && !P.room && !drone){ storyQueue=false; openPanel('story'); }
 }
+function storyBubble(l){ const s=SPK[l[0]]; return `<div style="display:flex;gap:10px;align-items:flex-start;margin:8px 0"><div style="font-size:34px;line-height:1.1">${s.e}</div><div style="flex:1;background:${s.c};color:#3a2c18;border-radius:12px;padding:8px 12px;font-size:16px;line-height:1.45;font-family:Georgia,serif">${s.n?`<b style="font-family:inherit">${s.n}</b><br>`:''}${s.n?l[1]:`<i>${l[1]}</i>`}</div></div>`; }
 function storyHTML(){
-  if(S.story>=STORY.length) return `<h1>📖 The End... for now!</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px">👴 <b>Grandpa Joe:</b> You did it! The Lake Spirit gave back my <b>Golden Lure</b>, and now it's YOURS. It works on every fish there is. You're the greatest angler these lakes have ever seen. I'm so proud of you, kiddo!<br><br>🏆 You got <b>Grandpa's Golden Lure</b> and the <b>Golden Crown</b>! Keep exploring: there are still secret missions, bosses and treasure out there...</div>
+  if(S.story>=STORY.length) return `<h1>📖 The End... for now!</h1>${[['n','You land by the far corner. A tiny campfire, a very old man, and a very angry duck.'],['gj','Kiddo! You flew Goldie all the way here? And you\'ve got the Golden Lure! I\'m so proud of you I could cry. I won\'t, because the duck is watching.'],['gj','You saved the lake, you built a town, and you beat Snagg. You\'re the greatest angler these lakes have ever seen.'],['p','And Snagg? He\'s washing dishes at the shop to pay for your fuel. He\'s terrible at it.'],['gj','I\'ll be at the cabin from now on. Come by any time. Now give me back my favorite chair.']].map(storyBubble).join('')}
+    <div class="sellrow" style="display:block;line-height:1.6">🏆 You got <b>Grandpa's Golden Lure</b>, the <b>Golden Crown</b> and the <b>Rocket Jet</b>! Keep exploring: there are still secret missions, bosses and treasure out there...</div>
     <h2>Chapters</h2><div class="list">${STORY.map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b><small>${c.goal}</small></div></div>`).join('')}</div><p style="text-align:right"><button class="close" data-close>Close</button></p>`;
   const ch=STORY[S.story];
-  return `<h1>📖 Chapter ${S.story+1}: ${ch.t}</h1><div class="sellrow" style="display:block;line-height:1.6;font-size:16px;background:#f4ead0;color:#4a3418;font-family:Georgia,serif">${ch.say}</div>
-    <div class="mission"><div class="e">🎯</div><div><b>Goal: ${ch.goal}</b><small>Reward: $${ch.cash.toLocaleString()}${ch.end?' + a special surprise!':''}</small></div></div>
+  return `<h1>📖 Chapter ${S.story+1} of ${STORY.length}: ${ch.t}</h1>${ch.lines.map(storyBubble).join('')}
+    <div class="mission"><div class="e">🎯</div><div><b>Goal: ${ch.goal}</b><small>Reward: $${ch.cash.toLocaleString()}${ch.end||ch.final?' + a special surprise!':''}</small></div></div>
     <h2>Story so far</h2><div class="list">${STORY.slice(0,S.story).map((c,i)=>`<div class="mission done"><div class="e">✅</div><div><b>Chapter ${i+1}: ${c.t}</b></div></div>`).join('')||'<p>This is the very beginning!</p>'}</div>
     <p style="text-align:right;margin:16px 0 0">${'speechSynthesis' in window?'<button data-say class="alt">🔊 Read it to me</button> '+(voiceList().length>1?`<button data-voice class="alt">🗣️ Voice: ${(pickVoice()||{name:'?'}).name.replace(/\s*\(.*\)/,'').slice(0,14)}</button> `:''):''}<button class="close" data-close>Let's go!</button></p>`;
 }
@@ -5473,17 +5645,17 @@ function update(dt){
   if(!['volcano','candy'].includes(LK.id)) S.mud=Math.max(0,Math.min(1,(S.mud||0)+(weather.type==='storm'?.012:weather.type==='rain'?.006:-.0025)*dt));
   if(P.room){ roomMove(dt); if(P.room==='cabin' && S.hp<MAX_HP) S.hp=Math.min(MAX_HP,S.hp+10*dt); }
   // movement
-  updateDrone(dt);
-  let dx = P.room||drone ? 0 : joy.x, dy = P.room||drone ? 0 : joy.y;
+  updateDrone(dt); updateAir(dt);
+  let dx = P.room||drone||P.chute ? 0 : joy.x, dy = P.room||drone||P.chute ? 0 : joy.y;
   if(FP.on && !P.room){
     const fwd = ((keys['w']||keys['arrowup'])?1:0) - ((keys['s']||keys['arrowdown'])?1:0) - joy.y;
     const turn = ((keys['d']||keys['arrowright'])?1:0) - ((keys['a']||keys['arrowleft'])?1:0) + joy.x*.85;
     const zs = scopeOn && tool==='gun' ? 1/Math.max(1,SC().zoom) : 1; // zoomed in = slower, steadier turning
     if(fishing.state!=='fight') FP.yaw += turn*2.3*dt*zs;
     if(touchMode && scopeOn && tool==='gun'){ FP.pitch=Math.max(-1.1,Math.min(1.1,FP.pitch - joy.y*1.4*dt*zs)); dx=0; dy=0; } // aiming: stand still, joystick looks around
-    else { dx = P.blind||drone?0:Math.cos(FP.yaw)*fwd; dy = P.blind||drone?0:Math.sin(FP.yaw)*fwd; }
+    else { dx = P.blind||drone||P.chute?0:Math.cos(FP.yaw)*fwd; dy = P.blind||drone||P.chute?0:Math.sin(FP.yaw)*fwd; }
   } else {
-    if(!P.room && !drone){
+    if(!P.room && !drone && !P.chute){
     if(keys['w']||keys['arrowup']) dy--;
     if(keys['s']||keys['arrowdown']) dy++;
     if(keys['a']||keys['arrowleft']) dx--;
@@ -6643,7 +6815,8 @@ function draw(t){
   list.push([CABIN.y+CABIN.h/2, drawCabin]);
   if(S.boat>0) list.push([boat.y, ()=>{ drawBoatHull(); if(P.inBoat) drawPlayer(t); }]);
   if(S.pet) list.push([petFlies()?P.y+1:pet.y, ()=>drawPet(t)]);
-  if(S.ride) list.push([P.y, ()=>drawRider(t)]); else if(!P.inBoat && !P.blind) list.push([P.y, ()=>drawPlayer(t)]);
+  if(LK.id==='home' && S.story>3 && !S.st.snaggBeat) list.push([SHOP.y+85, drawSnaggSign]);
+  if(flying()){} else if(S.ride) list.push([P.y, ()=>drawRider(t)]); else if(!P.inBoat && !P.blind) list.push([P.y, ()=>drawPlayerAir(t)]);
   if(!S.ride && S.vehSel && veh.x>0) list.push([veh.y, ()=>drawParkedVehicle(t)]);
   for(const bl of GEO.blinds) if(bl.x>cam.x-80 && bl.x<cam.x+vw+80 && bl.y>cam.y-40 && bl.y<cam.y+vh+120) list.push([bl.y, ()=>drawBlind(bl,t)]);
   for(const p of GEO.props) if(p.x>cam.x-260 && p.x<cam.x+vw+260 && p.y>cam.y-40 && p.y<cam.y+vh+260) list.push([p.y, ()=>drawProp(p,t)]);
@@ -6710,7 +6883,7 @@ function draw(t){
     ctx.globalAlpha=1;
   }
   for(const o of owls) drawOwl(o);
-  drawDrone(t);
+  drawDrone(t); drawFlight(t); drawTraffic(t);
   // lightning warnings and bolts
   const mw=meteorWorld();
   for(const s of strikes){
@@ -6734,6 +6907,7 @@ function draw(t){
   ctx.textAlign='center'; ctx.font=`800 ${15/Z}px ${FONT}`;
   const label = (txt,x,y)=>{ ctx.lineWidth=4/Z; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.strokeText(txt,x,y); ctx.fillStyle='#fff'; ctx.fillText(txt,x,y); };
   if(!started || drone){}
+  else if(nearAir()){ const ap=nearAir(); label(airLabel(), ap.x-200, ap.y-250); }
   else if(P.blind) label(touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`${P.blind.kind==='tower'?'Up high!':'Hidden!'} Press E to get out of the ${blindName(P.blind)}`, P.x, P.y-(P.blind.kind==='tower'?200:P.blind.kind==='stand'?140:84));
   else if(nearBlind() && !P.inBoat){ const bl=nearBlind(); label(`${touchMode?'Tap 🏠':'Press E'} to ${bl.kind==='stand'||bl.kind==='tower'?'climb the '+blindName(bl):'hide in the '+blindName(bl)}`, bl.x, bl.y-(bl.kind==='tower'?190:bl.kind==='stand'?110:70)); }
   else if(nearProp() && propLabel(nearProp()) && !P.inBoat){ const pr=nearProp(); label(`${touchMode?'Tap 🏠':'Press E'} to ${propLabel(pr)}`, pr.x, pr.y-(pr.kind==='camp'?60:44)); }
@@ -6894,7 +7068,7 @@ function fpToggle(){
   }
   FP.on = !FP.on;
   FP.r.domElement.style.display = FP.on ? 'block' : 'none';
-  if(FP.on && drone){ FP.yaw=drone.a||0; FP.pitch=-.5; toast('🛸 Drone camera! Fly around and look down at the world'); }
+  if(FP.on && drone){ FP.yaw=drone.a||0; FP.pitch=drone.plane?-.08:-.5; toast(drone.plane?'✈️ Cockpit view! Steer left and right, push up and down to climb':'🛸 Drone camera! Fly around and look down at the world'); }
   else if(!FP.on && drone){ toast('Back to the top-down view'); }
   else if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; fishing.state==='charge' && (fishing={state:'none'});
     toast(touchMode ? '👁️ First person! Joystick walks & turns, drag the screen to look. Tap 🗺️ to go back'
@@ -7142,6 +7316,10 @@ function fpBuild(){
       for(const [bx,bz] of [[-90,70],[60,-20]]){ const x=V.x+bx, z=V.y+bz, y=at(x,z); add3(new THREE.Mesh(new THREE.BoxGeometry(44,4,12),L(null,'#8a5a2e')),x,y+10,z); add3(new THREE.Mesh(new THREE.BoxGeometry(44,10,3),L(null,'#8a5a2e')),x,y+18,z-6); } }
     else { for(let k2=0;k2<8;k2++){ const a=k2/8*6.283; add3(new THREE.Mesh(SPH(),L(null,'#7a7a80')),wx+Math.cos(a)*14,wy+3,wz+Math.sin(a)*14).scale.set(5,4,5); } add3(new THREE.Mesh(new THREE.ConeGeometry(8,20,8),new THREE.MeshBasicMaterial({color:0xff8a2a})),wx,wy+10,wz); }
     const sz=V.y+(big?260:130); add3(new THREE.Mesh(new THREE.BoxGeometry(5,40,5),L(null,'#6a4422')),V.x,at(V.x,sz)+20,sz); add3(new THREE.Mesh(new THREE.BoxGeometry(big?140:110,22,4),[L(null,'#5a3418'),L(null,'#5a3418'),L(null,'#5a3418'),L(null,'#5a3418'),L(signT(vTown(V))),L(null,'#5a3418')]),V.x,at(V.x,sz)+44,sz); } }
+  fpSkyBuild(sc);
+  { const ap=airstrip(); if(ap){ house({x:ap.x-200, z:ap.y-170, w:200, d:90, H:74, rh:30, wall:planks, roof:'#8a9298', trim:'#e8e8ec', doorW:130, doorH:62, doorCol:'#2a2a30', wins:[]});
+      const ty=hillAt(ap.x+120,ap.y-135); mesh(new THREE.CylinderGeometry(9,12,110,10), L(null,'#6a6a70'), ap.x+120, ty+55, ap.y-135, sc); mesh(new THREE.BoxGeometry(56,30,56), L(null,'#d8d8dc'), ap.x+120, ty+125, ap.y-135, sc); mesh(new THREE.BoxGeometry(60,12,60), L(null,'#6ac0e8'), ap.x+120, ty+128, ap.y-135, sc, false);
+      if(S.runway){ const pg=buildPlane3D(planeSpec(S.planeSel).col); pg.position.set(ap.x-200, hillAt(ap.x-200,ap.y-90)+16, ap.y-90); pg.rotation.y=Math.PI; sc.add(pg); } } }
   for(const p of GEO.props) if(p.kind==='barn'){ house({x:p.x, z:p.y-25, w:140, d:70, H:58, rh:40, wall:redWall, roof:'#4a4a52', trim:'#f4f0e8', doorW:44, doorH:50, doorCol:'#8a2420', xDoor:true, wins:[]});
     const silo=new THREE.Group(); mesh(CYL(), L(null,'#c8c8cc'), 0, 55, 0, silo).scale.set(24,110,24); mesh(SPH(), L(null,'#8a8a92'), 0, 110, 0, silo).scale.set(24,16,24);
     silo.position.set(p.x+92, hillAt(p.x+92,p.y-10), p.y-10); sc.add(silo); }
@@ -7262,11 +7440,12 @@ function fpFrame(t){
     if(iceOn()) for(const h of myHoles){ const m=new THREE.Mesh(new THREE.CircleGeometry(11,20), new THREE.MeshBasicMaterial({color:lin('#0d2f4f')})); m.rotation.x=-Math.PI/2; m.position.set(h.x,1.9,h.y); FP.scene.add(m); FP.holeMeshes.push(m); }
     FP.holeCount=myHoles.length; }
   // camera = your eyes
-  const gyP=hillAt(P.x,P.y), eye=(S.ride?(S.ride==='ranger'?50:48)+(P.air>0?Math.sin((1-P.air/P.airMax)*Math.PI)*30:0):P.inBoat?30:P.blind?(P.blind.kind==='tower'?170:P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
+  const gyP=hillAt(P.x,P.y), eye=(S.ride?(S.ride==='monster'?92:S.ride==='horse'?74:S.ride==='ranger'?50:48)+(P.air>0?Math.sin((1-P.air/P.airMax)*Math.PI)*30:0):P.inBoat?30:P.blind?(P.blind.kind==='tower'?170:P.blind.kind==='stand'?100:32):42)+gyP, bob=P.moving?Math.sin(P.anim*14)*1.4:0, shake=P.hurt>1?(Math.random()-.5)*4:0;
   { const want = scopeOn && tool==='gun' && !drone ? Math.min(70, 70/SC().zoom/Math.min(1,Math.max(.5,FP.cam.aspect))) : window.binosOn ? 26 : 70; if(Math.abs(FP.cam.fov-want)>.1){ FP.cam.fov += (want-FP.cam.fov)*.35; FP.cam.updateProjectionMatrix(); } }
-  const cx=drone?drone.x:P.x+shake, cz=drone?drone.y:P.y, cy=drone?hillAt(drone.x,drone.y)+30+drone.h*(90+(drone.alt??.5)*260)+Math.sin(t*2)*2:eye+bob;
+  const cx=drone?drone.x:P.x+shake, cz=drone?drone.y:P.y, cy=drone?hillAt(drone.x,drone.y)+30+(drone.plane?drone.h*(220+drone.alt*900):drone.h*(90+(drone.alt??.5)*260)+Math.sin(t*2)*2):eye+bob+(P.chute?P.chute.t*150:0);
   FP.cam.position.set(cx, cy, cz); FP.lamp.position.set(cx, cy+20, cz);
   FP.cam.lookAt(cx+Math.cos(FP.yaw)*Math.cos(FP.pitch)*100, cy+Math.sin(FP.pitch)*100, cz+Math.sin(FP.yaw)*Math.cos(FP.pitch)*100);
+  if(flying()) FP.cam.rotateZ(-drone.bank); fpSky(t);
   FP.cam.updateMatrixWorld();
   // painted cards get darker at night but stay lit near your lantern
   const lit=(x,y)=>Math.max(1-dark*.8, n>.3?Math.max(0,1-Math.hypot(x-P.x,y-P.y)/320)*.9:0);
@@ -7283,10 +7462,10 @@ function fpFrame(t){
   if(LK.id==='jungle'){ const T=jungleTemple(); if(T && Math.hypot(T.x-VX,T.y-VY)<3000) fpEnt(T,280,190,140,170,0,()=>drawTemple(ctx,T,t),lit(T.x,T.y));
     /* monkeys are 3D models now (fpModels) */ }
 
-  if(drone && !P.inBoat){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,S.ride?120:80,S.ride?110:100,S.ride?60:40,S.ride?96:92,0,()=>S.ride?drawRider(t):drawPlayer(t),lit(P.x,P.y)); }
+  if(drone && !drone.plane && !P.inBoat){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,S.ride?120:80,S.ride?110:100,S.ride?60:40,S.ride?96:92,0,()=>S.ride?drawRider(t):drawPlayer(t),lit(P.x,P.y)); }
 
   if(!S.ride && S.vehSel && veh.x>0 && Math.hypot(veh.x-VX,veh.y-VY)<2000) fpEnt(veh,110,100,55,86,0,()=>drawParkedVehicle(t),lit(veh.x,veh.y));
-  for(const p of GEO.props) if(p.kind!=='barn' && p.kind!=='village' && p.kind!=='hamlet' && Math.hypot(p.x-VX,p.y-VY)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
+  for(const p of GEO.props) if(p.kind!=='barn' && p.kind!=='village' && p.kind!=='hamlet' && p.kind!=='airstrip' && Math.hypot(p.x-VX,p.y-VY)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
     fpEnt(p,w,h,p.kind==='barn'?w*.38:w/2,h-16,0,()=>drawProp(p,t),lit(p.x,p.y)); }
   for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(Math.hypot(q.x-VX,q.y-VY)<1800){ f._sc=f._sc||{}; f._sc.x=q.x; f._sc.y=q.y; fpEnt(f._sc,60,70,30,62,0,()=>drawScarecrow(f,t),lit(q.x,q.y)); } }
   { const got=ducksGot(); for(const d of goldDucks()) if(!got.includes(d.k) && Math.hypot(d.x-VX,d.y-VY)<1400) fpEnt(d,40,36,20,30,0,()=>drawGoldDuck(ctx,d.x,d.y,t),1);
@@ -7306,7 +7485,7 @@ function fpFrame(t){
   const F=fishing, A=P.act, k=A?Math.min(1,A.t/A.dur):0, sway=P.moving?Math.sin(P.anim*14):Math.sin(t*1.6)*.3;
   FP.arm.position.set(15+sway*.8, -15+Math.abs(sway)*.6, -34); FP.arm.rotation.set(0,0,0);
   const gunOut = tool==='gun' && S.gun>=0 && !S.ride;
-  if(FP.vm) FP.vm.visible=!drone && !(scopeOn && tool==='gun'); // no hands in the drone camera, and none blocking the view through a scope
+  if(FP.vm) FP.vm.visible=!drone && !S.ride && !(scopeOn && tool==='gun'); // no hands in the drone camera, and none blocking the view through a scope
   FP.rod.visible=!gunOut && tool!=='axe'; if(FP.axe){ FP.axe.visible=tool==='axe' && !S.ride; FP.axe.rotation.x = A && A.type==='shoot' ? -(1-k)*1.3 : 0; } FP.guns.forEach((g,i)=>{ g.visible = gunOut && i===S.gun; if(g.userData.flash) g.userData.flash.visible = gunOut && i===S.gun && A && A.type==='shoot' && k<.4; });
   if(!gunOut){
     let tilt=-.55; // rod leans forward
@@ -7358,7 +7537,7 @@ function fpFrame(t){
   ctx.font=`800 16px ${FONT}`; ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillStyle='#fff';
   const npL = nearProp(), propLab = npL && propLabel(npL) && !P.inBoat ? `${touchMode?'Tap 🏠':'Press E'} to ${propLabel(npL)}` : '';
   const vpL=nearPlot(), dsL=nearDockSite(), ctL=nearChopTree(), buildLab = vpL&&plotLabel(vpL) ? plotLabel(vpL) : dsL>=0 ? `⚓ ${touchMode?'Tap 🏠':'Press E'} to fix this dock (${DOCK_WOOD[dsL]} 🪵 · you have ${S.wood})` : '';
-  const lab = drone ? '' : buildLab ? buildLab : propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
+  const lab = drone ? '' : nearAir() ? airLabel() : buildLab ? buildLab : propLab ? propLab : P.blind ? (touchMode?`Tap 🏠 to get out of the ${blindName(P.blind)}`:`Hidden in the ${blindName(P.blind)} · Press E to get out`) : (nearBlind()&&!P.inBoat) ? (touchMode?`Tap 🏠 to use the ${blindName(nearBlind())}`:`Press E to use the ${blindName(nearBlind())}`) : nearTreasure()>=0?(touchMode?'Tap 🏠 to open the treasure chest!':'Press E to open the treasure chest!') : nearShop()?(touchMode?'Tap 🏠 to go inside the shop':'Press E to go inside the shop') : nearCabin()?(touchMode?'Tap 🏠 to go inside your cabin':'Press E to go inside your cabin')
     : nearBoat()?(touchMode?'Tap 🚤 to get in your boat':'Press B to get in your boat') : ctL && fishing.state==='none' ? (tool==='axe' ? `🪓 ${touchMode?'Tap Chop':'Press SPACE'} to chop the tree${ctL.hits?` (${ctL.hits}/${chopsNeed(ctL)})`:''}` : `🪓 ${touchMode?'Tap 🏠 for your axe':'Press 3 for your axe'}`) : '';
   if(lab){ ctx.strokeText(lab,W/2,H*.72); ctx.fillText(lab,W/2,H*.72); }
   { const nn=npcs.find(n=>n.singer&&n.near)||npcs.find(n=>n.near&&!n.singer)||npcs.find(n=>n.singer&&samSinging(n)&&fpProj(n.x,70,n.y)); if(nn){ const q=fpProj(nn.x,70,nn.y); if(q) speechBubble(ctx,q[0],q[1],nn.name,npcTip(nn),1); } }
@@ -7367,7 +7546,8 @@ function fpFrame(t){
   if(S.hp<30){ ctx.fillStyle=`rgba(200,0,0,${.12+.08*Math.sin(t*5)})`; ctx.fillRect(0,0,W,H); }
   if(P.hurt>1.2){ ctx.fillStyle='rgba(255,0,0,.18)'; ctx.fillRect(0,0,W,H); }
   drawScreenFx(t, n);
-  drawMinimap(); if(drone){ drawDroneHud(); const m=24, L=34; ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=3; for(const [x,y,sx,sy] of [[m,m,1,1],[VW-m,m,-1,1],[m,VH-m,1,-1],[VW-m,VH-m,-1,-1]]){ ctx.beginPath(); ctx.moveTo(x,y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L,y); ctx.stroke(); }
+  if(flying()) drawCockpit(W,H,t); else if(S.ride && !drone) drawRideView(W,H,t);
+  drawMinimap(); if(flying()) drawFlightHud(); else if(drone){ drawDroneHud(); const m=24, L=34; ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=3; for(const [x,y,sx,sy] of [[m,m,1,1],[VW-m,m,-1,1],[m,VH-m,1,-1],[VW-m,VH-m,-1,-1]]){ ctx.beginPath(); ctx.moveTo(x,y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L,y); ctx.stroke(); }
     if(Math.floor(t*2)%2){ ctx.fillStyle='#ff3030'; ctx.beginPath(); ctx.arc(m+22,VH-m-56,7,0,7); ctx.fill(); } ctx.fillStyle='#fff'; ctx.font=`800 15px ${FONT}`; ctx.textAlign='left'; ctx.fillText('REC',m+34,VH-m-51);
     ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(VW/2-14,VH/2); ctx.lineTo(VW/2+14,VH/2); ctx.moveTo(VW/2,VH/2-14); ctx.lineTo(VW/2,VH/2+14); ctx.stroke(); }
 }
@@ -7384,8 +7564,9 @@ function touchContext(){ const ub=document.getElementById('useBtn'), bb=document
   let ic='🏠', ready=false;
   if(P.room){ ic='👆'; ready=!!roomStationNear(); }
   else if(P.blind){ ic='🪜'; ready=true; }
+  else if(flying()){ ic='🪂'; ready=true; }
   else if(!drone){ const vp=nearPlot();
-    if(nearTreasure()>=0){ ic='🧰'; ready=true; } else if(nearBlind() && !P.inBoat){ ic='🪜'; ready=true; } else if(nearProp() && propLabel(nearProp()) && !P.inBoat){ ic='✋'; ready=true; }
+    if(nearTreasure()>=0){ ic='🧰'; ready=true; } else if(nearBlind() && !P.inBoat){ ic='🪜'; ready=true; } else if(nearAir()){ ic='✈️'; ready=true; } else if(nearProp() && propLabel(nearProp()) && !P.inBoat){ ic='✋'; ready=true; }
     else if(vp && plotLabel(vp)){ ic=vBuilt().includes(vp.i)?'🚪':'🔨'; ready=true; } else if(nearDockSite()>=0){ ic='⚓'; ready=true; } else if(nearShop()||nearCabin()){ ic='🚪'; ready=true; } else if(nearChopTree() && tool!=='axe'){ ic='🪓'; ready=true; } }
   if(ub.textContent!==ic) ub.textContent=ic; ub.classList.toggle('ready',ready); ub.classList.toggle('dim',!ready);
   const showBoat=S.boat>0 && !P.room; if(bb.hidden===showBoat) bb.hidden=!showBoat; bb.classList.toggle('ready', P.inBoat || nearBoat());
@@ -7408,7 +7589,7 @@ function updateHud(){
   if(chased) s += `<br><span class="warn">⚠️ Something is chasing you!</span>`;
   if(P.room) s = `<span class="cash">$${hudMoney().toLocaleString()}</span><br>${P.room==='shop'?'🏪 '+LK.n+' Shop':P.room==='vhouse'?'🏡 '+ROOMS.vhouse.name:'🏡 Your Cabin'} · 🪵 ${S.wood} · 🎒 ${S.fish.length}/${bagCap()}`;
   if(s!==hudStr){ hud.innerHTML = s; hudStr = s; }
-  const lbl = P.room ? '👆 Use' : fishing.state==='drill' ? '🌀 Drilling...' : (tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y) && !P.inBoat) ? (iceHoleAhead()?'🕳️ Drop line':'🌀 Drill hole') : tool==='gun' ? '🔫 Shoot' : tool==='axe' ? '🪓 Chop' : fishing.state==='none' ? '🎣 Hold to cast' : fishing.state==='charge' ? '🎣 Let go!' : fishing.state==='wait' ? '🎣 Twitch / reel' : fishing.state==='bite' ? '🎣 HOOK IT!' : '🎣 Hold to reel';
+  const lbl = flying() ? '🛬 Land' : P.room ? '👆 Use' : fishing.state==='drill' ? '🌀 Drilling...' : (tool==='rod' && fishing.state==='none' && iceOn() && onIce(P.x,P.y) && !P.inBoat) ? (iceHoleAhead()?'🕳️ Drop line':'🌀 Drill hole') : tool==='gun' ? '🔫 Shoot' : tool==='axe' ? '🪓 Chop' : fishing.state==='none' ? '🎣 Hold to cast' : fishing.state==='charge' ? '🎣 Let go!' : fishing.state==='wait' ? '🎣 Twitch / reel' : fishing.state==='bite' ? '🎣 HOOK IT!' : '🎣 Hold to reel';
   if(actBtn.textContent!==lbl) actBtn.textContent = lbl;
   if(touchMode && (updateHud.n=(updateHud.n||0)+1)%6===0) touchContext();
   const bp=fishing.state==='bite'; if(actBtn.classList.contains('bitePulse')!==bp) actBtn.classList.toggle('bitePulse',bp);
@@ -7503,16 +7684,21 @@ function playIntro(done){
         if(t>12.5 && t<15.5){ g.save(); g.translate(lx-60+k*120, ly+30-Math.sin(k*Math.PI)*H*.25); g.rotate((k-.5)*1.4); drawSpecies(FISH[fishIdx('Old Mossback')],0,0,Math.min(240,W*.38),t); g.restore(); }
         if(t>12.5 && t<13.2){ g.fillStyle='rgba(220,240,255,.8)'; for(let i=0;i<20;i++){ g.beginPath(); g.arc(lx-60+(Math.random()-.5)*80,ly+20-Math.random()*40,3,0,7); g.fill(); } }
         say('But long ago, the giant fish OLD MOSSBACK stole Grandpa\'s lucky GOLDEN LURE!', H*.12, Math.min(28,W*.055), fade(t,11.3,17), '#ffe680'); }
-      if(sc===3){ // your adventure begins
+      if(sc===3 && t<23){ // Grandpa flies off, and Mr. Snagg arrives
+        const k=(t-17)/3; if(t<20.4){ const px=-80+k*(W+160), py=H*.3-k*H*.1; drawPlaneTop(g,px,py,-.12,{col:'#ffd23f'},.0,t); }
+        if(t>=19.9){ const m=Math.min(1,(t-19.9)*1.4); g.fillStyle='#6a4a2a'; g.fillRect(W*.66-40,horizon+H*.2-90*m,8,90*m); g.fillRect(W*.66+40,horizon+H*.2-90*m,8,90*m); g.fillStyle='#8a2ad0'; g.beginPath(); g.roundRect(W*.66-80,horizon+H*.2-150*m,168,70*m,8); g.fill(); g.globalAlpha=m; g.fillStyle='#ffd23f'; g.font=`800 19px ${FONT}`; g.textAlign='center'; g.fillText('SNAGG WORLD',W*.66+4,horizon+H*.2-120); g.fillStyle='#fff'; g.font=`700 13px ${FONT}`; g.fillText('World\'s biggest parking lot!',W*.66+4,horizon+H*.2-100); g.globalAlpha=1;
+          g.fillStyle='#a0703f'; g.fillRect(0,horizon+H*.2-16,W,26); g.fillStyle='#7a5028'; for(let x=0;x<W;x+=22) g.fillRect(x,horizon+H*.2-16,2,26); g.save(); g.translate(W*.32,horizon+H*.2); g.scale(2.4,2.4); drawPerson({x:0,y:0,fx:1,fy:.2,state:'idle',got:false,anim:t*1.5,pants:'#6a2aa0',shirt:'#8a2ad0',skin:'#f2c9a0',hair:'#1a1a1a',hat:'top',hatCol:'#2a1a3a',beard:false},t,true); g.restore(); }
+        say('Then Grandpa flew away in his yellow plane... and never came back!', H*.1, Math.min(28,W*.055), fade(t,17.2,20)); say('Now greedy MR. SNAGG wants to turn your lake into a parking lot!', H*.1, Math.min(28,W*.055), fade(t,20.1,23), '#e0b0ff'); }
+      if(sc===3 && t>=23){ // your adventure begins
         const sv=[P.x,P.y,P.fx,P.fy,P.moving,P.inBoat,P.act,P.hurt,fishing,tool];
         g.fillStyle='#a0703f'; g.fillRect(W*.42-60,horizon+H*.2-16,W*.6,26); g.fillStyle='#7a5028'; for(let x=W*.42-60;x<W;x+=22) g.fillRect(x,horizon+H*.2-16,2,26);
         try{ P.x=0;P.y=0;P.fx=1;P.fy=.3;P.moving=false;P.inBoat=false;P.hurt=0;tool='rod';fishing={state:'none'}; P.act={type:'cast',t:(t*1.2)%1*.4,dur:.4}; g.save(); g.translate(W*.42,horizon+H*.2); g.scale(2.4,2.4); drawPlayer(t); g.restore(); }
         finally{ [P.x,P.y,P.fx,P.fy,P.moving,P.inBoat,P.act,P.hurt,fishing,tool]=sv; }
-        say('Catch fish. Hunt. Explore. Find treasure...', H*.1, Math.min(28,W*.055), fade(t,17.2,20.2)); say('...and win back the Golden Lure!', H*.1, Math.min(30,W*.06), fade(t,20.3,23), '#ffe680');
-        say('Your adventure begins!', H*.78, Math.min(40,W*.08), fade(t,21,24.5), '#ffffff'); }
-      g.fillStyle='#000'; g.globalAlpha=Math.max(0,1-t*2, (t-24)*2); g.fillRect(0,0,W,H); g.globalAlpha=1;
+        say('Catch fish. Hunt. Build a town. Fly planes...', H*.1, Math.min(28,W*.055), fade(t,23.2,26.2)); say('...find Grandpa and save the lake!', H*.1, Math.min(30,W*.06), fade(t,26.3,29), '#ffe680');
+        say('Your adventure begins!', H*.78, Math.min(40,W*.08), fade(t,27,30.5), '#ffffff'); }
+      g.fillStyle='#000'; g.globalAlpha=Math.max(0,1-t*2, (t-30)*2); g.fillRect(0,0,W,H); g.globalAlpha=1;
     } finally { ctx=saved; }
-    if(t>24.5){ finish(); return; }
+    if(t>30.5){ finish(); return; }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
