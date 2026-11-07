@@ -162,7 +162,7 @@ button:disabled{background:#ddd;border-color:#aaa;color:#888;cursor:not-allowed}
   <h1>Lake Life</h1>
   <p>Explore a huge map with lakes, rivers, creeks, islands and secret spots. Catch fish, sell them, and mount your best ones in your cabin.</p>
   <p>Walk into the shop for rods, reels, line, hooks, lures, boats and clothes. Hunt for treasure, legendary fish and boss fish!</p>
-  <p>12 worlds (even a cave and the Moon!) · <span id="fishTotal">87</span> kinds of fish · hunting, 4-wheelers &amp; drones · seasons &amp; ice fishing · a story with Grandpa Joe!</p>
+  <p>20 worlds (even a cave, the Moon and the clouds!) · <span id="fishTotal">87</span> kinds of fish · hunting, planes, boats &amp; drones · seasons &amp; ice fishing · a story with Grandpa Joe!</p>
   <p id="phoneTip" hidden><b>On a phone:</b> left joystick walks, hold the yellow button to cast (longer = farther) and to shoot. When a fish runs, push the joystick the other way! Tap 🏠 to go inside or open treasure. Tap ❤️ to eat food. Tap 👁️ for first person. Turn your phone sideways to see more!</p>
   <div id="modePick" role="radiogroup" aria-label="Game mode"><button data-mode="easy">🙂 Easy</button><button data-mode="medium">😎 Medium</button><button data-mode="hard">🔥 Hard</button></div>
   <p id="modeInfo" style="font-size:14px;margin:6px 0 0"></p>
@@ -187,6 +187,13 @@ window.addEventListener('error', e=>{ const b=document.getElementById('playBtn')
 
 </script>
 <script>
+var WDECO={ home:{s:['🌻','🪵','🍄','🌼'],b:['🌳']}, frozen:{s:['⛄','🧊','❄️'],b:['🏔️','⛄']}, prairie:{s:['🌾','🌻'],b:['🏚️','🌾']}, swamp:{s:['🪷','🍄','🪵'],b:['🛖']}, mountain:{s:['⛺','🪨','🌲'],b:['🏔️','⛰️']}, canyon:{s:['🌵','🦴','🪨'],b:['⛰️','🗿']}, volcano:{s:['🔥','🪨','🌶️'],b:['🌋']}, ocean:{s:['🐚','⛱️','🪸'],b:['⚓','🗿']}, candy:{s:['🍭','🍩','🧁','🍬'],b:['🍰','🎂','🍦']}, jungle:{s:['🌺','🍌','🪵'],b:['🗿','🛖']}, crystal:{s:['💎','🔮','🍄'],b:['💎']}, moon:{s:['🚩','🪨','🛰️'],b:['🚀','🪐','🛸']},
+  autumn:{s:['🎃','🍂','🍁','🌽'],b:['🎃','🌽','🏚️']}, blossom:{s:['🌸','🏮','🎋','🌷'],b:['⛩️','🏯','🌸']}, oasis:{s:['🌴','🏺','⛺','🌵'],b:['🕌','🏛️']}, shroom:{s:['🍄','✨','🌟','🍄'],b:['🍄','🍄']}, ghost:{s:['🪦','🕸️','⚰️','🦴','🎃'],b:['🏚️','🪦','👻']}, cove:{s:['⚓','💰','🦜','🏴‍☠️','🪙'],b:['⛵','🏴‍☠️','⚓']}, dino:{s:['🦴','🥚','🌿','🪨'],b:['🌋','🦕','🦖']}, cloud:{s:['⭐','☁️','🌈','✨'],b:['🌈','☁️','🏰']} };
+
+// Small Mode: if an iPad or tablet ran out of memory and reloaded the page, the game uses much less memory next time
+var LOWMEM=false; try{ const touch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0; const st=window.localStorage; if(touch && st.getItem('lakeBoot')==='1') st.setItem('lakeLow','1'); LOWMEM=st.getItem('lakeLow')==='1' || (touch && navigator.deviceMemory>0 && navigator.deviceMemory<=2); st.setItem('lakeBoot','1'); const ok=()=>{ try{ st.removeItem('lakeBoot'); }catch(e){} }; setTimeout(ok,60000); addEventListener('pagehide',ok); }catch(e){}
+if(LOWMEM) window.dprCap=1;
+
 const cv = document.getElementById('c'); let ctx = cv.getContext('2d'); // ctx can be swapped to paint 3D sprites
 // VW/VH = screen size in CSS pixels, DPR = sharpness on Retina screens, Z = zoom (zooms out on phones so you see more)
 let VW, VH, DPR = 1, Z = 1;
@@ -199,7 +206,7 @@ function resize(){
 resize(); addEventListener('resize', resize); addEventListener('orientationchange', ()=>setTimeout(resize, 200));
 if(!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h){ this.rect(x,y,w,h); };
 const FONT = "'Nunito', system-ui, sans-serif";
-var NOSEASON=['ocean','volcano','candy','jungle','crystal','moon']; // worlds where the seasons don't change
+var NOSEASON=['ocean','volcano','candy','jungle','crystal','moon','autumn','blossom','oasis','shroom','ghost','cove','dino','cloud']; // worlds where the seasons don't change
 
 // ---------- World ----------
 const WW = 14000, WH = 10500;  // giant open map (3x bigger than it used to be)
@@ -741,6 +748,30 @@ const LAKES = [
    T:{fill:'#8a8a90', ground:'#a8a8b0', tuft:['#9a9aa2','#bcbcc4'], flowers:['#5ad0ff','#c8ff5a','#ff5ad0'], path:'#909098',
       trail:['#808088','#98989f','#b0b0b8'], sand:['#c8c8d0','#b0b0b8'], water:['#1a0a4a','#3a1a7a','#6a3aba','#b88aff'],
       pad:'#5ad0a0', padFlower:'#ffffff', rock:'#6a6a72', shimmer:'#fff', trees:'alien', treeN:.45}},
+  {id:'autumn', n:'Autumn Lake', p:9000, d:'Always fall! Orange leaves, turkeys & the Golden Leaf Sturgeon', precip:'rain', shape:{y:5500, rx:1300, ry:930}, geo:{islands:2, river:true, creek:true, pond:true, wild:1.1},
+   beasts:[['wolf',1,3],['bear',1,1]], game:[['squirrel',7],['turkey',5],['fox',3],['raccoon',3],['chipmunk',5],['elk',2]], duck:{n:'Harvest Duck', body:'#8a5a2a', wing:'#6a4420', head:'#c8501e', beak:'#ffb300'}, deer:{n:'Fall Deer', bn:'Autumn Buck', col:'#b8682a', buck:'#8a4a1e'},
+   T:{fill:'#a8782e', ground:'#c09a44', tuft:['#b0883a','#d0a848'], flowers:['#ff8a2a','#ffd23f','#d8402a','#fff'], path:'#b89560', trail:['#a88450','#c0a068','#d8bc84'], sand:['#e0c890','#d0b478'], water:['#1a4a6a','#28668a','#3a86a8','#6ab4cc'], pad:'#8a8a3a', padFlower:'#ffc070', rock:'#8a8278', shimmer:'#fff', trees:'mix', leaves:['#a83a14','#d0601a','#e8901e','#f4b82a']}},
+  {id:'blossom', n:'Blossom Lake', p:14000, d:'Pink petals everywhere! Red pandas, koi & the Moonlight Koi', precip:'petals', shape:{y:5500, rx:1250, ry:900}, geo:{islands:3, river:true, creek:true, pond:true, wild:.9},
+   beasts:[['boar',1,2],['cougar',1,1]], game:[['rabbit',6],['redpanda',4],['fox',3],['chipmunk',4]], duck:{n:'Mandarin Duck', body:'#d8743a', wing:'#3a6a9a', head:'#2a7a5a', beak:'#ff5a3a'}, deer:{n:'Sika Deer', bn:'Great Sika', col:'#b88858', buck:'#8a6240'},
+   T:{fill:'#6aa84a', ground:'#88c060', tuft:['#78b454','#a0cc70'], flowers:['#ffb0d0','#ffd8e8','#fff','#ff80b0'], path:'#d8c0a0', trail:['#c8b090','#dcc8ac','#ecdcc4'], sand:['#f0e0c0','#e4d0ac'], water:['#2a6a8a','#3a8aa8','#5aaec8','#a0dce8'], pad:'#4a9a56', padFlower:'#ffb0d0', rock:'#a0a098', shimmer:'#fff', trees:'mix', leaves:['#e86a9a','#f490b4','#fab4cc','#ffd4e2']}},
+  {id:'oasis', n:'Oasis Lake', p:18000, d:'A desert lake! Camels, sand cats & the Sun Pharaoh Fish', precip:'rain', shape:{y:5500, rx:1150, ry:820}, geo:{islands:1, river:true, creek:false, pond:true, wild:1},
+   beasts:[['coyote',2,3],['sandcat',1,2]], game:[['jackrabbit',6],['armadillo',4],['javelina',3],['camel',3]], duck:{n:'Desert Duck', body:'#c8a870', wing:'#a08450', head:'#e8c890', beak:'#ff8a30'}, deer:{n:'Gazelle', bn:'Great Gazelle', col:'#d0a868', buck:'#a88448'},
+   T:{fill:'#d8b870', ground:'#ecd090', tuft:['#dcbc78','#c8c070'], flowers:['#ff8a4a','#ffd23f','#fff'], path:'#d0a870', trail:['#c09860','#d8b47c','#ecd09c'], sand:['#f4e0a8','#e8d094'], water:['#0a6a7a','#149aa8','#30c0c8','#90e8e0'], pad:'#3a9a5a', padFlower:'#fff0a0', rock:'#b89a6a', shimmer:'#fff', trees:'palm', treeN:.4}},
+  {id:'shroom', n:'Mushroom Lake', p:30000, d:'Glowing purple woods! Glow bunnies & the Spore King', precip:'sparkles', shape:{y:5500, rx:1280, ry:900}, geo:{islands:3, river:true, creek:true, pond:true, wild:1.3}, riverCol:['#5a3aa0','#8a5ad0'],
+   beasts:[['glowwolf',2,3],['cavebear',1,1]], game:[['glowbunny',6],['gemfox',3],['shroomhog',4]], duck:{n:'Spore Duck', body:'#a878d8', wing:'#7a50b0', head:'#5ad0a0', beak:'#ffd23f'}, deer:{n:'Spotted Deer', bn:'Spore Stag', col:'#9a6ac0', buck:'#70489a'},
+   T:{fill:'#4a3a7a', ground:'#6a5aa0', tuft:['#5a4a90','#7a6ab4'], flowers:['#5af0d0','#ff7ad0','#ffe14d'], path:'#8a7ab0', trail:['#7a6aa0','#9484b8','#b0a0d0'], sand:['#b8a8d8','#a494c8'], water:['#2a1a6a','#4a2a9a','#7a4ac8','#c09aff'], pad:'#5ad0a0', padFlower:'#ff7ad0', rock:'#5a4a7a', shimmer:'#9af0ff', trees:'swamp', leaves:['#6a2a9a','#9a3ab0','#c850b8','#e87ac8']}},
+  {id:'ghost', n:'Ghost Lake', p:50000, d:'Spooky! Ghost wolves, bats & the Phantom Pike', precip:'rain', shape:{y:5500, rx:1200, ry:860}, geo:{islands:2, river:true, creek:true, pond:true, wild:1.5}, riverCol:['#1a3a3a','#2a5a50'],
+   beasts:[['ghostwolf',2,4],['bonebear',1,1]], game:[['ghostbunny',6],['batfox',4],['raccoon',3]], duck:{n:'Ghost Duck', body:'#d8e8e0', wing:'#a8c0b8', head:'#f0fff8', beak:'#8a9a90'}, deer:{n:'Phantom Deer', bn:'Phantom Stag', col:'#a8b8b0', buck:'#7a8a84'},
+   T:{fill:'#2e3a34', ground:'#44504a', tuft:['#384440','#505e56'], flowers:['#8affc8','#c8c8d8'], path:'#5a625a', trail:['#4a524c','#626a62','#7a827a'], sand:['#7a8078','#686e68'], water:['#0a1a20','#143034','#205048','#50a088'], pad:'#3a5a44', padFlower:'#c8ffe0', rock:'#4a4e50', shimmer:'#8affc8', trees:'dead', treeN:.8}},
+  {id:'cove', n:'Pirate Cove', p:60000, d:'Yo ho! Treasure islands, sea lions & the Ghost Ship Shark', precip:'rain', waves:true, shape:{y:5650, rx:1700, ry:1050}, geo:{islands:5, river:false, creek:false, pond:false, wild:1.1},
+   beasts:[['kingcrab',2,3],['boar',1,2]], game:[['beachbunny',6],['sealion',3],['hog',3]], duck:{n:'Parrot Duck', body:'#2ec04a', wing:'#e03a2a', head:'#3a7bd5', beak:'#ffd23f'}, deer:{n:'Island Deer', bn:'Island Buck', col:'#c89a60', buck:'#9a7040'},
+   T:{fill:'#5aa84a', ground:'#7cc060', tuft:['#6ab454','#90cc6c'], flowers:['#ff6a8a','#ffd23f','#fff'], path:'#e0cc98', trail:['#d4bc88','#e8d4a4','#f4e8c0'], sand:['#fbeec0','#f4e0a4'], water:['#0a4a8a','#0a7ab0','#20b0d0','#80e8e0'], pad:'#2f8a6a', padFlower:'#ffc8d8', rock:'#a89a88', shimmer:'#fff', trees:'palm'}},
+  {id:'dino', n:'Dino Lake', p:85000, d:'Back in time! Triceratops, raptors, a T-Rex & the Megalodon', precip:'rain', shape:{y:5500, rx:1350, ry:940}, geo:{islands:3, river:true, creek:true, pond:true, wild:1.6}, riverCol:['#3a6a4a','#2a5a3a'],
+   beasts:[['raptor',2,4],['trex',1,1]], game:[['triceratops',4],['dinobird',5],['capybara',3]], duck:{n:'Pterodactyl', body:'#8a6a4a', wing:'#6a4a34', head:'#c8583a', beak:'#d8c080'}, deer:{n:'Dino Deer', bn:'Great Dino Deer', col:'#7a9a4a', buck:'#5a7a34'},
+   T:{fill:'#3a7a34', ground:'#5a9a44', tuft:['#4a8a3a','#6aaa50'], flowers:['#ff9a3a','#ffe14d'], path:'#a89060', trail:['#98804e','#b09a68','#c8b482'], sand:['#d8c490','#c8b07c'], water:['#1a5a4a','#2a7a60','#3a9a7a','#80ccaa'], pad:'#3a9a3a', padFlower:'#ff9a3a', rock:'#6a6858', shimmer:'#e0ff9a', trees:'jungle', treeN:1.2}},
+  {id:'cloud', n:'Cloud Lake', p:150000, d:'A lake in the sky! Pegasus, cloud sheep & the Rainbow Whale', precip:'sparkles', shape:{y:5500, rx:1250, ry:880}, geo:{islands:3, river:true, creek:false, pond:true, wild:1}, riverCol:['#8ac8ff','#c8e8ff'],
+   beasts:[['cloudwolf',2,3],['stormbear',1,1]], game:[['cloudsheep',6],['cloudbunny',5],['pegasus',3]], duck:{n:'Sky Duck', body:'#ffffff', wing:'#d8e8f8', head:'#8ac8ff', beak:'#ffd23f'}, deer:{n:'Sky Deer', bn:'Star Stag', col:'#d8e4f4', buck:'#a8bcd8'},
+   T:{fill:'#dceaf8', ground:'#f4f8fc', tuft:['#e4eef8','#ffffff'], flowers:['#ffd23f','#ff9ad8','#8ad8ff','#b8ff9a'], path:'#c8d8ec', trail:['#b8c8e0','#d0dcec','#ecf2f8'], sand:['#fff4c8','#ffe8a8'], water:['#3a7ad8','#5a9ae8','#8ac0f4','#d0ecff'], pad:'#b8e8ff', padFlower:'#ffd23f', rock:'#c0cce0', shimmer:'#fff', trees:'mix', treeN:.5, leaves:['#c8d8f0','#dce8f8','#ecf4fc','#ffffff']}},
 ];
 const lakeById = id => LAKES.find(l=>l.id===id) || LAKES[0];
 const fishIdx = n => FISH.findIndex(f=>f.n===n);
@@ -761,6 +792,7 @@ if(S.worldV<6){ for(const tr of S.placed||[]) if(!tr.sprung && S.traps) S.traps[
   if(S.dig) S.items.digmap=(S.items.digmap||0)+1; S.dig=null; S.placed=[]; S.bx=-1; S.by=-1; S.holes=[]; S.explored={}; S.worldV=6; }
 if(S.worldV<7){ for(const tr of S.placed||[]) if(!tr.sprung && S.traps) S.traps[tr.type]=(S.traps[tr.type]||0)+1; if(S.dig) S.items.digmap=(S.items.digmap||0)+1; S.dig=null; S.placed=[]; S.bx=-1; S.by=-1; S.holes=[]; S.explored={}; S.chop={}; S.worldV=7; } // 3x bigger maps
 if(S.worldV<8){ for(const tr of S.placed||[]) if(!tr.sprung && S.traps) S.traps[tr.type]=(S.traps[tr.type]||0)+1; if(S.dig) S.items.digmap=(S.items.digmap||0)+1; S.dig=null; S.placed=[]; S.bx=-1; S.by=-1; S.holes=[]; S.chop={}; S.worldV=8; } // new streams: move anything that might be in the water now
+if(S.worldV<9){ S.chop={}; S.worldV=9; } // new landmarks moved some trees
 let LK = lakeById(S.lake);
 applyShape(LK.shape);
 function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} }
@@ -870,7 +902,7 @@ const TG=128; // trees are kept in a grid so looking them up stays fast on a hug
 function treesNear(x,y){ const gx=Math.floor(x/TG), gy=Math.floor(y/TG), out=[]; for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const l=treeGrid.get((gx+i)+','+(gy+j)); if(l) for(const t of l) out.push(t); } return out; }
 const spriteCache = new Map(); // painted trees & buildings, rebuilt for each lake
 const SMALL_DEVICE = matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
-const BGS = Math.sqrt((SMALL_DEVICE?8e6:30.7e6)/(WW*WH)); // the ground picture's size stays safe for iPads // map picture scale (smaller on phones & tablets to save memory)
+const BGS = Math.sqrt((LOWMEM?3.5e6:SMALL_DEVICE?6e6:30.7e6)/(WW*WH)); // the ground picture's size stays safe for iPads // map picture scale (smaller on phones & tablets to save memory)
 const bg = document.createElement('canvas'); bg.width=Math.round(WW*BGS); bg.height=Math.round(WH*BGS);
 // ---------- Seasons & ice ----------
 const SEASONS=['spring','summer','fall','winter'], SEASON_ICON={spring:'🌸',summer:'☀️',fall:'🍂',winter:'❄️'}, SEASON_DAYS=2;
@@ -1019,7 +1051,7 @@ function buildWorld(){
     b.fillStyle=gg; b.fillRect(x-r,y-r,r*2,r*2); }
   for(let i=0;i<220*AREA;i++){ const x=srnd()*WW, y=srnd()*WH, r=120+srnd()*380, lt=srnd()<.5, g=b.createRadialGradient(x,y,0,x,y,r);
     g.addColorStop(0,lt?'rgba(255,250,200,.10)':'rgba(0,30,0,.11)'); g.addColorStop(1,'rgba(0,0,0,0)'); b.fillStyle=g; b.fillRect(x-r,y-r,r*2,r*2); }
-  for(let i=0;i<(SMALL_DEVICE?150000:115000*AREA);i++){ const x=srnd()*WW, y=srnd()*WH, h=5+srnd()*5, lean=(srnd()-.5)*3;
+  for(let i=0;i<(LOWMEM?50000:SMALL_DEVICE?110000:115000*AREA);i++){ const x=srnd()*WW, y=srnd()*WH, h=5+srnd()*5, lean=(srnd()-.5)*3;
     b.strokeStyle=srnd()<.5?T.tuft[0]:T.tuft[1]; b.lineWidth=1.6; b.beginPath(); b.moveTo(x,y); b.lineTo(x+lean,y-h); b.stroke(); }
   for(let i=0;i<5000*AREA;i++){ const x=srnd()*WW, y=srnd()*WH; if(shoreDist(x,y)<60 || inLake(x,y,1.4)) continue;
     b.fillStyle=T.flowers[Math.floor(srnd()*T.flowers.length)]; b.beginPath(); b.arc(x,y,3,0,7); b.fill(); }
@@ -1197,7 +1229,8 @@ function drawCritters(t, vw, vh){
 }
 function drawAmbient(t){
   const id=LK.id, wet=weather.type==='rain'||weather.type==='storm';
-  for(let i=0;i<amb.length;i++){ const a=amb[i];
+  for(let i=0;i<amb.length;i++){ const a=amb[i], Q=WAMB[id];
+    if(Q){ if(i>=Q.n) continue; ctx.fillStyle=Q.c[i%Q.c.length]; if(Q.leaf){ a.y+=.0008*(.6+a.s); a.x+=Math.sin(t*.8+a.r)*.0007; a.r+=.03; if(a.y>1.05){ a.y=-.05; a.x=Math.random(); } ctx.save(); ctx.translate(a.x*VW,a.y*VH); ctx.rotate(a.r); ctx.beginPath(); ctx.ellipse(0,0,5.5,2.8,0,0,7); ctx.fill(); ctx.restore(); } else if(Q.side){ a.x+=.0016*(.5+a.s); a.y+=Math.sin(t+a.r)*.0003; if(a.x>1.03){ a.x=-.03; a.y=Math.random(); } ctx.beginPath(); ctx.arc(a.x*VW,a.y*VH,1+a.s*1.6,0,7); ctx.fill(); } else { a.y-=.0007*(.5+a.s); a.x+=Math.sin(t*1.2+a.r)*.0005; if(a.y<-.03){ a.y=1.03; a.x=Math.random(); } ctx.globalAlpha=.5+.5*Math.sin(t*3+a.r*5); ctx.beginPath(); ctx.arc(a.x*VW,a.y*VH,(Q.big?5:1.4)+a.s*(Q.big?7:1.8),0,7); ctx.fill(); ctx.globalAlpha=1; } continue; }
     if(id==='home'){ if(i>=9 || nightAmt()>.5) continue;
       a.y+=.0007*(.6+a.s); a.x+=Math.sin(t*.8+a.r)*.0006; a.r+=.03; if(a.y>1.05){ a.y=-.05; a.x=Math.random(); }
       ctx.save(); ctx.translate(a.x*VW,a.y*VH); ctx.rotate(a.r); ctx.fillStyle=i%3?'#e8892a':'#c9a020'; ctx.beginPath(); ctx.ellipse(0,0,5,2.4,0,0,7); ctx.fill(); ctx.restore(); }
@@ -1350,6 +1383,7 @@ function clockText(){ const h=hour(), hh=Math.floor(h), mm=Math.floor((h-hh)*6)*
   const ico = isNight() ? '🌙' : (h<7 ? '🌅' : h>=18 ? '🌇' : '☀️');
   return `${ico} ${((hh+11)%12)+1}:${String(mm).padStart(2,'0')} ${hh<12?'AM':'PM'}`; }
 const PRECIP = {
+  petals:   {rain:'🌸 Petals falling', storm:'🌸 Petal storm', start:'🌸 Petals are falling!'},
   rain:     {rain:'🌧️ Raining',        storm:'⛈️ Thunderstorm', start:'🌧️ It\'s raining!'},
   snow:     {rain:'❄️ Snowing',         storm:'🌨️ Blizzard',     start:'❄️ It\'s snowing!'},
   ash:      {rain:'🌋 Ash falling',     storm:'🌋 Eruption',     start:'🌋 Ash is falling!'},
@@ -2160,7 +2194,7 @@ function missionsHTML(board){
     <h2>👑 Boss Fish</h2><div class="list">${BOSSES.map(f=>{ const got=S.bosses[f.n]; return `<div class="mission ${got?'done':''}"><div class="e">${got?'👑':'❓'}</div><div><b>${got?f.n:'??? (a boss fish)'}</b><small>${f.hint}</small></div><span class="tag">${got?'Caught!':'$'+f.v.toLocaleString()}</span></div>`; }).join('')}</div>
     <h2>⭐ Legendary Fish</h2><div class="book">${LEGENDS.map(f=>{ const i=fishIdx(f.n), got=S.book[i]; return got?`<div><img src="${fishIcon(i)}" alt="" style="width:90px;height:45px;display:block"><b>${f.n}</b><br><i>${fishTags(f)}</i></div>`:`<div style="opacity:.65"><div style="font-size:30px">⭐</div><b>???</b><br><i>${fishTags(f)}</i></div>`; }).join('')}</div>
     ${notes.length?`<h2>🍾 Bottle Messages</h2><div class="list">${notes.map(n=>`<div class="mission" style="display:block"><small style="font-size:14px">${n}</small></div>`).join('')}</div>`:''}` : '';
-  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You saved the lake and found Grandpa!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${wheelReady()?'<div class="sellrow"><span>🎡 <b>Your free daily spin is ready!</b></span><button data-wheel>Spin the Prize Wheel</button></div>':''}${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
+  return `<div class="sellrow"><span>📖 <b>Story${S.story<STORY.length?` · Chapter ${S.story+1}: ${STORY[S.story].t}`:': complete!'}</b><br>${S.story<STORY.length?STORY[S.story].goal:'You saved the lake and found Grandpa!'}</span><span><button data-story>Read story</button> <button data-intro class="alt">🎬 Intro</button> <button data-lowmem class="alt">🔋 Small Mode: ${LOWMEM?'On':'Off'}</button> <button data-music class="alt">🎵 Music: ${S.music===false?'Off':'On'}</button> <button data-singwords class="alt">🎤 Robot singing: ${S.singWords===true?'On':'Off'}</button> <button data-modecycle class="alt">${MODE().e} Mode: ${MODE().n}</button></span></div>${wheelReady()?'<div class="sellrow"><span>🎡 <b>Your free daily spin is ready!</b></span><button data-wheel>Spin the Prize Wheel</button></div>':''}${questHTML()}${eventsHTML()}<h1>${board?'📋 Mission Board':'Missions'} <span class="money">${S.done.length}/${MISSIONS.length} done</span></h1>
   <p style="margin:4px 0 10px">Finish missions for prize money and a trophy for your cabin. 🤫 Secret missions stay hidden until you do them!</p>
   <div class="list">${MISSIONS.map(m=>{ const [h,n]=m.p(), d=S.done.includes(m.id);
     if(m.secret && !d) return `<div class="mission"><div class="e">🤫</div><div><b>??? Secret mission</b><small>Explore, find treasure and catch rare fish to find out!</small></div><span class="tag">$${m.r.toLocaleString()}</span></div>`;
@@ -2199,6 +2233,7 @@ box.addEventListener('click', e=>{
   if(b.hasAttribute('data-close')){ closePanel(); return; }
   if(b.dataset.buy || b.dataset.eq){ buyOrEquip(b); save(); checkMissions(); renderPanel(); return; }
   if(b.hasAttribute('data-pet')){ S.pet=b.dataset.pet||null; pet.set=false; save(); renderPanel(); return; }
+  if(b.hasAttribute('data-lowmem')){ try{ if(LOWMEM) localStorage.removeItem('lakeLow'); else localStorage.setItem('lakeLow','1'); localStorage.removeItem('lakeBoot'); }catch(e){} save(); location.reload(); return; }
   if(b.hasAttribute('data-fly')){ const m=b.getAttribute('data-fly'); closePanel(); if(flying()){ if(m.startsWith('w:')){ drone.dest=m.slice(2); drone.t=2.6; sky=null; toast(`🌍 Heading for ${lakeById(drone.dest).n}!`); } } else startFlight(m); return; }
   if(b.hasAttribute('data-intro')){ closePanel(); const was=started; started=false; playIntro(()=>{ started=was; }); return; }
   if(b.hasAttribute('data-usedig')){ if(S.items.digmap>0 && useDigMap()){ S.items.digmap--; closePanel(); } else renderPanel(); return; }
@@ -2621,6 +2656,16 @@ FISH.push(
 );
 Object.assign(FISH[fishIdx('The Kraken')], {boss:1, w:0, spot:'wreck', lure:['cutbait','kingbait'], needLb:130, needHook:4,
   hint:'Guards the shipwreck in the deep ocean, and only rises in a thunderstorm. 130 lb line, a 10/0 hook and cut bait.'});
+FISH.push(
+  {n:'Pumpkin Perch', v:120, w:5, c:'#e8801e', s:.8, lake:'autumn'}, {n:'Maple Trout', v:220, w:3, c:'#c84a1e', s:1, lake:'autumn', stripe:'#ffd23f'}, {n:'Acorn Bass', v:380, w:2, c:'#8a5a2a', s:1.2, lake:'autumn', minRod:1}, {n:'Harvest Pike', v:800, w:.8, c:'#a87a2a', s:1.5, lake:'autumn', minRod:2, teeth:1}, {n:'Golden Leaf Sturgeon', v:5000, w:.06, c:'#ffc23a', s:2, lake:'autumn', minRod:4, deep:1},
+  {n:'Petal Koi', v:160, w:5, c:'#ff9ac0', s:.9, lake:'blossom'}, {n:'Blossom Carp', v:260, w:3, c:'#f4c0d0', s:1.1, lake:'blossom'}, {n:'Silk Goldfish', v:420, w:2, c:'#ffb040', s:.8, lake:'blossom', minRod:1}, {n:'Jade Catfish', v:900, w:.7, c:'#3aa87a', s:1.5, lake:'blossom', minRod:2}, {n:'Moonlight Koi', v:6000, w:.05, c:'#f4f4ff', s:1.8, lake:'blossom', minRod:4, deep:1},
+  {n:'Sand Minnow', v:140, w:6, c:'#e0c080', s:.7, lake:'oasis'}, {n:'Scarab Sunfish', v:300, w:3, c:'#2aa88a', s:.9, lake:'oasis'}, {n:'Mirage Bass', v:520, w:1.6, c:'#f0d8a0', s:1.2, lake:'oasis', minRod:1}, {n:'Cobra Eel', v:1000, w:.6, c:'#c8a030', s:1.5, lake:'oasis', minRod:2}, {n:'Sun Pharaoh Fish', v:7000, w:.05, c:'#ffd23f', s:1.9, lake:'oasis', minRod:4, deep:1},
+  {n:'Glowcap Guppy', v:200, w:6, c:'#5af0d0', s:.7, lake:'shroom'}, {n:'Toadstool Trout', v:360, w:3, c:'#e04a4a', s:1, lake:'shroom', stripe:'#ffffff'}, {n:'Purple Puffball', v:620, w:1.6, c:'#a05ad8', s:.9, lake:'shroom', minRod:1}, {n:'Moss Muskie', v:1400, w:.5, c:'#6a9a4a', s:1.6, lake:'shroom', minRod:3, teeth:1}, {n:'Spore King', v:9000, w:.04, c:'#ff7ad0', s:2, lake:'shroom', minRod:5, deep:1},
+  {n:'Boo Bluegill', v:260, w:5, c:'#c8e8e0', s:.8, lake:'ghost'}, {n:'Skeleton Fish', v:480, w:3, c:'#e8e8dc', s:1, lake:'ghost', stripe:'#2a2a2a'}, {n:'Cursed Catfish', v:850, w:1.4, c:'#3a4a44', s:1.5, lake:'ghost', minRod:2}, {n:'Vampire Gar', v:1800, w:.4, c:'#8a1a2a', s:1.7, lake:'ghost', minRod:3, teeth:1}, {n:'Phantom Pike', v:11000, w:.04, c:'#8affc8', s:2, lake:'ghost', minRod:5, deep:1},
+  {n:'Doubloon Fish', v:300, w:5, c:'#ffc83a', s:.8, lake:'cove'}, {n:'Parrotfish Pete', v:520, w:3, c:'#3ad0a0', s:1, lake:'cove'}, {n:'Cutlass Fish', v:950, w:1.3, c:'#c8d4dc', s:1.4, lake:'cove', minRod:2}, {n:'Barracuda Bill', v:2000, w:.4, c:'#7a8a9a', s:1.7, lake:'cove', minRod:3, teeth:1}, {n:'Ghost Ship Shark', v:13000, w:.04, c:'#5a6a7a', s:2.2, lake:'cove', minRod:5, deep:1, teeth:1},
+  {n:'Trilobite', v:400, w:5, c:'#8a7a5a', s:.7, lake:'dino'}, {n:'Coelacanth', v:800, w:2.5, c:'#3a5a8a', s:1.4, lake:'dino', minRod:1}, {n:'Armored Dunk Fish', v:1500, w:1, c:'#5a5a54', s:1.7, lake:'dino', minRod:2, teeth:1}, {n:'Sea Lizard', v:3000, w:.4, c:'#4a7a5a', s:1.9, lake:'dino', minRod:3, teeth:1}, {n:'Megalodon', v:18000, w:.03, c:'#6a7a8a', s:2.4, lake:'dino', minRod:6, deep:1, teeth:1},
+  {n:'Cloud Minnow', v:600, w:5, c:'#f4f8ff', s:.8, lake:'cloud'}, {n:'Sunbeam Trout', v:1000, w:3, c:'#ffe48a', s:1, lake:'cloud'}, {n:'Thunder Bass', v:1800, w:1.2, c:'#7a8ac8', s:1.3, lake:'cloud', minRod:2}, {n:'Comet Ray', v:3500, w:.4, c:'#8ac8ff', s:1.7, lake:'cloud', minRod:3, ray:1}, {n:'Rainbow Whale', v:25000, w:.03, c:'#ff8ad0', s:2.4, lake:'cloud', minRod:6, deep:1}
+);
 const BOSSES=FISH.filter(f=>f.boss), LEGENDS=FISH.filter(f=>f.legend);
 const VARIANTS=['albino','gold','shadow','crystal'], VNAME={albino:'Albino',gold:'Golden',shadow:'Shadow',crystal:'Crystal'};
 const variantChance=()=>.004+(weather.type==='rainbow'?.006:0)+(S.lure==='glow'&&isNight()?.003:0)+(S.lure==='rainbowspoon'?.006:0);
@@ -4202,9 +4247,11 @@ function genProps(G, r){
   for(let k=0,t=0;k<towerN && t<200;t++){ const x=200+r()*(WW-400), y=200+r()*(WH-400); if(!ok(x,y,40)) continue; G.blinds.push({x,y,kind:'tower',look:Math.atan2(LAKE.y-y,LAKE.x-x)}); k++; }
   // the runway has its own dice, so everything else in the world stays where it was
   if(!LK.cave){ let sd=(LAKES.indexOf(LK)+1)*7919+13; const r2=()=>{ sd=(sd*16807)%2147483647; return (sd%100000)/100000; }; for(let t=0;t<4000;t++){ const a=r2()*6.283, d=1100+r2()*(1200+t*2), x=START.x+Math.cos(a)*d, y=START.y+Math.sin(a)*d*.75; if(ok(x,y,430)){ G.props.push({kind:'airstrip',x,y,rad:430}); break; } } }
+  genDeco(G);
 }
 function propBlocks(p,x,y,pad=0){
   const dx=x-p.x, dy=y-p.y;
+  if(p.kind==='deco') return !!p.big && Math.hypot(dx,dy*1.6)<p.rad*.7+pad;
   if(p.kind==='airstrip') return (dx>-300-pad && dx<-100+pad && dy>-215-pad && dy<-125+pad) || Math.hypot(dx-120,dy+135)<22+pad;
   if(p.kind==='barn') return (Math.abs(dx)<70+pad && dy>-60-pad && dy<10+pad) || Math.hypot(dx-92,dy+10)<26+pad;
   if(p.kind==='camp') return Math.hypot(dx+52,dy+12)<30+pad || Math.hypot(dx,dy)<12+pad;
@@ -4240,6 +4287,7 @@ function useProp(p){
 function drawProp(p, t){
   if(p.kind==='village'||p.kind==='hamlet') return; // drawn piece by piece in drawVillage
   if(p.kind==='airstrip'){ drawAirstrip(p,t); return; }
+  if(p.kind==='deco'){ drawDeco(p); return; }
   if(p.kind==='ramp'){ drawRamp(p); return; }
   const c=ctx, sn=season(), snow=(sn==='winter'&&LK.freezes)||LK.id==='frozen'; c.save(); c.translate(p.x,p.y);
   const sh=(w,h,ox=0)=>{ c.fillStyle=`rgba(0,0,0,${SUN.a+.05})`; c.beginPath(); c.ellipse(ox+SUN.dx*w*.3,2,w*SUN.len,h,0,0,7); c.fill(); };
@@ -4337,12 +4385,12 @@ MISSIONS.push(
 );
 
 // ----- animals are painted once per walking frame (with an outline, soft light and fur texture), then reused -----
-const AS = SMALL_DEVICE ? 1.25 : 2, WALK_FR = SMALL_DEVICE ? 6 : 8; // smaller pictures and fewer frames on phones & tablets to save memory
+const AS = LOWMEM ? 1 : SMALL_DEVICE ? 1.25 : 2, WALK_FR = LOWMEM ? 4 : SMALL_DEVICE ? 6 : 8; var spriteBytes=0; // smaller pictures and fewer frames on phones & tablets to save memory
 function animalSprite(key, w, h, paint){
   let sp=spriteCache.get(key); if(sp) return sp;
   const cv=document.createElement('canvas'); cv.width=Math.ceil(w*AS); cv.height=Math.ceil(h*AS); const c=cv.getContext('2d'); c.scale(AS,AS); c.translate(w/2,h-14);
-  const saved=ctx, sv=SUN; ctx=c; SUN={dx:0,len:0,a:0}; try{ paint(); } finally{ ctx=saved; SUN=sv; }
-  sp={cv:finishSprite(cv), w, h, ax:w/2, ay:h-14}; spriteCache.set(key, sp); return sp; }
+  const saved=ctx, sv=SUN; ctx=c; SUN={dx:0,len:0,a:0}; try{ paint(); try{ furSprite(c,key); }catch(e){} } finally{ ctx=saved; SUN=sv; }
+  sp={cv:finishSprite(cv), w, h, ax:w/2, ay:h-14}; spriteBytes+=cv.width*cv.height*8; if(SMALL_DEVICE && spriteBytes>(LOWMEM?24e6:60e6)){ for(const k of spriteCache.keys()) if(k.includes('|')) spriteCache.delete(k); spriteBytes=0; } spriteCache.set(key, sp); return sp; }
 const walkFrame=(a,moving)=> moving ? Math.floor((((a.anim%6.283)+6.283)%6.283)/6.283*WALK_FR) : 8;
 function blitAnimal(a, sp, t, moving, shW, hpY){
   const c=ctx; c.save(); c.translate(a.x,a.y);
@@ -4353,13 +4401,84 @@ function blitAnimal(a, sp, t, moving, shW, hpY){
   c.scale(a.face||1, moving?1:1+Math.sin(t*2.2+a.x*.01)*.012); // breathing when it stands still
   c.drawImage(sp.cv,-sp.ax,-sp.ay,sp.w,sp.h); c.restore();
 }
+// ===================== Real fur and real markings =====================
+var MARKS={ jaguar:['rosette','#3a2410'], cougar:['belly','#f0e4cc'], sandcat:['stripes','#a07840'], okapi:['rear','#f4f0e8'], raccoon:['saddle','#5a5a60'], redpanda:['belly','#2a1a14'], fox:['belly','#f6efe2'], arcticfox:['dapple','#d8dee4'], firefox:['belly','#ffd080'], gemfox:['dapple','#8ac8ff'], batfox:['saddle','#1a1a24'], badger:['stripes','#f0f0e8'], wolf:['saddle','#5a6068'], coyote:['saddle','#7a6240'], firewolf:['saddle','#5a1a0a'], glowwolf:['dapple','#5af0d0'], boar:['mane','#2a1e18'], lavaboar:['cracks','#ff5a1a'], javelina:['collar','#d8d0c0'], peccary:['collar','#d8d0c0'], hog:['dapple','#2a2420'], tapir:['rearsaddle','#e8e4dc'], armadillo:['bands','#6a5a4a'], elk:['mane','#4a2e1a'], caribou:['mane','#ece4d4'], moose:['mane','#1e140c'], bison:['mane','#2a1a10'], muskox:['mane','#1a120c'], goat:['dapple','#d8d4c8'], bighorn:['rump','#f0e8d8'], pronghorn:['belly','#f6f0e0'], capybara:['dapple','#6a4a2e'], nutria:['dapple','#3a2a1e'], turkey:['bands','#2a1a10'], squirrel:['belly','#f0e8d8'], chipmunk:['stripes','#2a1a10'], rabbit:['belly','#f4ece0'], hare:['dapple','#d8dce0'], jackrabbit:['belly','#efe4d0'], deer:['deerspots','#f6efe0'], bear:['dapple','#2a1a10'], polar:['dapple','#d8d4c4'], triceratops:['stripes','#3a5a2a'], raptor:['stripes','#2a4a1e'], trex:['rosette','#2e4a24'], dinobird:['stripes','#7a4a1e'], camel:['dapple','#a07c44'], gator:['bands','#2a3a1e'], gummy:['shine','#ffffff'], gummybunny:['shine','#ffffff'], stormbear:['cracks','#ffe14d'], bonebear:['dapple','#a8a494'] };
+function hash32(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0)||1; }
+function paintMarks(c,kind,x0,y0,w,h){ const M=MARKS[kind]; let sd=hash32(kind); const r=()=>{ sd=(sd*16807)%2147483647; return (sd%10000)/10000; }; if(!M) return; const [k,col]=M; c.fillStyle=col; c.strokeStyle=col; c.lineCap='round';
+  if(k==='rosette'){ const n=Math.min(170,Math.round(w*h/45)+8); for(let i=0;i<n;i++){ const x=x0+r()*w, y=y0+r()*h, q=Math.min(2.6,Math.max(1.6,h*.07)); c.lineWidth=Math.max(.8,q*.42); c.globalAlpha=.75; c.beginPath(); c.arc(x,y,q,r()*2,r()*2+4.6); c.stroke(); } c.globalAlpha=1; }
+  else if(k==='dapple'){ const n=Math.round(w*h/40)+10; c.globalAlpha=.22; for(let i=0;i<n;i++){ c.beginPath(); c.ellipse(x0+r()*w,y0+r()*h,1+r()*h*.1,1+r()*h*.05,0,0,7); c.fill(); } c.globalAlpha=1; }
+  else if(k==='deerspots'){ c.globalAlpha=.55; for(let i=0;i<14;i++){ c.beginPath(); c.arc(x0+w*(.12+r()*.62),y0+h*(.08+r()*.4),Math.max(.8,h*.035),0,7); c.fill(); } c.globalAlpha=1; }
+  else if(k==='stripes'){ c.globalAlpha=.6; c.lineWidth=Math.max(1,w*.028); for(let x=x0+w*.06;x<x0+w*.9;x+=w*.11){ c.beginPath(); c.moveTo(x,y0); c.quadraticCurveTo(x+w*.03,y0+h*.3,x-w*.015,y0+h*.62); c.stroke(); } c.globalAlpha=1; }
+  else if(k==='bands'){ c.globalAlpha=.5; c.lineWidth=Math.max(1,w*.018); for(let x=x0+w*.1;x<x0+w*.9;x+=w*.08){ c.beginPath(); c.moveTo(x,y0); c.lineTo(x,y0+h); c.stroke(); } c.globalAlpha=1; }
+  else if(k==='saddle'){ const g=c.createLinearGradient(0,y0,0,y0+h*.55); g.addColorStop(0,col+'cc'); g.addColorStop(1,col+'00'); c.fillStyle=g; c.fillRect(x0,y0-2,w,h*.6); }
+  else if(k==='belly'){ const g=c.createLinearGradient(0,y0+h*.5,0,y0+h); g.addColorStop(0,col+'00'); g.addColorStop(1,col+'ee'); c.fillStyle=g; c.fillRect(x0,y0+h*.45,w,h*.6); }
+  else if(k==='mane'){ const g=c.createLinearGradient(x0+w*.45,0,x0+w,0); g.addColorStop(0,col+'00'); g.addColorStop(1,col+'dd'); c.fillStyle=g; c.fillRect(x0+w*.4,y0-6,w*.75,h+6); }
+  else if(k==='rear'){ c.lineWidth=Math.max(1,w*.03); for(let x=x0;x<x0+w*.38;x+=w*.075){ c.beginPath(); c.moveTo(x,y0+h*.3); c.lineTo(x+w*.03,y0+h*1.4); c.stroke(); } }
+  else if(k==='rump'){ const g=c.createLinearGradient(x0,0,x0+w*.3,0); g.addColorStop(0,col+'ee'); g.addColorStop(1,col+'00'); c.fillStyle=g; c.fillRect(x0-4,y0,w*.32,h*1.2); }
+  else if(k==='rearsaddle'){ c.globalAlpha=.9; c.beginPath(); c.ellipse(x0+w*.3,y0+h*.35,w*.3,h*.5,0,0,7); c.fill(); c.globalAlpha=1; }
+  else if(k==='collar'){ c.globalAlpha=.85; c.lineWidth=Math.max(1.5,w*.05); c.beginPath(); c.moveTo(x0+w*.78,y0); c.lineTo(x0+w*.72,y0+h); c.stroke(); c.globalAlpha=1; }
+  else if(k==='cracks'){ c.globalAlpha=.85; c.lineWidth=Math.max(.8,h*.04); for(let i=0;i<7;i++){ let x=x0+r()*w, y=y0+r()*h; c.beginPath(); c.moveTo(x,y); for(let j=0;j<3;j++){ x+=(r()-.5)*w*.2; y+=(r()-.5)*h*.3; c.lineTo(x,y); } c.stroke(); } c.globalAlpha=1; }
+  else if(k==='shine'){ c.globalAlpha=.35; c.beginPath(); c.ellipse(x0+w*.55,y0+h*.22,w*.26,h*.13,-.2,0,7); c.fill(); c.globalAlpha=1; } }
+function furSprite(c,key){ const P2=key.split('|'), type=P2[0], kind=type==='deer'?'deer':P2[1]; let bw=26, top=46; if(type==='game'&&GAME[kind]){ bw=GAME[kind].w*1.05; top=GAME[kind].h+8; } else if(type==='beast'&&BEAST[kind]){ bw=BEAST[kind].bw*1.1; top=BEAST[kind].leg+BEAST[kind].bh*2+4; } else if(type!=='deer') return;
+  const y0=-top, h=top*.66; c.save(); c.globalCompositeOperation='source-atop'; paintMarks(c,kind,-bw,y0,bw*2,h);
+  let sd=hash32(kind)+7; const r=()=>{ sd=(sd*16807)%2147483647; return (sd%10000)/10000; }; c.lineWidth=.7; c.lineCap='round'; const n=LOWMEM?70:170; for(let i=0;i<n;i++){ const x=-bw*1.25+r()*bw*2.5, y=-top*1.15+r()*top*1.1, l=2+r()*3.4; c.strokeStyle=i%2?'rgba(0,0,0,.13)':'rgba(255,255,255,.1)'; c.beginPath(); c.moveTo(x,y); c.lineTo(x-l,y+l*.45); c.stroke(); }
+  const g=c.createLinearGradient(0,-top*1.1,0,0); g.addColorStop(0,'rgba(255,250,235,.16)'); g.addColorStop(.42,'rgba(0,0,0,0)'); g.addColorStop(.72,'rgba(10,10,20,.16)'); g.addColorStop(1,'rgba(10,10,20,.36)'); c.fillStyle=g; c.fillRect(-bw*3,-top*2,bw*6,top*2+20); c.restore(); }
+function furMat(kind,col){ FP.furMats=FP.furMats||new Map(); const key=kind+col; let m=FP.furMats.get(key); if(m) return m; const cv=document.createElement('canvas'); cv.width=FP.lite?128:256; cv.height=cv.width/2; const c=cv.getContext('2d'), W=cv.width, H=cv.height; c.fillStyle=col; c.fillRect(0,0,W,H); paintMarks(c,kind,0,0,W,H); let sd=hash32(key); const r=()=>{ sd=(sd*16807)%2147483647; return (sd%10000)/10000; }; c.lineWidth=1; for(let i=0;i<W*3;i++){ const x=r()*W, y=r()*H, l=2+r()*4; c.strokeStyle=i%2?'rgba(0,0,0,.14)':'rgba(255,255,255,.1)'; c.beginPath(); c.moveTo(x,y); c.lineTo(x+l*.3,y+l); c.stroke(); } const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(0,0,0,.12)'); g.addColorStop(.4,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.22)'); c.fillStyle=g; c.fillRect(0,0,W,H);
+  const tx=new THREE.CanvasTexture(cv); tx.encoding=THREE.sRGBEncoding; m=new THREE.MeshLambertMaterial({map:tx}); FP.furMats.set(key,m); return m; }
+
+// ===================== What makes each animal special =====================
+var TRAITS={ camel:[['hump','#b88c50'],['hump2','#b88c50']], triceratops:[['frill','#d8a040']], dinobird:[['plates','#e05a3a']], shroomhog:[['caps','#e04a4a']], ghostbunny:[['ghost','#8affc8']], batfox:[['wings','#2a2a3a']], cloudsheep:[['fluff','#ffffff']], cloudbunny:[['fluff','#ffffff']], pegasus:[['wings','#ffffff'],['stars','#ffe680']], gummybunny:[['stars','#fff']], glowbunny:[['glow','#5af0d0']], moonbunny:[['stars','#9af0ff']], marshsheep:[['fluff','#fff4f8']], chocomoose:[['stars','#ffb0d8']], gemfox:[['crystal','#5ad0ff']], cavegoat:[['crystal','#b48cff']], spacegoat:[['glow','#8a7aff']], moonbeast:[['glow','#5ad0ff'],['plates','#5a6a8a']], firefox:[['flame','#ff7a1a']], ashgoat:[['flame','#ff5a1a']], redpanda:[['plates','#c84a1e']],
+  firewolf:[['flame','#ff7a1a']], lavaboar:[['flame','#ff4a1a'],['plates','#3a2a24']], glowwolf:[['glow','#5af0d0']], ghostwolf:[['ghost','#8affc8']], bonebear:[['bones','#6a6a60']], raptor:[['plates','#c8501e']], trex:[['plates','#2e4a24'],['bones','#c8c4a8']], cloudwolf:[['fluff','#ffffff']], stormbear:[['bolts','#ffe14d']], sandcat:[['plates','#b89050']], gummy:[['stars','#fff']], cavebear:[['crystal','#9af0ff']] };
+function isGhost(k){ const T=TRAITS[k]; return !!(T && T.some(q=>q[0]==='ghost')); }
+function drawTraits(a,kind,bw,top,t){ const T=TRAITS[kind]; if(!T) return; const c=ctx, f=a.face||1, X=a.x, Y=a.y-top, ph=a.x*.01; c.save();
+  for(const [k,col] of T){ c.fillStyle=col; c.strokeStyle=col;
+    if(k==='hump'||k==='hump2'){ c.beginPath(); c.ellipse(X+f*bw*(k==='hump'?.32:-.28),Y+3,bw*.34,bw*.42,0,0,7); c.fill(); }
+    else if(k==='frill'){ const hx=X+f*bw*1.15, hy=Y+top*.28; c.beginPath(); c.arc(hx-f*bw*.25,hy-3,bw*.62,0,7); c.fill(); c.fillStyle='#8a6a2a'; c.beginPath(); c.arc(hx-f*bw*.25,hy-3,bw*.42,0,7); c.fill(); c.fillStyle='#f4ecd8'; for(const [dx,dy] of [[.3,-.42],[.62,-.3],[.82,.05]]){ c.beginPath(); c.moveTo(hx+f*bw*(dx-.14),hy+bw*dy+5); c.lineTo(hx+f*bw*(dx+.34),hy+bw*dy-10); c.lineTo(hx+f*bw*(dx+.04),hy+bw*dy+8); c.fill(); } }
+    else if(k==='wings'){ const fl=Math.sin(t*8+ph); for(const s of [0,1]){ c.globalAlpha=s?.75:1; c.beginPath(); c.moveTo(X+f*bw*.3,Y+6); c.quadraticCurveTo(X-f*bw*(.4+s*.3),Y-bw*(.9+fl*.6),X-f*bw*(1.3+s*.2),Y-bw*(.3+fl*.7)); c.quadraticCurveTo(X-f*bw*.5,Y+4,X-f*bw*.3,Y+8); c.fill(); } c.globalAlpha=1; }
+    else if(k==='caps'){ for(const [dx,r] of [[-.45,.3],[.05,.38],[.5,.26]]){ const x=X+f*bw*dx; c.fillStyle='#f4ecd8'; c.fillRect(x-2,Y-1,4,6); c.fillStyle=col; c.beginPath(); c.arc(x,Y,bw*r,Math.PI,0); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(x-bw*r*.3,Y-bw*r*.45,bw*r*.16,0,7); c.arc(x+bw*r*.3,Y-bw*r*.35,bw*r*.14,0,7); c.fill(); } }
+    else if(k==='fluff'){ for(let i=0;i<7;i++){ c.beginPath(); c.arc(X+bw*(-.85+i*.28),Y+3+Math.sin(i*2.1)*3,bw*.3,0,7); c.fill(); } }
+    else if(k==='plates'){ for(let i=0;i<5;i++){ const x=X-f*bw*(.75-i*.34), h=bw*(.3+.2*Math.sin(i*1.1+.6)); c.beginPath(); c.moveTo(x-bw*.14,Y+5); c.lineTo(x,Y+5-h); c.lineTo(x+bw*.14,Y+5); c.fill(); } }
+    else if(k==='bones'){ c.lineWidth=Math.max(1.5,bw*.07); c.lineCap='round'; for(let i=0;i<5;i++){ const x=X+f*bw*(-.5+i*.24); c.beginPath(); c.moveTo(x,Y+top*.14); c.quadraticCurveTo(x+f*3,Y+top*.34,x,Y+top*.52); c.stroke(); } }
+    else if(k==='glow'){ const y=Y+top*.4, g=c.createRadialGradient(X,y,2,X,y,bw*2); g.addColorStop(0,col+'88'); g.addColorStop(1,col+'00'); c.fillStyle=g; c.beginPath(); c.arc(X,y,bw*2,0,7); c.fill(); }
+    else if(k==='ghost'){ c.globalAlpha=.5+.2*Math.sin(t*3+ph); const y=Y+top*.4, g=c.createRadialGradient(X,y,2,X,y,bw*1.8); g.addColorStop(0,col+'66'); g.addColorStop(1,col+'00'); c.fillStyle=g; c.beginPath(); c.arc(X,y,bw*1.8,0,7); c.fill(); c.globalAlpha=1; }
+    else if(k==='flame'){ for(let i=0;i<4;i++){ const x=X+f*bw*(-.6+i*.4), h=bw*(.5+.25*Math.sin(t*11+i*2)); c.fillStyle=i%2?'#ffd23f':col; c.beginPath(); c.moveTo(x-bw*.16,Y+6); c.quadraticCurveTo(x-bw*.1,Y-h*.4,x,Y-h); c.quadraticCurveTo(x+bw*.1,Y-h*.4,x+bw*.16,Y+6); c.fill(); } }
+    else if(k==='crystal'){ for(const [dx,h] of [[-.45,.5],[.02,.75],[.45,.45]]){ const x=X+f*bw*dx; c.fillStyle=col; c.beginPath(); c.moveTo(x-bw*.15,Y+6); c.lineTo(x-bw*.08,Y+6-bw*h*.7); c.lineTo(x,Y+6-bw*h); c.lineTo(x+bw*.1,Y+6-bw*h*.65); c.lineTo(x+bw*.15,Y+6); c.fill(); c.fillStyle='rgba(255,255,255,.55)'; c.beginPath(); c.moveTo(x-bw*.06,Y+4); c.lineTo(x,Y+6-bw*h); c.lineTo(x+bw*.02,Y+4); c.fill(); } }
+    else if(k==='stars'){ for(let i=0;i<4;i++){ const q=t*1.6+i*1.57+ph, x=X+Math.cos(q)*bw*1.2, y=Y+top*.3+Math.sin(q)*bw*.5; c.globalAlpha=.6+.4*Math.sin(t*5+i); c.beginPath(); c.moveTo(x,y-4); c.lineTo(x+1.2,y-1.2); c.lineTo(x+4,y); c.lineTo(x+1.2,y+1.2); c.lineTo(x,y+4); c.lineTo(x-1.2,y+1.2); c.lineTo(x-4,y); c.lineTo(x-1.2,y-1.2); c.fill(); } c.globalAlpha=1; }
+    else if(k==='bolts'){ if(Math.sin(t*7+ph)>.1){ c.lineWidth=2.5; for(const s of [-1,1]){ const x=X+s*bw*.8; c.beginPath(); c.moveTo(x,Y-bw*.6); c.lineTo(x+s*5,Y-bw*.2); c.lineTo(x-s*2,Y-bw*.1); c.lineTo(x+s*4,Y+bw*.4); c.stroke(); } } } }
+  c.restore(); }
+function traits3D(g,kind,q){ const T=TRAITS[kind]; if(!g || !T) return g; const L=(q&&q.L)||14, H=(q&&q.H)||5, B=(q&&q.B)||10, top=H+B*.95;
+  for(const [k,col] of T){
+    if(k==='hump'||k==='hump2') g.add(part(SPH(),col,L*(k==='hump'?.16:-.16),top,0,L*.17,B*.42,B*.32));
+    else if(k==='frill'){ const fr=part(SPH(),col,L*.55,H+B*.95,0,B*.12,B*.6,B*.62); g.add(fr); for(const sd of [-1,0,1]){ const h=part(CONE(),'#f4ecd8',L*.78,H+B*.82+(sd?B*.18:-B*.1),sd*B*.2,B*.08,B*.42,B*.08); h.rotation.z=-1.3; g.add(h); } }
+    else if(k==='wings'){ const W=[]; for(const sd of [-1,1]){ const pv=new THREE.Group(); pv.position.set(L*.05,top,sd*B*.3); pv.add(part(SPH(),col,0,0,sd*B*.7,L*.3,B*.06,B*.7)); g.add(pv); W.push(pv); } g.userData.wings=W; }
+    else if(k==='caps'){ for(const dx of [-.28,.02,.28]){ g.add(part(CYL(),'#f4ecd8',L*dx,top,0,B*.07,B*.2,B*.07)); g.add(part(SPH(),col,L*dx,top+B*.14,0,B*.22,B*.12,B*.22)); } }
+    else if(k==='fluff'){ for(let i=0;i<7;i++){ g.add(part(SPH(),col,L*(-.42+i*.14),top-B*.05,(i%2?1:-1)*B*.14,B*.26,B*.24,B*.26)); } }
+    else if(k==='plates'){ for(let i=0;i<5;i++) g.add(part(CONE(),col,L*(-.36+i*.18),top+B*.1,0,B*.09,B*.34,B*.05)); }
+    else if(k==='bones'){ for(let i=0;i<5;i++) g.add(part(BOX(),col,L*(-.24+i*.12),H+B*.55,0,L*.03,B*.1,B*.92)); }
+    else if(k==='flame'){ for(let i=0;i<4;i++) g.add(part(CONE(),i%2?'#ffd23f':col,L*(-.3+i*.2),top+B*.1,0,B*.12,B*.42,B*.12)); }
+    else if(k==='crystal'){ for(const dx of [-.22,.02,.24]) g.add(part(CONE(),col,L*dx,top+B*.14,0,B*.12,B*.56,B*.12)); }
+    else if(k==='ghost'){ g.traverse(o=>{ if(o.material){ o.material=o.material.clone(); o.material.transparent=true; o.material.opacity=.55; } o.castShadow=false; }); }
+    else if(k==='stars'||k==='glow'||k==='bolts'){ for(let i=0;i<3;i++) g.add(part(SPH(),col,L*(-.3+i*.3),top+B*(.4+.2*(i%2)),(i-1)*B*.3,1.4,1.4,1.4)); } }
+  return g; }
+
+// ===================== What makes each world special =====================
+var WSKY={ autumn:['#4a7ac0','#f0c080','#d8b070'], blossom:['#6aa8e8','#ffd8e8','#f8c8d8'], oasis:['#3a90d8','#ffe0a0','#f0c880'], shroom:['#1a0a4a','#7a3ab0','#c070d0'], ghost:['#0a1218','#203a38','#3a5a50'], cove:['#1a90e8','#a0ecf8','#d0f4f0'], dino:['#a05a3a','#e8a860','#b89860'], cloud:['#5ab0ff','#d8f0ff','#ffffff'] };
+var WAMB={ autumn:{c:['#e8892a','#c84a1e','#f4b82a'],n:26,leaf:1}, blossom:{c:['#ffb0d0','#ffd8e8','#fff'],n:32,leaf:1}, oasis:{c:['rgba(235,205,140,.55)'],n:28,side:1}, shroom:{c:['#5af0d0','#ff7ad0','#ffe14d'],n:26,up:1}, ghost:{c:['rgba(140,255,200,.4)','rgba(220,240,240,.3)'],n:16,up:1,big:1}, cove:{c:['rgba(255,255,255,.5)'],n:12,side:1}, dino:{c:['rgba(255,240,200,.35)'],n:18,up:1}, cloud:{c:['#fff','#ffe680'],n:24,up:1} };
+function emojiSprite(e,px){ px=Math.round(px/8)*8; const key='emoji:'+e+':'+px; let sp=spriteCache.get(key); if(sp) return sp; const cv=document.createElement('canvas'), m=Math.ceil(px*1.3); cv.width=cv.height=m; const c=cv.getContext('2d'); c.font=`${px}px ${FONT}`; c.textAlign='center'; c.textBaseline='middle'; c.fillStyle='#000'; c.fillText(e,m/2,m/2); sp={cv,m}; spriteCache.set(key,sp); return sp; }
+function genDeco(G){ const W=WDECO[LK.id]; if(!W) return; let sd=(LAKES.indexOf(LK)+5)*48271; const r=()=>{ sd=(sd*16807)%2147483647; return (sd%100000)/100000; };
+  const free=(x,y,rad)=> !caveWall(x,y,rad) && x>300 && y>300 && x<WW-300 && y<WH-300 && shoreDist(x,y)>TRAIL_OFF+rad+40 && !G.rivers.some(R=>riverDist(R,x,y)<R.w/2+rad+40) && !G.ponds.some(p=>Math.hypot(p.x-x,p.y-y)<p.rx+rad+120) && Math.hypot(x-SHOP.x,y-SHOP.y)>rad+300 && Math.hypot(x-CABIN.x,y-CABIN.y)>rad+300 && !G.treasures.some(q=>Math.hypot(q.x-x,q.y-y)<rad+70) && !G.fields.some(f=>Math.hypot(f.x-x,f.y-y)<rad+Math.hypot(f.w,f.h)/2+30) && !G.blinds.some(b=>Math.hypot(b.x-x,b.y-y)<rad+70) && !G.props.some(o=>Math.hypot(o.x-x,o.y-y)<o.rad+rad+30);
+  for(let k=0,t=0;k<7&&t<500;t++){ const a=r()*6.283, d=1300+r()*4200, x=LAKE.x+Math.cos(a)*d, y=LAKE.y+Math.sin(a)*d*.72, size=180+r()*120, rad=size*.38; if(!free(x,y,rad)) continue; G.props.push({kind:'deco',big:1,e:W.b[k%W.b.length],size,x,y,rad}); k++; }
+  for(let k=0,t=0;k<70&&t<900;t++){ const x=320+r()*(WW-640), y=320+r()*(WH-640), size=38+r()*30; if(!free(x,y,20)) continue; G.props.push({kind:'deco',e:W.s[k%W.s.length],size,x,y,rad:20}); k++; } }
+function drawDeco(p){ const sp=emojiSprite(p.e,p.size), m=p.size*1.3, c=ctx; c.fillStyle='rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(p.x,p.y,p.size*.36,p.size*.1,0,0,7); c.fill(); c.drawImage(sp.cv,p.x-m/2,p.y-m*.84,m,m); }
+function fpDeco(sc){ const tex=new Map(); for(const p of GEO.props) if(p.kind==='deco'){ let tx=tex.get(p.e); if(!tx){ tx=new THREE.CanvasTexture(emojiSprite(p.e,FP.lite?96:160).cv); tx.encoding=THREE.sRGBEncoding; tex.set(p.e,tx); } const mat=new THREE.SpriteMaterial({map:tx, alphaTest:.3, toneMapped:false}), s3=new THREE.Sprite(mat), m=p.size*1.3; s3.scale.set(m,m,1); s3.center.set(.5,.16); s3.position.set(p.x,hillAt(p.x,p.y),p.y); sc.add(s3); FP.sprites.push({mat,x:p.x,z:p.y}); } }
+
 function drawGame(a, t){
   const g=GAME[a.kind]; if(a.hide) return;
   if(a.climb) return drawGameRaw(a,t);
   const moving=Math.hypot(a.vx,a.vy)>8, strut=a.kind==='turkey' && !moving && Math.sin(t*.5+a.x)>.4, fr=strut?9:walkFrame(a,moving);
   const w=Math.round(2*(g.w*1.6+34)), h=Math.round(g.h*1.9+46);
   const sp=animalSprite(`game|${a.kind}|${a.bull?1:0}|${fr}`, w, h, ()=>drawGameRaw({kind:a.kind,x:0,y:0,vx:moving?20:0,vy:0,anim:fr<8?fr/WALK_FR*6.283+.4:0,hp:1,max:1,face:1,bull:a.bull}, fr===9?2:7));
-  blitAnimal(a, sp, t, moving, g.w, -(g.h+14));
+  const gh=isGhost(a.kind); if(gh) ctx.globalAlpha=.6; blitAnimal(a, sp, t, moving, g.w, -(g.h+14)); ctx.globalAlpha=1; drawTraits(a,a.kind,g.w*.9,g.h+6,t);
 }
 function drawDeer(d){
   const moving=!!(d.vx||d.vy), fr=walkFrame(d,moving);
@@ -4371,10 +4490,12 @@ function drawDeer(d){
 function drawBeast(a){
   const s=BEAST[a.kind], moving=!!(a.vx||a.vy), fr=walkFrame(a,moving), w=Math.round(s.bw*4+90), h=Math.round(s.leg+s.bh*2+s.head*2+70);
   const sp=animalSprite(`beast|${a.kind}|${a.chasing?1:0}|${fr}`, w, h, ()=>drawBeastRaw({kind:a.kind,x:0,y:0,vx:moving?1:0,vy:0,anim:fr<8?fr/WALK_FR*6.283:0,hp:1,max:1,face:1,chasing:a.chasing}));
-  blitAnimal(a, sp, performance.now()/1000, moving, s.bw*.9, -(s.leg+s.bh*2+s.head+16));
+  const gh=isGhost(a.kind), t2=performance.now()/1000; if(gh) ctx.globalAlpha=.6; blitAnimal(a, sp, t2, moving, s.bw*.9, -(s.leg+s.bh*2+s.head+16)); ctx.globalAlpha=1; drawTraits(a,a.kind,s.bw*1.1,s.leg+s.bh*2+4,t2);
 }
 
 // ===================== Land vehicles: 4-wheelers, dirt bikes & Rangers =====================
+Object.assign(BEAST,{ sandcat:{...BEAST.cougar,n:'Sand Cat',col:'#e0c080'}, ghostwolf:{...BEAST.wolf,n:'Ghost Wolf',col:'#c8e8dc',hp:6,val:220}, bonebear:{...BEAST.bear,n:'Bone Bear',col:'#e8e4d4',hp:16,val:600}, raptor:{...BEAST.jaguar,n:'Raptor',col:'#5a8a3a',hp:7,val:500}, trex:{...BEAST.bear,n:'T-Rex',col:'#4a6a34',hp:30,val:2500,bw:46,bh:24,leg:20,head:18,lw:9,spd:165}, cloudwolf:{...BEAST.wolf,n:'Cloud Wolf',col:'#e8f0fa',hp:7,val:400}, stormbear:{...BEAST.bear,n:'Storm Bear',col:'#6a7a9a',hp:20,val:900} });
+Object.assign(GAME,{ camel:{...GAME.elk,n:'Camel',e:'🐪',col:'#d0a868',val:(GAME.elk.val||200)}, shroomhog:{...GAME.hog,n:'Spore Hog',e:'🐗',col:'#9a5ad0'}, ghostbunny:{...GAME.rabbit,n:'Ghost Bunny',e:'👻',col:'#e0f0ea',val:70}, batfox:{...GAME.fox,n:'Bat Fox',e:'🦇',col:'#3a3a4a',val:(GAME.fox.val||80)*2}, triceratops:{...GAME.bison,n:'Triceratops',e:'🦕',col:'#6a9a4a',val:(GAME.bison.val||400)*2}, dinobird:{...GAME.pronghorn,n:'Runner Dino',e:'🦖',col:'#c8883a'}, cloudsheep:{...GAME.goat,n:'Cloud Sheep',e:'🐑',col:'#f8fbff',val:(GAME.goat.val||120)*2}, cloudbunny:{...GAME.rabbit,n:'Cloud Bunny',e:'🐇',col:'#eaf4ff',val:120}, pegasus:{...GAME.elk,n:'Pegasus',e:'🦄',col:'#fffaf4',val:(GAME.elk.val||200)*4} });
 const VEH = {
   atv:    {n:'4-Wheeler',        e:'🛻', p:1500, s:340, cargo:5,  col:'#d33a2c', d:'Zoom across the land! Holds 5 more fish on the rack'},
   bike:   {n:'Dirt Bike',        e:'🏍️', p:2200, s:430, cargo:0,  col:'#2e9a54', d:'The fastest! Big air off the dirt jumps'},
@@ -5512,15 +5633,15 @@ function drawJungleTop(t){ if(LK.id!=='jungle') return; for(const m of monkeys) 
 
 // ===================== First person: real 3D animals and people (instead of flat cut-outs) =====================
 const G3={}; function g3(k,mk){ return G3[k]||(G3[k]=mk()); }
-function fpMat(col){ FP.mats=FP.mats||new Map(); let m=FP.mats.get(col); if(!m){ m=new THREE.MeshLambertMaterial({color:new THREE.Color(col).convertSRGBToLinear(), flatShading:true}); FP.mats.set(col,m); } return m; }
+function fpMat(col){ FP.mats=FP.mats||new Map(); let m=FP.mats.get(col); if(!m){ m=new THREE.MeshLambertMaterial({color:new THREE.Color(col).convertSRGBToLinear(), flatShading:false}); FP.mats.set(col,m); } return m; }
 function part(geo,col,x,y,z,sx=1,sy=1,sz=1){ const m=new THREE.Mesh(geo,fpMat(col)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow=!FP.lite; return m; }
 const SPH=()=>g3('sph',()=>new THREE.SphereGeometry(1,12,9)), CYL=()=>g3('cyl',()=>new THREE.CylinderGeometry(1,1,1,8)), CONE=()=>g3('cone',()=>new THREE.ConeGeometry(1,1,7)), BOX=()=>g3('box',()=>new THREE.BoxGeometry(1,1,1));
 // four-legged animal, facing +x. spec: L body length, H leg height, B body height, neck, headL, neckA (lean), col, dk, antlers, horns, hump
-function buildQuad(q){ const g=new THREE.Group(), {L,H,B,col,dk}=q;
-  const body=part(SPH(),col,0,H+B*.5,0,L*.5,B*.5,B*.44); g.add(body); if(q.hump) g.add(part(SPH(),dk,L*.18,H+B*.95,0,L*.28,B*.4,B*.4));
+function buildQuad(q,kind){ const g=new THREE.Group(), {L,H,B,col,dk}=q;
+  const fm=furMat(kind||'x',col), body=part(SPH(),col,0,H+B*.5,0,L*.5,B*.5,B*.44); body.material=fm; g.add(body); { const ch=part(SPH(),col,L*.26,H+B*.54,0,L*.25,B*.54,B*.46), hu=part(SPH(),col,-L*.28,H+B*.56,0,L*.25,B*.52,B*.45); ch.material=fm; hu.material=fm; g.add(ch); g.add(hu); } if(q.hump) g.add(part(SPH(),dk,L*.18,H+B*.95,0,L*.28,B*.4,B*.4));
   g.add(part(SPH(),q.belly||col,0,H+B*.32,0,L*.4,B*.28,B*.36));
   const legs=[]; for(const [lx,lz,ph] of [[L*.3,B*.2,0],[L*.3,-B*.2,Math.PI],[-L*.3,B*.2,Math.PI],[-L*.3,-B*.2,0]]){ const pv=new THREE.Group(); pv.position.set(lx,H+B*.25,lz); const lw=Math.max(1.3,B*.1);
-    pv.add(part(CYL(),dk,0,-(H+B*.25)/2,0,lw,H+B*.25,lw)); pv.add(part(BOX(),'#1c1610',lw*.3,-(H+B*.25)+1,0,lw*2.2,2,lw*2)); pv.userData.ph=ph; g.add(pv); legs.push(pv); }
+    pv.add(part(SPH(),col,0,-(H+B*.25)*.18,0,lw*1.7,(H+B*.25)*.3,lw*1.6)); pv.add(part(CYL(),dk,0,-(H+B*.25)/2,0,lw*.8,H+B*.25,lw*.8)); pv.add(part(BOX(),'#1c1610',lw*.3,-(H+B*.25)+1,0,lw*2.2,2,lw*2)); pv.userData.ph=ph; g.add(pv); legs.push(pv); }
   const nk=new THREE.Group(); nk.position.set(L*.4,H+B*.65,0); nk.rotation.z=-q.neckA; nk.add(part(CYL(),col,0,q.neck/2,0,B*.17,q.neck,B*.17));
   const hd=q.headL; nk.add(part(SPH(),col,hd*.35,q.neck+hd*.1,0,hd*.62,hd*.34,hd*.3)); nk.add(part(SPH(),q.nose||dk,hd*.9,q.neck,0,hd*.2,hd*.18,hd*.2));
   for(const sd of [-1,1]){ const ear=part(CONE(),col,-hd*.05,q.neck+hd*.42,sd*hd*.24,hd*.13,hd*.38,hd*.07); ear.rotation.x=sd*.5; nk.add(ear); nk.add(part(SPH(),'#111111',hd*.55,q.neck+hd*.2,sd*hd*.24,hd*.07,hd*.07,hd*.07)); }
@@ -5610,12 +5731,12 @@ function fpModels(t){ if(FP.modelScene!==FP.scene){ FP.models=new Map(); FP.mode
     if(U.wings) U.wings.forEach((w,i)=>w.rotation.x=(i?1:-1)*Math.sin(t*(key==='owl'?6:14)+o.x)*.6); if(U.tail && U.tail.rotation) U.tail.rotation.y=Math.sin(t*(moving?8:2)+o.x)*.25;
     if(U.fan) U.fan.scale.setScalar(moving?.6:1); if(U.waddle){ m.rotation.order='YXZ'; m.rotation.x=moving?Math.sin(anim*1.4)*.18:0; } m.rotation.z=o.trapped>0?Math.sin(t*30)*.06:0; if(U.jaw) U.jaw.rotation.z=-Math.max(0,Math.sin(t*1.3+o.x))*.3; };
   const ang=(o)=>{ const m=Math.hypot(o.vx||0,o.vy||0)>3; return m?Math.atan2(o.vy,o.vx):((o.face||1)>0?0:Math.PI); };
-  for(const d of deer) if(!d.dead){ place(d,'deer',()=>{ const q=quadSpec(d,'deer'), g=buildQuad(q); g.scale.setScalar(q.s); return g; },0,ang(d),!!(d.vx||d.vy),d.anim||0); }
+  for(const d of deer) if(!d.dead){ place(d,'deer',()=>{ const q=quadSpec(d,'deer'), g=buildQuad(q,'deer'); g.scale.setScalar(q.s); return g; },0,ang(d),!!(d.vx||d.vy),d.anim||0); }
   for(const a of game) if(!a.hide && !a.climb && !a.dead){ const q=quadSpec(a,'game'), G=GAME[a.kind], mv=Math.hypot(a.vx,a.vy)>8;
-    const mk = q ? ()=>buildQuad(q) : G.look==='rabbit' ? ()=>buildRabbit(G.col,G.bigEars||a.kind==='jackrabbit'||a.kind==='hare',a.kind==='jackrabbit'?1.15:1) : G.look==='squirrel' ? ()=>buildSquirrel(G.col) : G.look==='pdog' ? ()=>buildPdog(G.col) : G.look==='turkey' ? ()=>buildTurkey(G.col) : null;
-    if(mk) place(a,'game',mk,0,ang(a),mv,a.anim||0); }
-  for(const b of beasts) if(!b.dead){ const q=quadSpec(b,'beast'), L=BEAST[b.kind].look, mk = q ? ()=>buildQuad(q) : L==='gator' ? ()=>buildGator(BEAST[b.kind].col,b.kind==='croc') : L==='crab' ? ()=>buildCrab(BEAST[b.kind].col,b.kind==='kingcrab') : null;
-    if(mk) place(b,'beast',mk,0,L==='crab'?ang(b)+1.57:ang(b),!!(b.vx||b.vy),b.anim||0); }
+    const mk = q ? ()=>buildQuad(q,a.kind) : G.look==='rabbit' ? ()=>buildRabbit(G.col,G.bigEars||a.kind==='jackrabbit'||a.kind==='hare',a.kind==='jackrabbit'?1.15:1) : G.look==='squirrel' ? ()=>buildSquirrel(G.col) : G.look==='pdog' ? ()=>buildPdog(G.col) : G.look==='turkey' ? ()=>buildTurkey(G.col) : null;
+    if(mk) place(a,'game',()=>traits3D(mk(),a.kind,q),0,ang(a),mv,a.anim||0); }
+  for(const b of beasts) if(!b.dead){ const q=quadSpec(b,'beast'), L=BEAST[b.kind].look, mk = q ? ()=>buildQuad(q,b.kind) : L==='gator' ? ()=>buildGator(BEAST[b.kind].col,b.kind==='croc') : L==='crab' ? ()=>buildCrab(BEAST[b.kind].col,b.kind==='kingcrab') : null;
+    if(mk) place(b,'beast',()=>traits3D(mk(),b.kind,q),0,L==='crab'?ang(b)+1.57:ang(b),!!(b.vx||b.vy),b.anim||0); }
   for(const o of owls) place(o,'owl',buildOwl,58+Math.sin(t*2+o.x)*3,ang(o),false,0);
   if(bigfoot) place(bigfoot,'bigfoot',buildBigfoot,0,ang(bigfoot),true,bigfoot.anim||0);
   if(LK.id==='jungle'){ for(const m of monkeys) if(m.tree){ m._c3=m._c3||{}; m._c3.x=m.x; m._c3.y=m.y; m._c3.face=m.face; place(m._c3,'monkey',()=>buildMonkey(m.c),(m.tree.r||30)*1.15+(m.lift||0),m.face>0?0:Math.PI,false,0); }
@@ -6006,7 +6127,7 @@ function paintTree(c, r, k, type){
   c.fillStyle= type==='swamp' ? '#4a3a24' : '#6b4423'; c.fillRect(-6,-r*.95,12,r*.95);
   c.strokeStyle='rgba(0,0,0,.25)'; c.lineWidth=1.2; for(const bx of [-3,1,4]){ c.beginPath(); c.moveTo(bx,-2); c.lineTo(bx+(bx%2),-r*.85); c.stroke(); }
   const sn = NOSEASON.includes(LK.id) ? 'summer' : season();
-  let g = type==='jungle' ? ['#123a16','#1c5220','#266a2a','#348036'] : type==='swamp' ? ['#2a3a1e','#34482a','#425a32','#506a3a'] : k<.5 ? ['#2a6226','#367f30','#46993e','#5cb552'] : ['#205026','#2a7034','#368a44','#4aa45a'];
+  let g = LK.T.leaves ? LK.T.leaves : type==='jungle' ? ['#123a16','#1c5220','#266a2a','#348036'] : type==='swamp' ? ['#2a3a1e','#34482a','#425a32','#506a3a'] : k<.5 ? ['#2a6226','#367f30','#46993e','#5cb552'] : ['#205026','#2a7034','#368a44','#4aa45a'];
   const pine = type==='snowpine' || type==='pine' || (type==='mix' && k>.75);
   if(sn==='fall' && !pine) g = k<.5 ? ['#8a3a18','#b8561e','#d8782a','#f0b040'] : ['#7a2a1a','#a8401e','#c9602a','#e8a03a'];
   if(sn==='winter' && LK.freezes && !pine && type!=='swamp'){ // bare winter tree with snow on the branches
@@ -6078,6 +6199,16 @@ const VSTYLE={
   jungle:{v:'Vine Village',n:'Leaf Hut',k:'leaf',names:['Jungle Jo','Vine Vic','Monkey Mel','Banana Ben','Parrot Pia','Tiki Tom']},
   crystal:{v:'Glowshroom Grotto',n:'Mushroom House',k:'mushroom',names:['Gnome Gus','Glow Gwen','Pebble Pip','Shimmer Sid','Crystal Cass','Mossy Mo']},
   moon:{v:'Moon Base Alpha',n:'Moon Dome',k:'dome',names:['Astro Al','Comet Cleo','Rocket Rex','Star Stella','Orbit Ollie','Luna Lu']} };
+Object.assign(VSTYLE,{
+  autumn:{v:'Harvest Hollow',n:'Barn House',k:'cottage',names:['Pumpkin Pam','Hay Hank','Acorn Al','Cider Cy','Maple May','Rake Ray']},
+  blossom:{v:'Petal Village',n:'Tea House',k:'chalet',names:['Sakura Sue','Petal Paul','Koi Kay','Tea Tom','Lantern Lin','Breeze Bo']},
+  oasis:{v:'Palm Springs Camp',n:'Sand Tent',k:'adobe',names:['Camel Cal','Dune Dee','Sultan Sam','Sandy Sal','Mirage Mo','Palm Pat']},
+  shroom:{v:'Sporeville',n:'Toadstool Home',k:'mushroom',names:['Spore Sid','Cap Cammie','Morel Mo','Fungus Fay','Truffle Ty','Glow Gia']},
+  ghost:{v:'Boo Hollow',n:'Crooked House',k:'stilt',names:['Spooky Sam','Ghoul Gail','Boo Bert','Creaky Kim','Wisp Will','Moaning Mo']},
+  cove:{v:'Skull Harbor',n:'Pirate Shack',k:'beach',names:['Peg Leg Pat','Salty Sal','Cannon Cole','Mate Mabel','Hook Hal','Barnacle Bea']},
+  dino:{v:'Fossil Falls',n:'Cave Hut',k:'leaf',names:['Ug','Rocky Ron','Fossil Fran','Digger Dot','Bone Bob','Tooth Tess']},
+  cloud:{v:'Sky Haven',n:'Cloud Cottage',k:'dome',names:['Fluffy Flo','Breezy Bo','Nimbus Ned','Rainbow Ria','Sunny Sid','Wings Wes']},
+});
 const VCOLS=['#f2d8a8','#cfe4f4','#f4cccc','#d8ecc0','#f6e2b0','#e2d2f4'], VROOF=['#b8352a','#3a6ab8','#2f7a3a','#8a4a2a','#a0307a','#c8862a'];
 const RENT=100;
 function totalHouses(){ return Object.values(S.village||{}).reduce((a,l)=>a+l.length,0); }
@@ -6973,7 +7104,7 @@ function drawWaterLooks(t, vw, vh){ if(LK.id==='volcano') return; const c=ctx, d
   c.save(); c.lineCap='round'; c.strokeStyle=`rgba(255,255,255,${.28+.1*Math.sin(t*1.3)})`; c.lineWidth=3; c.setLineDash([18,26]); c.lineDashOffset=-t*10; lakePath(c,.99,-6); c.stroke();
   if(!touchMode && !perfS.lvl){ c.strokeStyle='rgba(255,255,255,.16)'; c.lineWidth=2; c.setLineDash([10,34]); c.lineDashOffset=t*7; lakePath(c,.975,-14); c.stroke(); } c.restore(); }
 // warm morning & golden evening light over the top-down view (cartoon-style color, nothing too dark)
-function drawGrade(){ if(FP.on || P.room || LK.dark || LK.space || touchMode || perfS.lvl) return; const h=hour(); let col=null, a=0;
+function drawGrade(){ if(FP.on || P.room || LK.dark || LK.space || LOWMEM || perfS.lvl) return; const h=hour(); let col=null, a=0;
   if(h>=5.5 && h<9){ col='255,190,110'; a=.13*(1-(h-5.5)/3.5); } else if(h>=16 && h<19.5){ col='255,140,70'; a=.15*((h-16)/3.5); } else if(h>=9 && h<16){ col='255,250,220'; a=.035; }
   if(!col) return; ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); const g=ctx.createLinearGradient(0,0,VW*.6,VH); g.addColorStop(0,`rgba(${col},${a*1.6})`); g.addColorStop(1,`rgba(${col},${a*.3})`); ctx.fillStyle=g; ctx.globalAlpha=.55; ctx.fillRect(0,0,VW,VH); ctx.restore(); }
 function drawScreenFx(t, n){
@@ -7086,11 +7217,11 @@ function fpTex(canvas){ let t=FP.tex.get(canvas); if(!t){ t=new THREE.CanvasText
 function fpToggle(){
   if(typeof THREE==='undefined'){ toast('First person needs an internet connection to load the 3D graphics'); return; }
   if(!FP.r){
-    FP.lite = touchMode || perfS.lvl>0; // phones (and slow computers) get a lighter version
+    FP.lite = touchMode || LOWMEM || perfS.lvl>0; // phones (and slow computers) get a lighter version
     FP.r = new THREE.WebGLRenderer({antialias:!FP.lite}); FP.r.domElement.id='gl';
     FP.r.domElement.addEventListener('webglcontextlost', e=>{ e.preventDefault(); if(FP.on){ FP.lost=true; fpToggle(); toast('👁️ First person took a little break. Tap 👁️ to go back in'); } }, false);
     FP.r.domElement.addEventListener('webglcontextrestored', ()=>{ FP.lost=false; FP.lake=null; FP.roomSc={}; }, false);
-    FP.r.shadowMap.enabled=true; FP.r.shadowMap.type=FP.lite?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
+    FP.r.shadowMap.enabled=!LOWMEM; FP.r.shadowMap.type=FP.lite?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
     FP.r.outputEncoding=THREE.sRGBEncoding; FP.r.toneMapping=THREE.ACESFilmicToneMapping; FP.r.toneMappingExposure=1.1;
     document.body.insertBefore(FP.r.domElement, cv); if(!FP.lite) FP.r.domElement.style.filter='saturate(1.12) contrast(1.05)';
     FP.cam = new THREE.PerspectiveCamera(70, 1, .5, 14000);
@@ -7222,7 +7353,7 @@ function fpBuild(){
   const G={trunk:new THREE.CylinderGeometry(.7,1,1,7), blob:new THREE.IcosahedronGeometry(1,FP.lite?0:1), cone:new THREE.ConeGeometry(1,1,9), frond:new THREE.ConeGeometry(1,1,4)};
   const M={bark:new THREE.MeshLambertMaterial({color:lin('#5a3c22')}), leaf:new THREE.MeshLambertMaterial({color:0xffffff}), dark:new THREE.MeshLambertMaterial({color:lin('#1c1410')}), snow:new THREE.MeshLambertMaterial({color:lin('#f4f8ff')})};
   const type=T.trees, sn=NOSEASON.includes(LK.id)?'summer':season();
-  let greens = type==='jungle'?['#163e18','#1f5a22','#2a6e2c','#246028'] : type==='swamp'?['#2e3e20','#3a4e28','#465c30'] : ['#2f6a28','#3c7f30','#4a9440','#2a5e2a'];
+  let greens = LK.T.leaves ? LK.T.leaves : type==='jungle'?['#163e18','#1f5a22','#2a6e2c','#246028'] : type==='swamp'?['#2e3e20','#3a4e28','#465c30'] : ['#2f6a28','#3c7f30','#4a9440','#2a5e2a'];
   if(sn==='fall') greens=['#a8481e','#c8642a','#e09a3a','#b83a1e']; if(sn==='winter' && LK.freezes) greens=['#e8eef4','#f4f8fc','#dfe8f0']; if(sn==='spring') greens=['#4a9a40','#5cb552','#7ac86a','#ffd0e8'];
   for(const t of trees){
     const r=t.r, x=t.x, z=t.y, y0=hillAt(x,z), rnd=k=>((Math.sin(t.x*12.9+t.y*78.2+k*37.7)*43758.5)%1+1)%1;
@@ -7275,7 +7406,7 @@ function fpBuild(){
   FP.grassU={value:0};
   bmat.onBeforeCompile=sh=>{ sh.uniforms.uTime=FP.grassU; sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
     '#include <begin_vertex>\n float sway = sin(uTime*2.0 + instanceMatrix[3].x*0.05 + instanceMatrix[3].z*0.03) * position.y * 2.2; transformed.x += sway; transformed.z += sway*0.4;'); };
-  const want = T.trees==='dead'?2500 : T.trees==='snowpine'||T.trees==='cactus'?5000 : FP.lite?18000:100000;
+  const want = T.trees==='dead'?2500 : T.trees==='snowpine'||T.trees==='cactus'?5000 : LOWMEM?7000:FP.lite?18000:100000;
   const grassM=new THREE.InstancedMesh(bgeo,bmat,want); let gi=0;
   for(let k=0;k<want*3 && gi<want;k++){ const x=40+Math.random()*(WW-80), z=60+Math.random()*(WH-100);
     if(!landFree(x,z,28)) continue;
@@ -7345,7 +7476,7 @@ function fpBuild(){
       for(const [bx,bz] of [[-90,70],[60,-20]]){ const x=V.x+bx, z=V.y+bz, y=at(x,z); add3(new THREE.Mesh(new THREE.BoxGeometry(44,4,12),L(null,'#8a5a2e')),x,y+10,z); add3(new THREE.Mesh(new THREE.BoxGeometry(44,10,3),L(null,'#8a5a2e')),x,y+18,z-6); } }
     else { for(let k2=0;k2<8;k2++){ const a=k2/8*6.283; add3(new THREE.Mesh(SPH(),L(null,'#7a7a80')),wx+Math.cos(a)*14,wy+3,wz+Math.sin(a)*14).scale.set(5,4,5); } add3(new THREE.Mesh(new THREE.ConeGeometry(8,20,8),new THREE.MeshBasicMaterial({color:0xff8a2a})),wx,wy+10,wz); }
     const sz=V.y+(big?260:130); add3(new THREE.Mesh(new THREE.BoxGeometry(5,40,5),L(null,'#6a4422')),V.x,at(V.x,sz)+20,sz); add3(new THREE.Mesh(new THREE.BoxGeometry(big?140:110,22,4),[L(null,'#5a3418'),L(null,'#5a3418'),L(null,'#5a3418'),L(null,'#5a3418'),L(signT(vTown(V))),L(null,'#5a3418')]),V.x,at(V.x,sz)+44,sz); } }
-  fpSkyBuild(sc);
+  fpSkyBuild(sc); fpDeco(sc);
   { const ap=airstrip(); if(ap){ house({x:ap.x-200, z:ap.y-170, w:200, d:90, H:74, rh:30, wall:planks, roof:'#8a9298', trim:'#e8e8ec', doorW:130, doorH:62, doorCol:'#2a2a30', wins:[]});
       const ty=hillAt(ap.x+120,ap.y-135); mesh(new THREE.CylinderGeometry(9,12,110,10), L(null,'#6a6a70'), ap.x+120, ty+55, ap.y-135, sc); mesh(new THREE.BoxGeometry(56,30,56), L(null,'#d8d8dc'), ap.x+120, ty+125, ap.y-135, sc); mesh(new THREE.BoxGeometry(60,12,60), L(null,'#6ac0e8'), ap.x+120, ty+128, ap.y-135, sc, false);
       if(S.runway){ const pg=buildPlane3D(planeSpec(S.planeSel).col); pg.position.set(ap.x-200, hillAt(ap.x-200,ap.y-90)+16, ap.y-90); pg.rotation.y=Math.PI; sc.add(pg); } } }
@@ -7444,7 +7575,7 @@ function fpFrame(t){
   const n=nightAmt(), wt=weather.type==='storm'?.55:weather.type==='rain'?.3:0, dark=1-(1-n)*(1-wt), h=hour();
   const az=(h-6)/12*Math.PI, el=Math.sin(Math.max(0,Math.min(Math.PI,az)))*1.05+.08;
   const sunDir=new THREE.Vector3(Math.cos(az), Math.max(.12,el), -.45).normalize();
-  const base = LK.id==='volcano' ? ['#6a3a30','#c07050','#3a2a24'] : LK.id==='candy' ? ['#ff9ad8','#ffd8f0','#d8a0c8'] : LK.id==='crystal' ? ['#0a0620','#2a1a5a','#3a2a6a'] : LK.id==='moon' ? ['#000006','#0a0a26','#2a2a44'] : LK.id==='jungle' ? ['#4a8ac8','#b8e0c8','#8ac88a'] : ['#3d7fd8','#a8d4ff','#c8dcc0'];
+  const base = WSKY[LK.id] ? WSKY[LK.id] : LK.id==='volcano' ? ['#6a3a30','#c07050','#3a2a24'] : LK.id==='candy' ? ['#ff9ad8','#ffd8f0','#d8a0c8'] : LK.id==='crystal' ? ['#0a0620','#2a1a5a','#3a2a6a'] : LK.id==='moon' ? ['#000006','#0a0a26','#2a2a44'] : LK.id==='jungle' ? ['#4a8ac8','#b8e0c8','#8ac88a'] : ['#3d7fd8','#a8d4ff','#c8dcc0'];
   const top=new THREE.Color(base[0]), mid=new THREE.Color(base[1]), bot=new THREE.Color(base[2]);
   const sunset = (h>=16.5&&h<20)?Math.sin((h-16.5)/3.5*Math.PI):(h>=5&&h<7.5)?Math.sin((h-5)/2.5*Math.PI)*.8:0;
   mid.lerp(new THREE.Color('#ff9a5a'), sunset*.7); top.lerp(new THREE.Color('#6a5aa8'), sunset*.4);
@@ -7494,7 +7625,7 @@ function fpFrame(t){
   if(drone && !drone.plane && !P.inBoat){ window.__meCard=window.__meCard||{}; __meCard.x=P.x; __meCard.y=P.y; fpEnt(__meCard,S.ride?120:80,S.ride?110:100,S.ride?60:40,S.ride?96:92,0,()=>S.ride?drawRider(t):drawPlayer(t),lit(P.x,P.y)); }
 
   if(!S.ride && S.vehSel && veh.x>0 && Math.hypot(veh.x-VX,veh.y-VY)<2000) fpEnt(veh,110,100,55,86,0,()=>drawParkedVehicle(t),lit(veh.x,veh.y));
-  for(const p of GEO.props) if(p.kind!=='barn' && p.kind!=='village' && p.kind!=='hamlet' && p.kind!=='airstrip' && Math.hypot(p.x-VX,p.y-VY)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
+  for(const p of GEO.props) if(p.kind!=='barn' && p.kind!=='village' && p.kind!=='hamlet' && p.kind!=='airstrip' && p.kind!=='deco' && Math.hypot(p.x-VX,p.y-VY)<(p.kind==='shroom'||p.kind==='berry'?900:2400)){ const big=p.kind==='barn'||p.kind==='lighthouse', w=p.kind==='barn'?280:p.kind==='lighthouse'?130:p.kind==='camp'||p.kind==='shipwreck'?170:p.kind==='windmill'?90:80, h=p.kind==='barn'?160:p.kind==='lighthouse'?220:p.kind==='windmill'?150:p.kind==='camp'?90:p.kind==='shipwreck'?110:60;
     fpEnt(p,w,h,p.kind==='barn'?w*.38:w/2,h-16,0,()=>drawProp(p,t),lit(p.x,p.y)); }
   for(const f of GEO.fields) if(f.scare){ const q=fieldPt(f,f.scare[0],f.scare[1]); if(Math.hypot(q.x-VX,q.y-VY)<1800){ f._sc=f._sc||{}; f._sc.x=q.x; f._sc.y=q.y; fpEnt(f._sc,60,70,30,62,0,()=>drawScarecrow(f,t),lit(q.x,q.y)); } }
   { const got=ducksGot(); for(const d of goldDucks()) if(!got.includes(d.k) && Math.hypot(d.x-VX,d.y-VY)<1400) fpEnt(d,40,36,20,30,0,()=>drawGoldDuck(ctx,d.x,d.y,t),1);
