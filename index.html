@@ -2551,6 +2551,7 @@ const TACKLE_ITEMS=[
   {id:'net',   n:'Landing Net', e:'🥅', p:100, d:'Scoop up fish sooner, so fewer get away at the end'},
 ];
 const OUTDOOR=[
+  {id:'parachute', e:'🪂', n:'Parachute', p:500, d:'Jump out of your plane anywhere and float down · also sold at the hangar'},
   {id:'duckcall',   n:'Duck Call',       e:'🦆', p:80,  d:'Quack! Ducks fly to you. Press C (or tap 📣)'},
   {id:'deercall',   n:'Deer Grunt Call', e:'🦌', p:120, d:'Deer walk over to see who\'s there'},
   {id:'turkeycall', n:'Turkey Call',     e:'🦃', p:90,  d:'Gobble gobble! Brings wild turkeys in'},
@@ -4648,7 +4649,7 @@ function flyToHTML(){ const lk=flyWorlds(); return `<h1>🌍 Fly to another worl
 function hangarHTML(){ const me=planeSpec(S.planeSel), lk=flyWorlds(), own=myPlanes();
   return `<h1>✈️ Hangar ${money()}</h1><p><button data-fly="free">🛫 Take off in ${me.n}</button> <button data-fly="rings" class="alt">⭕ Ring Race</button>${storyId()==='race'?' <button data-fly="snagg">😈 Race Mr. Snagg!</button>':''}</p>
     ${lk.length?H2('🌍 Fly to another world')+`<div>${lk.map(l=>`<button data-fly="w:${l.id}" class="alt">✈️ ${l.n}</button>`).join(' ')}</div>`:'<p style="font-size:14px">Buy more worlds at the shop and you can fly to them from here!</p>'}
-    ${H2('🛩️ Your planes')}${G(PLANES.map(pl=>{ const has=own.includes(pl.id); return ownRow(`${pl.e} ${pl.n}`, pl.d, has?(S.planeSel===pl.id?'<span class="tag">✔ Flying this</span>':`<button data-buy="plane:${pl.id}" class="alt">Fly this</button>`):buyBtn('plane:'+pl.id,pl.p), has); }).join(''))}${closeP()}`; }
+    ${H2('🪂 Parachute')}${G(ownRow('🪂 Parachute','Jump out of your plane anywhere and float down. Your plane flies itself home!',S.gear.parachute?'<span class="tag">Owned</span>':buyBtn('item:parachute',500),!!S.gear.parachute))}${H2('🛩️ Your planes')}${G(PLANES.map(pl=>{ const has=own.includes(pl.id); return ownRow(`${pl.e} ${pl.n}`, pl.d, has?(S.planeSel===pl.id?'<span class="tag">✔ Flying this</span>':`<button data-buy="plane:${pl.id}" class="alt">Fly this</button>`):buyBtn('plane:'+pl.id,pl.p), has); }).join(''))}${closeP()}`; }
 function buyPlane(id,pay){ const pl=planeSpec(id); if(!myPlanes().includes(id)){ if(!pay(pl.p)) return false; S.planes.push(id); toast(`${pl.e} You got the ${pl.n}!`); } S.planeSel=id; FP.lake=null; return true; }
 function skyCourse(p,n){ const pts=[]; let x=p.x+500, y=p.y, a=(Math.random()-.5)*.8; for(let k=0;k<n;k++){ a+=(Math.random()-.5)*1.5; x+=Math.cos(a)*950; y+=Math.sin(a)*950; if(x<500||x>WW-500){ a=Math.PI-a; x=Math.max(500,Math.min(WW-500,x)); } if(y<500||y>WH-500){ a=-a; y=Math.max(500,Math.min(WH-500,y)); } pts.push({x,y}); } return pts; }
 function startFlight(mode='free'){ const p=airstrip(); if(!p || !S.runway) return; if(S.ride) toggleRide(); if(drone) landDrone(); scopeOff(); fishing={state:'none'}; const pl=planeSpec(S.planeSel);
@@ -4656,11 +4657,11 @@ function startFlight(mode='free'){ const p=airstrip(); if(!p || !S.runway) retur
   sky=null; if(mode==='rings'||mode==='snagg'){ const pts=skyCourse(p,mode==='snagg'?10:8); sky={pts, k:0, t:pts.length*950/pl.spd*2+6, mode, rv:mode==='snagg'?{x:p.x-350,y:p.y+70,k:0,a:0,spd:pl.spd*.84}:null}; }
   else if(mode.startsWith('w:')) drone.dest=mode.slice(2);
   window.droneZoom=true; resize(); if(FP.on){ FP.yaw=0; FP.pitch=-.08; } tone(70,.8,'sawtooth',.07,0,240);
-  toast(`🛫 ${pl.n} is taking off! ${touchMode?'Joystick steers · 🛬 lands · 🪂 jumps · 🌍 flies to another world':'WASD steers · SPACE lands · E jumps out · L flies to another world'}`); }
+  toast(`🛫 ${pl.n} is taking off! ${touchMode?`Joystick steers · 🛬 lands${S.gear.parachute?' · 🪂 jumps':''} · 🌍 flies to another world`:`WASD steers · SPACE lands${S.gear.parachute?' · E jumps out':''} · L flies to another world`}`); }
 function planeLand(){ const D=drone; if(!flying()) return; if(D.ph!=='fly'){ toast('🛫 Wait until you\'re up in the air'); return; } if(D.dest){ toast('🌍 Hold on, you\'re on your way!'); return; } if(!airstrip()){ planeJump(); return; } D.ph='land'; D.st=0; sky=null; toast('🛬 Autopilot on! Heading for the runway...'); tone(700,.15,'sine',.06,0,400); }
 function airHome(){ drone=null; sky=null; window.droneZoom=false; resize(); if(FP.on){ FP.yaw=Math.atan2(P.fy,P.fx); FP.pitch=-.12; } }
 function endFlight(){ const p=airstrip(); airHome(); if(p){ P.x=p.x-200; P.y=p.y-60; P.fx=0; P.fy=1; } unstick(); S.st.flights=(S.st.flights||0)+1; addXP(30); tone(300,.25,'sawtooth',.05,0,120); toast('🛬 Nice landing! Your plane is back at the hangar'); addGrandpa(); save(); }
-function planeJump(){ const D=drone; if(!flying()) return; if(D.ph!=='fly'){ toast('🪂 Get up in the air first!'); return; } if(D.dest){ toast('🌍 Stay in your seat, you\'re on your way!'); return; } const x0=D.x, y0=D.y, good=(x,y)=>!blocked(x,y) && !inLake(x,y,1.05) && !onIsland(x,y,10); let x=x0, y=y0;
+function planeJump(){ const D=drone; if(!flying()) return; if(!S.gear.parachute){ tone(300,.1,'square',.04); toast('🪂 You need a parachute! Buy one at the hangar or the shop\'s Outdoor Gear shelf'); return; } if(D.ph!=='fly'){ toast('🪂 Get up in the air first!'); return; } if(D.dest){ toast('🌍 Stay in your seat, you\'re on your way!'); return; } const x0=D.x, y0=D.y, good=(x,y)=>!blocked(x,y) && !inLake(x,y,1.05) && !onIsland(x,y,10); let x=x0, y=y0;
   if(!good(x,y)){ let hit=false; for(let r=40;r<4000 && !hit;r+=40) for(let k=0;k<20;k++){ const a=k/20*6.283, qx=x0+Math.cos(a)*r, qy=y0+Math.sin(a)*r; if(good(qx,qy)){ x=qx; y=qy; hit=true; break; } } if(hit) toast('🌬️ The wind blew your parachute to dry land!'); }
   airHome(); P.inBoat=false; P.x=x; P.y=y; P.chute={t:2.4,T:2.4}; S.st.jumps=(S.st.jumps||0)+1; tone(900,.5,'sine',.06,0,300); toast('🪂 Geronimooo! Your plane flew itself back to the hangar'); save(); }
 function skyTarget(){ if(sky && sky.k<sky.pts.length){ const q=sky.pts[sky.k]; return {x:q.x,y:q.y,col:'#ffd23f',r:150}; } if(storyId()==='rescue' && LK.id==='home') return {x:WW-1100,y:1000,col:'#ff3030',r:230,sos:true}; return null; }
@@ -4918,7 +4919,7 @@ const STORY=[
   {id:'runway', t:'The Old Runway', goal:'Fix the old runway (20 wood + $300)', cash:800, ok:()=>!!S.runway,
    lines:[['s','Curses! A real town! This isn\'t over, small person.'],['p','Kid, sit down. I wasn\'t supposed to tell you. Joe didn\'t go on a fishing trip. He flew off to find out what Snagg is really after, and he hasn\'t come back.'],['p','There\'s an old runway out past the woods, with a hangar and his spare plane, GOLDIE. Look for ✈️ on your map. Fix it up with 20 wood, and she\'s yours.']]},
   {id:'firstflight', t:'First Flight', goal:'Take off in a plane and land it again', cash:1000, ok:()=>(S.st.flights||0)>=1,
-   lines:[['p','She flies! Oh, she\'s beautiful. Mostly. There\'s a little duck nest in the wing.'],['p','Steer with the joystick or WASD. When you want to come down, press Land and she\'ll find the runway all by herself. There\'s a parachute too, for when you feel brave.'],['p','Joe always said you can\'t find anything from the ground. Go on, kid. Get up there!']]},
+   lines:[['p','She flies! Oh, she\'s beautiful. Mostly. There\'s a little duck nest in the wing.'],['p','Steer with the joystick or WASD. When you want to come down, press Land and she\'ll find the runway all by herself. If you feel brave, buy a parachute at the hangar and jump out!'],['p','Joe always said you can\'t find anything from the ground. Go on, kid. Get up there!']]},
   {id:'bottles', t:'Messages in Bottles', goal:'Find and read 2 messages in bottles', cash:600, ok:()=>S.st.bottles>=2,
    lines:[['p','I found this in Joe\'s flight log: "Left the clues in the bottles, where Snagg won\'t look. He hates getting his shoes wet."'],['p','Take a boat and find them floating on the water!']]},
   {id:'beyond', t:'Beyond the Lake', goal:'Buy a new world at the shop', cash:800, ok:()=>S.lakes.length>=2,
@@ -7592,7 +7593,7 @@ function touchContext(){ const ub=document.getElementById('useBtn'), bb=document
   let ic='🏠', ready=false;
   if(P.room){ ic='👆'; ready=!!roomStationNear(); }
   else if(P.blind){ ic='🪜'; ready=true; }
-  else if(flying()){ ic='🪂'; ready=true; }
+  else if(flying()){ ic='🪂'; ready=!!S.gear.parachute; }
   else if(!drone){ const vp=nearPlot();
     if(nearTreasure()>=0){ ic='🧰'; ready=true; } else if(nearBlind() && !P.inBoat){ ic='🪜'; ready=true; } else if(nearAir()){ ic='✈️'; ready=true; } else if(nearProp() && propLabel(nearProp()) && !P.inBoat){ ic='✋'; ready=true; }
     else if(vp && plotLabel(vp)){ ic=vBuilt().includes(vp.i)?'🚪':'🔨'; ready=true; } else if(nearDockSite()>=0){ ic='⚓'; ready=true; } else if(nearShop()||nearCabin()){ ic='🚪'; ready=true; } else if(nearChopTree() && tool!=='axe'){ ic='🪓'; ready=true; } }
